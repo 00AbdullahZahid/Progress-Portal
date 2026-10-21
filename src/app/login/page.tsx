@@ -1,11 +1,13 @@
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage() {
-  const userId = await getSessionUserId();
-  if (userId) redirect("/dashboard");
+  // Only redirect if the session points to a user that still exists.
+  // (Prevents an infinite loop when a stale cookie references a deleted user.)
+  const user = await getCurrentUser();
+  if (user) redirect("/dashboard");
 
   const members = await db.user.findMany({
     orderBy: [{ role: "desc" }, { name: "asc" }],

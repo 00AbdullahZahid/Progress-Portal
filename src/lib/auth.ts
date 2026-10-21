@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { db } from "./db";
 
@@ -49,7 +50,7 @@ export async function getCurrentUser() {
 
 export async function requireUser() {
   const user = await getCurrentUser();
-  if (!user) throw new Error("Not authenticated");
+  if (!user) redirect("/login");
   return user;
 }
 
@@ -58,7 +59,8 @@ export function isAdmin(user: { role: string }): boolean {
 }
 
 export async function requireAdmin() {
-  const user = await requireUser();
-  if (user.role !== "admin") throw new Error("Not authorized");
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role !== "admin") redirect("/dashboard");
   return user;
 }

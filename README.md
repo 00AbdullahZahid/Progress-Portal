@@ -23,15 +23,15 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 
 After seeding, these accounts are created (passwords shown are the defaults — change them after first login):
 
-| Role         | Username | Password    |
-|--------------|----------|-------------|
-| Super Admin  | `admin`  | `admin123`  |
-| Member       | `alex`   | `alex1234`  |
-| Member       | `blake`  | `blake123`  |
-| Member       | `casey`  | `casey123`  |
-| Member       | `drew`   | `drew1234`  |
-| Member       | `eva`    | `eva12345`  |
-| Member       | `frank`  | `frank123`  |
+| Role         | Username   | Password      |
+|--------------|------------|---------------|
+| Super Admin  | `admin`    | `admin123`    |
+| Member       | `abdullah` | `abdullah123` |
+| Member       | `eman`     | `eman12345`   |
+| Member       | `haram`    | `haram1234`   |
+| Member       | `mahnoor`  | `mahnoor123`  |
+| Member       | `ateeb`    | `ateeb1234`   |
+| Member       | `muizz`    | `muizz1234`   |
 
 To rename members or change colors, edit `prisma/seed.ts` and re-seed, or just use the **Settings** page in the app.
 

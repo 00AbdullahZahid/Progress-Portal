@@ -13,12 +13,12 @@ const ADMIN = {
 };
 
 const MEMBERS = [
-  { handle: "alex", name: "Alex", color: "#f97316", password: "alex1234", timezone: "America/New_York" },
-  { handle: "blake", name: "Blake", color: "#10b981", password: "blake123", timezone: "America/Chicago" },
-  { handle: "casey", name: "Casey", color: "#8b5cf6", password: "casey123", timezone: "America/Denver" },
-  { handle: "drew", name: "Drew", color: "#0ea5e9", password: "drew1234", timezone: "America/Los_Angeles" },
-  { handle: "eva", name: "Eva", color: "#ec4899", password: "eva12345", timezone: "Europe/London" },
-  { handle: "frank", name: "Frank", color: "#eab308", password: "frank123", timezone: "Asia/Kolkata" },
+  { handle: "abdullah", name: "Abdullah Zahid", color: "#f97316", password: "abdullah123", timezone: "Asia/Karachi" },
+  { handle: "eman", name: "Eman", color: "#10b981", password: "eman12345", timezone: "Asia/Karachi" },
+  { handle: "haram", name: "Haram", color: "#8b5cf6", password: "haram1234", timezone: "Asia/Karachi" },
+  { handle: "mahnoor", name: "Mahnoor", color: "#0ea5e9", password: "mahnoor123", timezone: "Asia/Karachi" },
+  { handle: "ateeb", name: "Muhammad Ateeb", color: "#ec4899", password: "ateeb1234", timezone: "Asia/Karachi" },
+  { handle: "muizz", name: "Rana Muizz", color: "#eab308", password: "muizz1234", timezone: "Asia/Karachi" },
 ];
 
 async function main() {
@@ -59,9 +59,12 @@ async function main() {
   }
 
   console.log("Creating sample project, tasks, habits, chat...");
-  const alex = await prisma.user.findUniqueOrThrow({ where: { handle: "alex" } });
-  const blake = await prisma.user.findUniqueOrThrow({ where: { handle: "blake" } });
-  const casey = await prisma.user.findUniqueOrThrow({ where: { handle: "casey" } });
+  const abdullah = await prisma.user.findUniqueOrThrow({ where: { handle: "abdullah" } });
+  const eman = await prisma.user.findUniqueOrThrow({ where: { handle: "eman" } });
+  const haram = await prisma.user.findUniqueOrThrow({ where: { handle: "haram" } });
+  const mahnoor = await prisma.user.findUniqueOrThrow({ where: { handle: "mahnoor" } });
+  const ateeb = await prisma.user.findUniqueOrThrow({ where: { handle: "ateeb" } });
+  const muizz = await prisma.user.findUniqueOrThrow({ where: { handle: "muizz" } });
 
   const project = await prisma.project.create({
     data: { name: "Group Portal Build" },
@@ -78,10 +81,10 @@ async function main() {
   });
 
   const taskSeeds = [
-    { title: "Set up the repo and deploy pipeline", status: "done", priority: "high", assigneeId: alex.id, goalId: goal.id },
-    { title: "Design the dashboard layout", status: "done", priority: "med", assigneeId: casey.id, goalId: goal.id },
-    { title: "Build the task board", status: "doing", priority: "high", assigneeId: alex.id, goalId: goal.id },
-    { title: "Write habit streak logic", status: "doing", priority: "med", assigneeId: blake.id, goalId: goal.id },
+    { title: "Set up the repo and deploy pipeline", status: "done", priority: "high", assigneeId: abdullah.id, goalId: goal.id },
+    { title: "Design the dashboard layout", status: "done", priority: "med", assigneeId: mahnoor.id, goalId: goal.id },
+    { title: "Build the task board", status: "doing", priority: "high", assigneeId: abdullah.id, goalId: goal.id },
+    { title: "Write habit streak logic", status: "doing", priority: "med", assigneeId: eman.id, goalId: goal.id },
     { title: "Pick a color palette everyone likes", status: "todo", priority: "low", assigneeId: null, goalId: goal.id },
     { title: "Decide on the group chat name", status: "todo", priority: "low", assigneeId: null, goalId: null },
   ];
@@ -103,45 +106,45 @@ async function main() {
   await prisma.taskComment.create({
     data: {
       taskId: tasks[2].id,
-      authorId: casey.id,
+      authorId: mahnoor.id,
       body: "Love the progress so far — the board feels really clean.",
     },
   });
 
   const today = new Date().toISOString().slice(0, 10);
-  const habitAlex = await prisma.habit.create({
-    data: { ownerId: alex.id, name: "Deep work 1h" },
+  const habitAbdullah = await prisma.habit.create({
+    data: { ownerId: abdullah.id, name: "Deep work 1h" },
   });
-  const habitBlake = await prisma.habit.create({
-    data: { ownerId: blake.id, name: "Read 20 pages" },
+  const habitEman = await prisma.habit.create({
+    data: { ownerId: eman.id, name: "Read 20 pages" },
   });
   for (let i = 0; i < 6; i++) {
     const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
     if (d !== today || i > 0) {
       await prisma.habitCheckIn.create({
-        data: { habitId: habitAlex.id, date: d },
+        data: { habitId: habitAbdullah.id, date: d },
       });
     }
     if (i < 4) {
       await prisma.habitCheckIn.create({
-        data: { habitId: habitBlake.id, date: d },
+        data: { habitId: habitEman.id, date: d },
       });
     }
   }
 
   await prisma.studySession.create({
-    data: { userId: casey.id, subject: "System Design", minutes: 90, date: today, notes: "Reviewed CAP theorem" },
+    data: { userId: mahnoor.id, subject: "System Design", minutes: 90, date: today, notes: "Reviewed CAP theorem" },
   });
   await prisma.studySession.create({
-    data: { userId: alex.id, subject: "React", minutes: 60, date: today, notes: "Server actions" },
+    data: { userId: abdullah.id, subject: "React", minutes: 60, date: today, notes: "Server actions" },
   });
 
   const general = await prisma.channel.findFirstOrThrow({ where: { kind: "group" } });
   await prisma.message.create({
-    data: { channelId: general.id, authorId: alex.id, body: "Welcome to the portal, everyone!" },
+    data: { channelId: general.id, authorId: abdullah.id, body: "Welcome to the portal, everyone!" },
   });
   await prisma.message.create({
-    data: { channelId: general.id, authorId: casey.id, body: "This is so clean. Nice work." },
+    data: { channelId: general.id, authorId: mahnoor.id, body: "This is so clean. Nice work." },
   });
 
   console.log("Seed complete.");
