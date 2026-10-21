@@ -7,9 +7,9 @@ const ADMIN = {
   handle: "admin",
   name: "Super Admin",
   role: "admin",
-  color: "#6366f1",
+  color: "#2563eb",
   password: "admin123",
-  timezone: "UTC",
+  timezone: "Asia/Karachi",
 };
 
 const MEMBERS = [

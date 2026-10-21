@@ -36,7 +36,7 @@ export function Shell({ user, children }: { user: User; children: React.ReactNod
     <div className="min-h-dvh">
       <Nav user={user} />
       <main
-        className={`mx-auto max-w-5xl px-4 pb-24 pt-6 transition-[margin] duration-200 md:pb-10 md:pr-6 ${
+        className={`px-4 pb-24 pt-6 transition-[margin] duration-200 md:px-8 md:pb-10 ${
           isCollapsed ? "md:ml-[76px]" : "md:ml-60"
         }`}
       >

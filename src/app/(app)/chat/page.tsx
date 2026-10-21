@@ -51,6 +51,8 @@ export default async function ChatPage({
           color: u.color,
         }))}
         meId={me.id}
+        isAdmin={me.role === "admin"}
+        tz={me.timezone}
       />
     </div>
   );

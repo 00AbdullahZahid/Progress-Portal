@@ -21,6 +21,7 @@ export function ChatWindow({
   initialMessages,
   meId,
   isAdmin,
+  tz = "Asia/Karachi",
 }: {
   channels: Channel[];
   activeId: string;
@@ -28,6 +29,7 @@ export function ChatWindow({
   members: { id: string; name: string; color: string }[];
   meId: string;
   isAdmin: boolean;
+  tz?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -126,7 +128,7 @@ export function ChatWindow({
       const day = new Date(m.createdAt).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
-        timeZone: "UTC",
+        timeZone: tz,
       });
       const last = out[out.length - 1];
       if (last && last.day === day) last.items.push(m);
@@ -180,7 +182,7 @@ export function ChatWindow({
                       {new Date(m.createdAt).toLocaleTimeString("en-US", {
                         hour: "numeric",
                         minute: "2-digit",
-                        timeZone: "UTC",
+                        timeZone: tz,
                       })}
                     </p>
 
