@@ -6,6 +6,7 @@ import { adminUpdateUser } from "@/lib/actions/admin";
 import { Card, Button, Input, Select } from "./ui";
 import { Avatar } from "./avatar";
 import { ShieldIcon } from "./icons";
+import { useToast } from "./toast";
 
 type Member = {
   id: string;
@@ -49,17 +50,32 @@ export function AdminUserManager({
   meId: string;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [pending, startTransition] = useTransition();
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ id: string; type: "ok" | "err"; text: string } | null>(null);
 
   function save(fd: FormData) {
     const id = String(fd.get("userId"));
+    const name = String(fd.get("name") ?? "");
     setMsg(null);
+    setSavingId(id);
     startTransition(async () => {
-      const res = (await adminUpdateUser(fd)) as { ok?: boolean; error?: string } | undefined;
-      if (res?.error) setMsg({ id, type: "err", text: res.error });
-      else setMsg({ id, type: "ok", text: "Saved." });
-      router.refresh();
+      try {
+        const res = (await adminUpdateUser(fd)) as { ok?: boolean; error?: string } | undefined;
+        if (res?.error) {
+          setMsg({ id, type: "err", text: res.error });
+          toast(res.error, "error");
+        } else {
+          setMsg({ id, type: "ok", text: "Saved." });
+          toast(`${name} updated`, "success");
+        }
+        router.refresh();
+      } catch {
+        toast("Could not save changes. Please try again.", "error");
+      } finally {
+        setSavingId(null);
+      }
     });
   }
 
@@ -123,7 +139,7 @@ export function AdminUserManager({
                 </label>
                 <div className="flex items-end sm:col-span-2 lg:col-span-1">
                   <Button type="submit" disabled={pending} className="w-full">
-                    {pending ? "Saving..." : "Save"}
+                    {pending && savingId === m.id ? "Saving..." : "Save"}
                   </Button>
                 </div>
               </div>

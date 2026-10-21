@@ -88,25 +88,6 @@ export function LoginForm({ members }: { members: Member[] }) {
       <Button type="submit" disabled={pending || !handle.trim() || !password}>
         {pending ? "Signing in…" : "Sign in"}
       </Button>
-
-      <div className="border-t border-border pt-3">
-        <p className="mb-2 text-xs text-muted">Quick fill (demo accounts):</p>
-        <div className="flex flex-wrap gap-1.5">
-          {members.map((m) => (
-            <button
-              key={m.handle}
-              type="button"
-              onClick={() => {
-                setHandle(m.handle);
-                setPassword("");
-              }}
-              className="rounded-lg border border-border px-2 py-1 text-xs text-muted transition-colors hover:bg-surface2 hover:text-ink"
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
-      </div>
     </form>
   );
 }

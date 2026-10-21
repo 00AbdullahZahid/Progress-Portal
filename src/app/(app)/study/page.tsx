@@ -3,8 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { lastNDays, prettyDate } from "@/lib/dates";
 import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { StudyForm } from "@/components/study-form";
-import { Avatar } from "@/components/avatar";
-import { TargetIcon, ClockIcon, StudyIcon, XIcon } from "@/components/icons";
+import { SessionList } from "@/components/session-list";
+import { TargetIcon, ClockIcon, StudyIcon } from "@/components/icons";
 
 export default async function StudyPage() {
   const me = await requireUser();
@@ -80,47 +80,23 @@ export default async function StudyPage() {
             {sessions.length === 0 ? (
               <EmptyState icon={<StudyIcon />} title="No sessions logged" hint="Log your first study session on the left." />
             ) : (
-              <ul className="flex flex-col divide-y divide-border">
-                {sessions.slice(0, 20).map((s) => (
-                  <li key={s.id} className="flex items-center gap-3 py-2.5">
-                    <Avatar user={s.user} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">
-                        {s.subject}
-                        {s.userId === me.id ? null : (
-                          <span className="ml-1 text-xs text-muted">by {s.user.name}</span>
-                        )}
-                      </p>
-                      {s.notes ? (
-                        <p className="truncate text-xs text-muted">{s.notes}</p>
-                      ) : null}
-                    </div>
-                    <span className="text-xs text-muted">{prettyDate(s.date)}</span>
-                    <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand">
-                      {Math.round(s.minutes / 6) / 10}h
-                    </span>
-                    {s.userId === me.id ? (
-                      <form action={deleteSessionAction}>
-                        <input type="hidden" name="sessionId" value={s.id} />
-                        <button className="text-xs text-muted hover:text-rose-600">
-                          <XIcon width={16} height={16} />
-                        </button>
-                      </form>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+              <SessionList
+                sessions={sessions.slice(0, 20).map((s) => ({
+                  id: s.id,
+                  subject: s.subject,
+                  minutes: s.minutes,
+                  notes: s.notes,
+                  date: s.date,
+                  userId: s.userId,
+                  user: { id: s.user.id, name: s.user.name, color: s.user.color },
+                }))}
+                meId={me.id}
+                prettyDate={prettyDate}
+              />
             )}
           </Card>
         </div>
       </div>
     </div>
   );
-}
-
-import { deleteStudySession } from "@/lib/actions/study";
-
-async function deleteSessionAction(formData: FormData) {
-  "use server";
-  await deleteStudySession(formData);
 }

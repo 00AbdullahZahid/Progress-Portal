@@ -11,9 +11,17 @@ export default async function ChatPage({
   const me = await requireUser();
   const { ch } = await searchParams;
 
-  const channels = await db.channel.findMany({
+  let channels = await db.channel.findMany({
     orderBy: [{ kind: "asc" }, { createdAt: "asc" }],
   });
+
+  // Guarantee at least one channel so chat is never a dead end.
+  if (channels.length === 0) {
+    const created = await db.channel.create({
+      data: { name: "General", kind: "group" },
+    });
+    channels = [created];
+  }
 
   const active = channels.find((c) => c.id === ch) ?? channels[0];
 

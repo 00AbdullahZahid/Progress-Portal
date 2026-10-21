@@ -88,8 +88,16 @@ export default async function PeoplePage() {
           Accounts
         </h2>
         <p className="text-sm text-muted">
-          Everyone signs in with a username and password. The super admin (@admin) can reset any
-          member's password from the Settings page.
+          Everyone signs in with a username and password. Members can change their own password
+          under{" "}
+          <a href="/settings" className="font-medium text-brand hover:underline">
+            Settings
+          </a>
+          . The super admin can reset any member&apos;s password from the{" "}
+          <a href="/admin" className="font-medium text-brand hover:underline">
+            Admin
+          </a>{" "}
+          page.
         </p>
       </Card>
     </div>

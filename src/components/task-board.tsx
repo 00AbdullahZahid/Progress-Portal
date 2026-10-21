@@ -8,10 +8,15 @@ import {
   createTask,
   cycleTaskStatus,
   deleteTask,
+  deleteGoal,
+  deleteProject,
   addComment,
+  type ActionResult,
 } from "@/lib/actions/tasks";
 import { Card, Button, Input, Select, Badge, EmptyState } from "./ui";
 import { Avatar } from "./avatar";
+import { ConfirmDialog } from "./confirm-dialog";
+import { useToast } from "./toast";
 import {
   TasksIcon,
   TargetIcon,
@@ -19,6 +24,7 @@ import {
   PlusIcon,
   XIcon,
   CheckIcon,
+  TrashIcon,
   CircleDot,
 } from "./icons";
 
@@ -53,20 +59,73 @@ export function TaskBoard({
   isAdmin: boolean;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    body: string;
+    confirmLabel: string;
+    run: (fd: FormData) => Promise<ActionResult>;
+    data: FormData;
+    success: string;
+  } | null>(null);
 
-  function act(fn: (fd: FormData) => Promise<void>) {
+  function act(
+    fn: (fd: FormData) => Promise<ActionResult>,
+    success: string
+  ) {
     return async (fd: FormData) => {
-      await fn(fd);
-      router.refresh();
+      try {
+        const res = await fn(fd);
+        if (!res.ok) {
+          toast(res.error, "error");
+          return;
+        }
+        toast(success, "success");
+        router.refresh();
+      } catch {
+        toast("Something went wrong. Please try again.", "error");
+      }
     };
+  }
+
+  /** Deletes go through a confirmation modal instead of window.confirm. */
+  function askDelete(opts: {
+    title: string;
+    body: string;
+    confirmLabel: string;
+    run: (fd: FormData) => Promise<ActionResult>;
+    data: FormData;
+    success: string;
+  }) {
+    return (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setConfirm(opts);
+    };
+  }
+
+  async function confirmRun() {
+    if (!confirm) return;
+    const c = confirm;
+    setConfirm(null);
+    try {
+      const res = await c.run(c.data);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast(c.success, "success");
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    }
   }
 
   return (
     <div className="flex flex-col gap-6">
       {isAdmin ? (
         <Card className="p-4">
-          <form action={act(createProject)} className="flex flex-wrap items-center gap-2">
+          <form action={act(createProject, "Project created")} className="flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1.5 text-sm font-medium">
               <PlusIcon width={16} height={16} className="text-brand" />
               New project
@@ -116,6 +175,31 @@ export function TaskBoard({
                   }}
                 />
               </div>
+              {isAdmin ? (
+                <form
+                  onSubmit={askDelete({
+                    title: `Delete project "${project.name}"?`,
+                    body: "This permanently removes its goals, tasks, and comments. This cannot be undone.",
+                    confirmLabel: "Delete project",
+                    run: deleteProject,
+                    data: (() => {
+                      const fd = new FormData();
+                      fd.set("projectId", project.id);
+                      return fd;
+                    })(),
+                    success: "Project deleted",
+                  })}
+                >
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <button
+                    type="submit"
+                    title="Delete project"
+                    className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
+                  >
+                    <TrashIcon width={16} height={16} />
+                  </button>
+                </form>
+              ) : null}
             </div>
           </div>
 
@@ -133,10 +217,35 @@ export function TaskBoard({
                     due {new Date(g.targetDate).toLocaleDateString()}
                   </span>
                 ) : null}
+                {isAdmin ? (
+                  <form
+                    onSubmit={askDelete({
+                      title: `Delete goal "${g.title}"?`,
+                      body: "Tasks linked to this goal stay, but will be unlinked from it.",
+                      confirmLabel: "Delete goal",
+                      run: deleteGoal,
+                      data: (() => {
+                        const fd = new FormData();
+                        fd.set("goalId", g.id);
+                        return fd;
+                      })(),
+                      success: "Goal deleted",
+                    })}
+                  >
+                    <input type="hidden" name="goalId" value={g.id} />
+                    <button
+                      type="submit"
+                      title="Delete goal"
+                      className="rounded-md p-1 text-muted transition-colors hover:bg-surface/60 hover:text-rose-600"
+                    >
+                      <XIcon width={14} height={14} />
+                    </button>
+                  </form>
+                ) : null}
               </div>
             ))}
             {isAdmin ? (
-              <form action={act(createGoal)} className="flex flex-wrap gap-2">
+              <form action={act(createGoal, "Goal added")} className="flex flex-wrap gap-2">
                 <input type="hidden" name="projectId" value={project.id} />
                 <Input name="title" placeholder="Add a goal…" className="min-w-40 flex-1" />
                 <Input type="date" name="targetDate" className="w-40" />
@@ -151,7 +260,7 @@ export function TaskBoard({
           {/* New task (admin only) */}
           {isAdmin ? (
             <form
-              action={act(createTask)}
+              action={act(createTask, "Task created")}
               className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border p-3"
             >
               <input type="hidden" name="projectId" value={project.id} />
@@ -205,7 +314,7 @@ export function TaskBoard({
                       className="rounded-xl border border-border bg-surface2/50 p-3"
                     >
                       <div className="flex items-start gap-2">
-                        <form action={act(cycleTaskStatus)}>
+                        <form action={act(cycleTaskStatus, "Task updated")}>
                           <input type="hidden" name="taskId" value={task.id} />
                           <button
                             type="submit"
@@ -267,7 +376,20 @@ export function TaskBoard({
                               </button>
                             </div>
                             {isAdmin ? (
-                              <form action={act(deleteTask)}>
+                              <form
+                                onSubmit={askDelete({
+                                  title: "Delete this task?",
+                                  body: `"${task.title}" and its comments will be permanently removed.`,
+                                  confirmLabel: "Delete task",
+                                  run: deleteTask,
+                                  data: (() => {
+                                    const fd = new FormData();
+                                    fd.set("taskId", task.id);
+                                    return fd;
+                                  })(),
+                                  success: "Task deleted",
+                                })}
+                              >
                                 <input type="hidden" name="taskId" value={task.id} />
                                 <button
                                   type="submit"
@@ -292,7 +414,7 @@ export function TaskBoard({
                                 </div>
                               ))}
                               <form
-                                action={act(addComment)}
+                                action={act(addComment, "Comment added")}
                                 className="flex items-center gap-1.5"
                               >
                                 <input type="hidden" name="taskId" value={task.id} />
@@ -313,6 +435,15 @@ export function TaskBoard({
           </div>
         </Card>
       ))}
+
+      <ConfirmDialog
+        open={confirm !== null}
+        title={confirm?.title ?? ""}
+        body={confirm?.body}
+        confirmLabel={confirm?.confirmLabel}
+        onConfirm={confirmRun}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 }

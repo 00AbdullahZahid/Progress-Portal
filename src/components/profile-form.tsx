@@ -4,8 +4,10 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfile } from "@/lib/actions/profile";
 import { Card, Button, Input, Select } from "./ui";
+import { useToast } from "./toast";
 
 const COLORS = [
+  "#2563eb",
   "#6366f1",
   "#f97316",
   "#10b981",
@@ -24,12 +26,18 @@ export function ProfileForm({
   timezones: string[];
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [pending, startTransition] = useTransition();
 
   function submit(fd: FormData) {
     startTransition(async () => {
-      await updateProfile(fd);
-      router.refresh();
+      try {
+        await updateProfile(fd);
+        toast("Profile saved", "success");
+        router.refresh();
+      } catch {
+        toast("Could not save your profile. Please try again.", "error");
+      }
     });
   }
 

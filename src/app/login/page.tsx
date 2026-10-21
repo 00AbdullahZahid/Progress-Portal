@@ -15,7 +15,7 @@ export default async function LoginPage() {
   });
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-indigo-50 via-bg to-rose-50 p-4 dark:from-indigo-950/40 dark:via-bg dark:to-rose-950/30">
+    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-blue-50 via-bg to-sky-50 p-4 dark:from-blue-950/40 dark:via-bg dark:to-sky-950/30">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white">

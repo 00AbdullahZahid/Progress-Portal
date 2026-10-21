@@ -1,9 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createHabit, toggleCheckIn, deleteHabit } from "@/lib/actions/habits";
+import {
+  createHabit,
+  toggleCheckIn,
+  deleteHabit,
+  type ActionResult,
+} from "@/lib/actions/habits";
 import { Card, Button, Input, EmptyState } from "./ui";
 import { Avatar } from "./avatar";
+import { ConfirmDialog } from "./confirm-dialog";
+import { useToast } from "./toast";
 import { currentStreak } from "@/lib/dates";
 import { HabitsIcon, FlameIcon, PlusIcon, XIcon, CheckIcon } from "./icons";
 
@@ -24,12 +32,47 @@ export function HabitTracker({
   meId: string;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(
+    null
+  );
 
-  function act(fn: (fd: FormData) => Promise<void>) {
+  function act(
+    fn: (fd: FormData) => Promise<ActionResult>,
+    success: string
+  ) {
     return async (fd: FormData) => {
-      await fn(fd);
-      router.refresh();
+      try {
+        const res = await fn(fd);
+        if (!res.ok) {
+          toast(res.error, "error");
+          return;
+        }
+        if (success) toast(success, "success");
+        router.refresh();
+      } catch {
+        toast("Something went wrong. Please try again.", "error");
+      }
     };
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
+    const fd = new FormData();
+    fd.set("habitId", id);
+    try {
+      const res = await deleteHabit(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast("Habit removed", "success");
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    }
   }
 
   const grouped = groupToday.reduce<Record<string, typeof groupToday>>((acc, g) => {
@@ -41,7 +84,7 @@ export function HabitTracker({
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <Card className="mb-4 p-4">
-          <form action={act(createHabit)} className="flex flex-wrap items-center gap-2">
+          <form action={act(createHabit, "Habit created")} className="flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1.5 text-sm font-medium">
               <PlusIcon width={16} height={16} className="text-brand" />
               New habit
@@ -74,20 +117,21 @@ export function HabitTracker({
                       {streak} day{streak === 1 ? "" : "s"}
                     </span>
                   </div>
-                  <form action={act(deleteHabit)}>
-                    <input type="hidden" name="habitId" value={habit.id} />
-                    <button className="flex items-center gap-1 text-xs text-muted hover:text-rose-600">
-                      <XIcon width={14} height={14} />
-                      Remove
-                    </button>
-                  </form>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete({ id: habit.id, name: habit.name })}
+                    className="flex items-center gap-1 text-xs text-muted hover:text-rose-600"
+                  >
+                    <XIcon width={14} height={14} />
+                    Remove
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {days.map((d) => {
                     const done = set.has(d);
                     const isToday = d === today;
                     return (
-                      <form key={d} action={act(toggleCheckIn)}>
+                      <form key={d} action={act(toggleCheckIn, "")}>
                         <input type="hidden" name="habitId" value={habit.id} />
                         <input type="hidden" name="date" value={d} />
                         <button
@@ -140,6 +184,19 @@ export function HabitTracker({
           </div>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Remove this habit?"
+        body={
+          pendingDelete
+            ? `"${pendingDelete.name}" and all of its check-ins will be permanently removed.`
+            : undefined
+        }
+        confirmLabel="Remove habit"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

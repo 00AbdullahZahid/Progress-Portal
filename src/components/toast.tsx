@@ -1,0 +1,116 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { CheckIcon, AlertIcon, XIcon } from "./icons";
+
+type ToastKind = "success" | "error" | "info";
+type Toast = { id: number; kind: ToastKind; message: string };
+
+type ToastContextValue = {
+  toast: (message: string, kind?: ToastKind) => void;
+};
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+
+let nextId = 1;
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const toast = useCallback((message: string, kind: ToastKind = "success") => {
+    const id = nextId++;
+    setToasts((t) => [...t, { id, kind, message }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
+  }, []);
+
+  return (
+    <ToastContext.Provider value={{ toast }}>
+      {children}
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4 sm:bottom-6">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            role="status"
+            className={`pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm shadow-lg ${
+              t.kind === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+                : t.kind === "error"
+                  ? "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
+                  : "border-border bg-surface text-ink"
+            }`}
+          >
+            <span className="shrink-0">
+              {t.kind === "success" ? (
+                <CheckIcon width={16} height={16} />
+              ) : t.kind === "error" ? (
+                <AlertIcon width={16} height={16} />
+              ) : null}
+            </span>
+            <span className="flex-1">{t.message}</span>
+            <button
+              aria-label="Dismiss"
+              onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}
+              className="shrink-0 rounded-md p-0.5 text-current/70 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <XIcon width={14} height={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast() {
+  const ctx = useContext(ToastContext);
+  if (!ctx) {
+    // Allow components to be used outside the provider without crashing.
+    return { toast: () => {} } as ToastContextValue;
+  }
+  return ctx;
+}
+
+/**
+ * Small helper that wires a server action to a toast + refresh flow.
+ * Returns a form `action` compatible function.
+ */
+export function useAction(
+  run: () => Promise<void>,
+  { success, error }: { success?: string; error?: string } = {}
+) {
+  const { toast } = useToast();
+  const [pending, setPending] = useState(false);
+
+  const execute = useCallback(async () => {
+    setPending(true);
+    try {
+      await run();
+      if (success) toast(success, "success");
+    } catch (e) {
+      toast(error ?? "Something went wrong. Please try again.", "error");
+    } finally {
+      setPending(false);
+    }
+  }, [run, success, error, toast]);
+
+  return { pending, execute };
+}
+
+/** Lock body scroll while a modal is open. */
+export function useBodyLock(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [active]);
+}

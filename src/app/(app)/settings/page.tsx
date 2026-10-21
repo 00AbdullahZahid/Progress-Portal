@@ -5,17 +5,20 @@ import { ChangePasswordForm } from "@/components/change-password-form";
 import { AdminResetPanel } from "@/components/admin-reset-panel";
 import { signOut } from "@/lib/actions/auth";
 import { db } from "@/lib/db";
-import { LogoutIcon } from "@/components/icons";
+import { LogoutIcon, ShieldIcon } from "@/components/icons";
+import Link from "next/link";
 
 const TIMEZONES = [
+  "Asia/Karachi",
+  "Asia/Dubai",
+  "Asia/Kolkata",
   "UTC",
+  "Europe/London",
+  "Europe/Berlin",
   "America/New_York",
   "America/Chicago",
   "America/Denver",
   "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Berlin",
-  "Asia/Kolkata",
   "Asia/Tokyo",
   "Australia/Sydney",
 ];
@@ -48,7 +51,24 @@ export default async function SettingsPage() {
 
       {isAdmin ? (
         <div className="mt-6">
-          <AdminResetPanel members={members} />
+          <Card>
+            <h2 className="mb-1 flex items-center gap-2 font-semibold">
+              <ShieldIcon width={18} height={18} className="text-amber-500" />
+              Super admin
+            </h2>
+            <p className="mb-3 text-sm text-muted">
+              Manage members, reset passwords, and edit anyone&apos;s details from the admin
+              dashboard.
+            </p>
+            <Link href="/admin">
+              <Button type="button" variant="outline">
+                Open admin dashboard
+              </Button>
+            </Link>
+          </Card>
+          <div className="mt-6">
+            <AdminResetPanel members={members} />
+          </div>
         </div>
       ) : null}
 

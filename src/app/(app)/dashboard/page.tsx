@@ -5,6 +5,7 @@ import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { Avatar } from "@/components/avatar";
 import { StatCard } from "@/components/stat-card";
 import { ProgressCharts } from "@/components/charts";
+import { QuickLinks } from "@/components/quick-links";
 import { TasksIcon, CheckIcon, StudyIcon, FlameIcon, TrophyIcon, ChatIcon } from "@/components/icons";
 
 export default async function DashboardPage() {
@@ -103,7 +104,7 @@ export default async function DashboardPage() {
           icon={<TasksIcon />}
         />
         <StatCard
-          label="Done this week"
+          label="Done (14 days)"
           value={tasksDone.length}
           icon={<CheckIcon />}
         />
@@ -123,11 +124,18 @@ export default async function DashboardPage() {
         <ProgressCharts tasksByDay={tasksByDay} studyByDay={studyByDay} studyByUser={studyByUser} />
       </div>
 
+      <div className="mt-6">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+          Jump to
+        </h2>
+        <QuickLinks />
+      </div>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 flex items-center gap-2 font-semibold">
             <TrophyIcon width={18} height={18} className="text-amber-500" />
-            Leaderboard (this week)
+            Leaderboard (last 14 days)
           </h2>
           <ul className="flex flex-col gap-2">
             {leaderboard

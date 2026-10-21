@@ -9,13 +9,15 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 ## Features
 
 - **Members and auth** — Invite-only. Username + password login (scrypt-hashed). One **super admin** account.
-- **Super admin** — The admin can reset any member's password, and is the only one who can add projects, goals, and tasks. Everyone else can update task statuses and comment.
+- **Super admin** — The admin can reset any member's password, edit anyone's details (name, username, color, timezone, role), and is the only one who can add or delete projects, goals, and tasks. Everyone else can update task statuses and comment.
+- **Admin dashboard** — A dedicated super-admin page with group stats, a user manager, and recent activity.
 - **Tasks and projects** — Projects, goals, and tasks with status columns (todo / doing / done), assignees, priorities, due dates, and progress bars.
 - **Comments** — Comment threads on any task.
 - **Habits and check-ins** — Daily habit grid with streaks.
 - **Study log** — Log sessions (subject, minutes, notes) with per-subject progress bars.
-- **Group chat** — Real-time-ish chat with polling (no extra infra needed).
-- **Dashboard** — Leaderboard, tasks-completed chart, study-minutes chart, and study-by-person breakdown.
+- **Group chat** — Real-time-ish chat with polling (no extra infra needed). Messages can be edited by their author and deleted by the author or an admin.
+- **Dashboard** — Leaderboard, tasks-completed chart, study-minutes chart, study-by-person breakdown, and quick links to every section.
+- **Polished flow** — Toast notifications, confirmation dialogs for destructive actions, inline validation, and empty states on every screen.
 - **Collapsible sidebar** — Collapse the nav to icons; it remembers your preference.
 - **Polish** — Dark mode, mobile-first responsive layout, SVG icons throughout.
 
@@ -33,9 +35,11 @@ After seeding, these accounts are created (passwords shown are the defaults — 
 | Member       | `ateeb`    | `ateeb1234`   |
 | Member       | `muizz`    | `muizz1234`   |
 
-To rename members or change colors, edit `prisma/seed.ts` and re-seed, or just use the **Settings** page in the app.
+To rename members or change colors, edit `prisma/seed.ts` and re-seed, or just use the **Admin** page in the app.
 
-The super admin can reset anyone's password from **Settings > Reset a member's password**. Members change their own password from **Settings > Change your password**.
+The super admin can manage everyone from the **Admin** page (edit details, reset passwords). Members change their own password from **Settings > Change your password**.
+
+Seeding only creates the accounts and a default #General chat channel — it does **not** create any sample projects, tasks, habits, or messages. The app starts clean.
 
 ## Quick start
 
@@ -106,10 +110,10 @@ This app uses **Postgres** so it can run both locally and on Vercel (SQLite does
 ```
 prisma/
   schema.prisma          # Data model (User, Project, Goal, Task, Habit, StudySession, Channel, Message)
-  seed.ts                # Seeds the admin, members, and sample data
+  seed.ts                # Seeds the admin, members, and a default chat channel (no sample data)
 src/
   app/
-    (app)/               # Authenticated pages (dashboard, tasks, habits, study, chat, people, settings)
+    (app)/               # Authenticated pages (dashboard, admin, tasks, habits, study, chat, people, settings)
     api/chat/            # Chat polling endpoint
     login/               # Login page
   components/            # UI components (icons, task-board, habit-tracker, chat-window, charts, etc.)

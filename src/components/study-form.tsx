@@ -1,19 +1,34 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logStudy } from "@/lib/actions/study";
 import { Card, Button, Input, Textarea } from "./ui";
 import { PlusIcon } from "./icons";
+import { useToast } from "./toast";
 
 export function StudyForm() {
   const router = useRouter();
+  const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  const [pending, setPending] = useState(false);
 
   async function action(fd: FormData) {
-    await logStudy(fd);
-    formRef.current?.reset();
-    router.refresh();
+    setPending(true);
+    try {
+      const res = await logStudy(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast("Session logged", "success");
+      formRef.current?.reset();
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -35,7 +50,9 @@ export function StudyForm() {
           <label className="mb-1 block text-xs font-medium text-muted">Notes (optional)</label>
           <Textarea name="notes" rows={2} placeholder="What did you cover?" />
         </div>
-        <Button type="submit">Log session</Button>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Logging…" : "Log session"}
+        </Button>
       </form>
     </Card>
   );

@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { postMessage, editMessage, deleteMessage } from "@/lib/actions/chat";
 import { Avatar } from "./avatar";
 import { Button, Input, Textarea } from "./ui";
-import { SendIcon, EditIcon, TrashIcon, XIcon, CheckIcon } from "./icons";
+import { ConfirmDialog } from "./confirm-dialog";
+import { useToast } from "./toast";
+import { SendIcon, EditIcon, TrashIcon, XIcon, CheckIcon, ChatIcon } from "./icons";
 
 type Channel = { id: string; name: string; kind: string };
 type Message = {
@@ -32,11 +34,14 @@ export function ChatWindow({
   tz?: string;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Message | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastTs = useRef(initialMessages.at(-1)?.createdAt ?? "");
 
@@ -79,47 +84,87 @@ export function ChatWindow({
     const fd = new FormData();
     fd.set("channelId", activeId);
     fd.set("body", draft);
+    const previous = draft;
     setDraft("");
-    await postMessage(fd);
+    try {
+      const res = await postMessage(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        setDraft(previous);
+        return;
+      }
+      consolidateFresh();
+    } catch {
+      toast("Could not send your message. Please try again.", "error");
+      setDraft(previous);
+    } finally {
+      setSending(false);
+      router.refresh();
+    }
+  }
+
+  /** Pull any new messages for the active channel and merge them in. */
+  async function consolidateFresh() {
     try {
       const res = await fetch(
         `/api/chat?channelId=${activeId}&after=${encodeURIComponent(lastTs.current)}`
       );
-      if (res.ok) {
-        const data = await res.json();
-        if (data.messages?.length) {
-          setMessages((prev) => {
-            const seen = new Set(prev.map((m) => m.id));
-            const fresh = data.messages.filter((m: Message) => !seen.has(m.id));
-            if (fresh.length) lastTs.current = fresh[fresh.length - 1].createdAt;
-            return [...prev, ...fresh];
-          });
-        }
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.messages?.length) {
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          const fresh = data.messages.filter((m: Message) => !seen.has(m.id));
+          if (fresh.length) lastTs.current = fresh[fresh.length - 1].createdAt;
+          return [...prev, ...fresh];
+        });
       }
     } catch {}
-    setSending(false);
-    router.refresh();
   }
 
   async function saveEdit(messageId: string) {
-    if (!editDraft.trim()) return;
+    if (!editDraft.trim() || savingEdit) return;
     const body = editDraft.trim();
     const fd = new FormData();
     fd.set("messageId", messageId);
     fd.set("body", body);
-    await editMessage(fd);
-    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, body } : m)));
-    setEditingId(null);
-    setEditDraft("");
-    router.refresh();
+    setSavingEdit(true);
+    try {
+      const res = await editMessage(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, body } : m)));
+      setEditingId(null);
+      setEditDraft("");
+      toast("Message updated", "success");
+      router.refresh();
+    } catch {
+      toast("Could not update the message. Please try again.", "error");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
-  async function removeMessage(messageId: string) {
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
     const fd = new FormData();
-    fd.set("messageId", messageId);
-    await deleteMessage(fd);
-    setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    router.refresh();
+    fd.set("messageId", id);
+    try {
+      const res = await deleteMessage(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+      toast("Message deleted", "success");
+      router.refresh();
+    } catch {
+      toast("Could not delete the message. Please try again.", "error");
+    }
   }
 
   function groupByDay(msgs: Message[]) {
@@ -159,7 +204,14 @@ export function ChatWindow({
 
       {/* Messages */}
       <div className="flex-1 space-y-3 overflow-y-auto p-3 md:p-4">
-        {groupByDay(messages).map((group) => (
+        {messages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <ChatIcon width={40} height={40} className="text-muted" />
+            <p className="mt-3 font-medium">No messages yet</p>
+            <p className="mt-1 text-sm text-muted">Say hello to start the conversation.</p>
+          </div>
+        ) : (
+          groupByDay(messages).map((group) => (
           <div key={group.day}>
             <div className="my-3 flex items-center gap-3">
               <div className="h-px flex-1 bg-border" />
@@ -205,9 +257,9 @@ export function ChatWindow({
                           className="resize-none"
                         />
                         <div className="flex gap-1.5">
-                          <Button type="submit" className="px-2 py-1 text-xs">
+                          <Button type="submit" disabled={savingEdit} className="px-2 py-1 text-xs">
                             <CheckIcon width={14} height={14} />
-                            Save
+                            {savingEdit ? "Saving…" : "Save"}
                           </Button>
                           <Button
                             type="button"
@@ -254,7 +306,7 @@ export function ChatWindow({
                               <button
                                 type="button"
                                 title="Delete message"
-                                onClick={() => removeMessage(m.id)}
+                                onClick={() => setPendingDelete(m)}
                                 className="rounded-md p-1 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                               >
                                 <TrashIcon width={14} height={14} />
@@ -269,11 +321,10 @@ export function ChatWindow({
               );
             })}
           </div>
-        ))}
+          ))
+        )}
         <div ref={bottomRef} />
       </div>
-
-      {/* Composer */}
       <form onSubmit={send} className="flex flex-wrap items-center gap-2 border-t border-border p-3">
         <Input
           value={draft}
@@ -287,6 +338,19 @@ export function ChatWindow({
           Send
         </Button>
       </form>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this message?"
+        body={
+          pendingDelete
+            ? `"${pendingDelete.body.slice(0, 60)}${pendingDelete.body.length > 60 ? "…" : ""}" will be permanently removed.`
+            : undefined
+        }
+        confirmLabel="Delete message"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
