@@ -6,7 +6,7 @@ import {
   createProject,
   createGoal,
   createTask,
-  cycleTaskStatus,
+  setTaskStatus,
   deleteTask,
   deleteGoal,
   deleteProject,
@@ -23,9 +23,7 @@ import {
   ChatIcon,
   PlusIcon,
   XIcon,
-  CheckIcon,
   TrashIcon,
-  CircleDot,
 } from "./icons";
 
 type Member = { id: string; name: string; color: string };
@@ -53,10 +51,12 @@ export function TaskBoard({
   projects,
   members,
   isAdmin,
+  meId,
 }: {
   projects: Project[];
   members: Member[];
   isAdmin: boolean;
+  meId: string;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -136,8 +136,8 @@ export function TaskBoard({
         </Card>
       ) : (
         <p className="rounded-xl bg-surface2 px-3 py-2 text-xs text-muted">
-          Only the super admin can add projects, goals, and tasks. You can update statuses and
-          comment.
+          Only the super admin can add projects, goals, and tasks. Assigned members can move
+          their own tasks; everyone can comment.
         </p>
       )}
 
@@ -194,6 +194,7 @@ export function TaskBoard({
                   <button
                     type="submit"
                     title="Delete project"
+                    aria-label={`Delete project ${project.name}`}
                     className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                   >
                     <TrashIcon width={16} height={16} />
@@ -236,6 +237,7 @@ export function TaskBoard({
                     <button
                       type="submit"
                       title="Delete goal"
+                      aria-label={`Delete goal ${g.title}`}
                       className="rounded-md p-1 text-muted transition-colors hover:bg-surface/60 hover:text-rose-600"
                     >
                       <XIcon width={14} height={14} />
@@ -308,34 +310,15 @@ export function TaskBoard({
                       Nothing here
                     </p>
                   ) : null}
-                  {list.map((task) => (
+                  {list.map((task) => {
+                    const canMove =
+                      isAdmin || (task.assignee !== null && task.assignee.id === meId);
+                    return (
                     <div
                       key={task.id}
                       className="rounded-xl border border-border bg-surface2/50 p-3"
                     >
                       <div className="flex items-start gap-2">
-                        <form action={act(cycleTaskStatus, "Task updated")}>
-                          <input type="hidden" name="taskId" value={task.id} />
-                          <button
-                            type="submit"
-                            title="Move to next stage"
-                            className={`mt-0.5 transition-transform hover:scale-110 ${
-                              task.status === "done" ? "text-emerald-500" : "text-muted"
-                            }`}
-                          >
-                            {task.status === "done" ? (
-                              <CheckIcon width={18} height={18} />
-                            ) : (
-                              <CircleDot
-                                width={18}
-                                height={18}
-                                className={
-                                  task.status === "doing" ? "text-amber-500" : "text-muted"
-                                }
-                              />
-                            )}
-                          </button>
-                        </form>
                         <div className="min-w-0 flex-1">
                           <p
                             className={`text-sm font-medium ${
@@ -357,6 +340,37 @@ export function TaskBoard({
                               </span>
                             ) : null}
                           </div>
+
+                          {/* Explicit status buttons — no more cycling. */}
+                          <div className="mt-2 flex flex-wrap items-center gap-1">
+                            {(["todo", "doing", "done"] as const).map((s) => (
+                              <form key={s} action={act(setTaskStatus, "Task updated")}>
+                                <input type="hidden" name="taskId" value={task.id} />
+                                <input type="hidden" name="status" value={s} />
+                                <button
+                                  type="submit"
+                                  disabled={!canMove || task.status === s}
+                                  aria-label={`Mark as ${statusMeta[s].label}`}
+                                  aria-pressed={task.status === s}
+                                  title={
+                                    canMove
+                                      ? `Mark as ${statusMeta[s].label}`
+                                      : "Only the assignee or an admin can change this"
+                                  }
+                                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                                    task.status === s
+                                      ? "bg-brand text-white"
+                                      : canMove
+                                        ? "text-muted hover:bg-surface2 hover:text-ink"
+                                        : "cursor-not-allowed text-muted/50"
+                                  }`}
+                                >
+                                  {statusMeta[s].label}
+                                </button>
+                              </form>
+                            ))}
+                          </div>
+
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {task.assignee ? (
@@ -366,6 +380,8 @@ export function TaskBoard({
                               )}
                               <button
                                 type="button"
+                                aria-expanded={Boolean(openComments[task.id])}
+                                aria-label={`Comments (${task.comments.length})`}
                                 onClick={() =>
                                   setOpenComments((o) => ({ ...o, [task.id]: !o[task.id] }))
                                 }
@@ -395,6 +411,7 @@ export function TaskBoard({
                                   type="submit"
                                   className="text-xs text-muted hover:text-rose-600"
                                   title="Delete task"
+                                  aria-label="Delete task"
                                 >
                                   <XIcon width={16} height={16} />
                                 </button>
@@ -418,7 +435,13 @@ export function TaskBoard({
                                 className="flex items-center gap-1.5"
                               >
                                 <input type="hidden" name="taskId" value={task.id} />
-                                <Input name="body" placeholder="Write a comment…" className="text-xs" required />
+                                <Input
+                                  name="body"
+                                  aria-label="Write a comment"
+                                  placeholder="Write a comment…"
+                                  className="text-xs"
+                                  required
+                                />
                                 <Button type="submit" variant="outline" className="px-2.5 py-1.5 text-xs">
                                   Send
                                 </Button>
@@ -428,7 +451,8 @@ export function TaskBoard({
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })}

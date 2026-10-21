@@ -12,7 +12,7 @@ export default async function HabitsPage() {
   const [habits, allCheckins] = await Promise.all([
     db.habit.findMany({
       where: { ownerId: me.id },
-      include: { checkins: { where: { date: { gte: last30[0] } } } },
+      include: { checkins: { orderBy: { date: "asc" } } },
       orderBy: { createdAt: "asc" },
     }),
     db.habitCheckIn.findMany({
@@ -24,7 +24,11 @@ export default async function HabitsPage() {
   const serialized = habits.map((h) => ({
     id: h.id,
     name: h.name,
-    checkinDates: h.checkins.map((c) => c.date),
+    // Dates within the visible grid, plus the full history for streaks.
+    checkinDates: h.checkins
+      .map((c) => c.date)
+      .filter((d) => d >= last30[0]),
+    allDates: h.checkins.map((c) => c.date),
   }));
 
   const groupToday = allCheckins.map((c) => ({

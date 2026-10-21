@@ -20,14 +20,20 @@ export function Shell({ user, children }: { user: User; children: React.ReactNod
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    setCollapsed(readCollapsed());
+    // Defer to the next frame so we never set state during the effect body.
+    const raf = requestAnimationFrame(() => {
+      setMounted(true);
+      setCollapsed(readCollapsed());
+    });
     const onChange = (e: Event) => {
       const detail = (e as CustomEvent<boolean>).detail;
       setCollapsed(detail);
     };
     window.addEventListener(SIDEBAR_EVENT, onChange);
-    return () => window.removeEventListener(SIDEBAR_EVENT, onChange);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener(SIDEBAR_EVENT, onChange);
+    };
   }, []);
 
   const isCollapsed = mounted ? collapsed : false;

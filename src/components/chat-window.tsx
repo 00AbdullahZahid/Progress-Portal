@@ -44,33 +44,93 @@ export function ChatWindow({
   const [pendingDelete, setPendingDelete] = useState<Message | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastTs = useRef(initialMessages.at(-1)?.createdAt ?? "");
+  const [shownChannel, setShownChannel] = useState(activeId);
 
-  useEffect(() => {
+  // When the channel changes, reset local state during render (the React-
+  // sanctioned "adjust state on prop change" pattern) instead of in an effect.
+  if (shownChannel !== activeId) {
+    setShownChannel(activeId);
     setMessages(initialMessages);
-    lastTs.current = initialMessages.at(-1)?.createdAt ?? "";
     setEditingId(null);
-  }, [activeId, initialMessages]);
+  }
 
+  /**
+   * Merge the latest window from the server into local state.
+   *
+   * We reconcile against the recent window (not just "newer than last seen")
+   * so edits and deletes made by other people show up without a reload.
+   * Anything the server no longer knows about is dropped locally.
+   */
+  function mergeWindow(incoming: Message[]) {
+    setMessages((prev) => {
+      if (!incoming.length) return prev;
+      const byId = new Map(incoming.map((m) => [m.id, m]));
+      const serverIds = new Set(byId.keys());
+
+      // Keep local-only messages that are newer than the newest server one
+      // (e.g. a message we just posted that the window hasn't caught up to yet).
+      const newestServerTs = incoming[incoming.length - 1].createdAt;
+      const kept = prev.filter(
+        (m) => !serverIds.has(m.id) && m.createdAt > newestServerTs
+      );
+
+      const merged = [
+        ...incoming.map((m) => {
+          const old = prev.find((p) => p.id === m.id);
+          // Preserve identity when nothing changed so React can skip re-render.
+          return old && old.body === m.body ? old : m;
+        }),
+        ...kept,
+      ];
+      lastTs.current = merged.at(-1)?.createdAt ?? lastTs.current;
+      return merged;
+    });
+  }
+
+  /** Poll while the tab is visible; waits longer after repeated failures. */
   useEffect(() => {
-    const timer = setInterval(async () => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let failures = 0;
+
+    async function poll() {
+      if (cancelled) return;
+      if (typeof document !== "undefined" && document.hidden) {
+        timer = setTimeout(poll, 4000);
+        return;
+      }
       try {
-        const res = await fetch(
-          `/api/chat?channelId=${activeId}&after=${encodeURIComponent(lastTs.current)}`
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.messages?.length) {
-          setMessages((prev) => {
-            const seen = new Set(prev.map((m) => m.id));
-            const fresh = data.messages.filter((m: Message) => !seen.has(m.id));
-            if (!fresh.length) return prev;
-            lastTs.current = fresh[fresh.length - 1].createdAt;
-            return [...prev, ...fresh];
-          });
+        const res = await fetch(`/api/chat?channelId=${activeId}&full=1`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          failures = 0;
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.messages)) mergeWindow(data.messages);
+        } else {
+          failures += 1;
         }
-      } catch {}
-    }, 4000);
-    return () => clearInterval(timer);
+      } catch {
+        failures += 1;
+      }
+      // Back off up to ~30s when the network is unhappy.
+      const delay = Math.min(4000 * 2 ** Math.min(failures, 3), 30_000);
+      if (!cancelled) timer = setTimeout(poll, delay);
+    }
+
+    timer = setTimeout(poll, 4000);
+    function onVisible() {
+      if (!document.hidden && !cancelled) {
+        if (timer) clearTimeout(timer);
+        poll();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [activeId]);
 
   useEffect(() => {
@@ -93,7 +153,7 @@ export function ChatWindow({
         setDraft(previous);
         return;
       }
-      consolidateFresh();
+      await consolidateFresh();
     } catch {
       toast("Could not send your message. Please try again.", "error");
       setDraft(previous);
@@ -103,22 +163,15 @@ export function ChatWindow({
     }
   }
 
-  /** Pull any new messages for the active channel and merge them in. */
+  /** Pull the latest window for the active channel and merge it in. */
   async function consolidateFresh() {
     try {
-      const res = await fetch(
-        `/api/chat?channelId=${activeId}&after=${encodeURIComponent(lastTs.current)}`
-      );
+      const res = await fetch(`/api/chat?channelId=${activeId}&full=1`, {
+        cache: "no-store",
+      });
       if (!res.ok) return;
       const data = await res.json();
-      if (data.messages?.length) {
-        setMessages((prev) => {
-          const seen = new Set(prev.map((m) => m.id));
-          const fresh = data.messages.filter((m: Message) => !seen.has(m.id));
-          if (fresh.length) lastTs.current = fresh[fresh.length - 1].createdAt;
-          return [...prev, ...fresh];
-        });
-      }
+      if (Array.isArray(data.messages)) mergeWindow(data.messages);
     } catch {}
   }
 
@@ -203,7 +256,12 @@ export function ChatWindow({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 space-y-3 overflow-y-auto p-3 md:p-4">
+      <div
+        className="flex-1 space-y-3 overflow-y-auto p-3 md:p-4"
+        role="log"
+        aria-live="polite"
+        aria-label="Chat messages"
+      >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <ChatIcon width={40} height={40} className="text-muted" />
@@ -293,6 +351,7 @@ export function ChatWindow({
                               <button
                                 type="button"
                                 title="Edit message"
+                                aria-label="Edit message"
                                 onClick={() => {
                                   setEditingId(m.id);
                                   setEditDraft(m.body);
@@ -306,6 +365,7 @@ export function ChatWindow({
                               <button
                                 type="button"
                                 title="Delete message"
+                                aria-label="Delete message"
                                 onClick={() => setPendingDelete(m)}
                                 className="rounded-md p-1 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                               >
@@ -330,6 +390,7 @@ export function ChatWindow({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Type a message..."
+          aria-label="Message"
           maxLength={4000}
           className="min-w-0 flex-1"
         />

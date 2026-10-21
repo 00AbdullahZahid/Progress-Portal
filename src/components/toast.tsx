@@ -93,7 +93,7 @@ export function useAction(
     try {
       await run();
       if (success) toast(success, "success");
-    } catch (e) {
+    } catch {
       toast(error ?? "Something went wrong. Please try again.", "error");
     } finally {
       setPending(false);

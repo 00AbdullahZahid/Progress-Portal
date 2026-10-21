@@ -5,10 +5,11 @@ import { ChangePasswordForm } from "@/components/change-password-form";
 import { AdminResetPanel } from "@/components/admin-reset-panel";
 import { signOut } from "@/lib/actions/auth";
 import { db } from "@/lib/db";
+import { supportedTimezones } from "@/lib/validation";
 import { LogoutIcon, ShieldIcon } from "@/components/icons";
 import Link from "next/link";
 
-const TIMEZONES = [
+const COMMON_TIMEZONES = [
   "Asia/Karachi",
   "Asia/Dubai",
   "Asia/Kolkata",
@@ -27,9 +28,19 @@ export default async function SettingsPage() {
   const me = await requireUser();
   const isAdmin = me.role === "admin";
 
+  // Only offer timezones this runtime actually supports, common ones first,
+  // and always include whatever the user currently has.
+  const all = supportedTimezones();
+  const timezones = [
+    ...COMMON_TIMEZONES.filter((tz) => all.includes(tz)),
+    ...all.filter((tz) => !COMMON_TIMEZONES.includes(tz)),
+  ];
+  if (!timezones.includes(me.timezone)) timezones.unshift(me.timezone);
+
   const members = isAdmin
     ? (
         await db.user.findMany({
+          where: { isActive: true },
           orderBy: [{ role: "desc" }, { name: "asc" }],
           select: { handle: true, name: true, role: true, color: true },
         })
@@ -42,7 +53,7 @@ export default async function SettingsPage() {
 
       <ProfileForm
         user={{ name: me.name, color: me.color, timezone: me.timezone }}
-        timezones={TIMEZONES}
+        timezones={timezones}
       />
 
       <div className="mt-6">

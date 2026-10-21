@@ -12,7 +12,6 @@ import {
   StudyIcon,
   ChatIcon,
   PeopleIcon,
-  SettingsIcon,
   LogoutIcon,
   ShieldIcon,
   BarChartIcon,
@@ -32,8 +31,11 @@ export function Nav({ user }: { user: User }) {
   const isAdmin = user.role === "admin";
 
   useEffect(() => {
-    setMounted(true);
-    setCollapsed(readCollapsed());
+    const raf = requestAnimationFrame(() => {
+      setMounted(true);
+      setCollapsed(readCollapsed());
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   function toggle() {

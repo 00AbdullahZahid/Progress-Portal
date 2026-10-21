@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { lastNDays, todayStr, currentStreak } from "@/lib/dates";
+import { lastNDays, todayStr, currentStreak, dateInTz } from "@/lib/dates";
 import { PageHeader, Card } from "@/components/ui";
 import { Avatar } from "@/components/avatar";
 import { FlameIcon, CheckIcon, StudyIcon, ShieldIcon } from "@/components/icons";
@@ -10,25 +10,33 @@ export default async function PeoplePage() {
   const range = lastNDays(me.timezone, 30);
   const today = todayStr(me.timezone);
 
-  const [users, donePerUser, studyRows, habits] = await Promise.all([
+  const [users, doneTasks, studyRows, habits] = await Promise.all([
     db.user.findMany({ orderBy: [{ role: "desc" }, { name: "asc" }] }),
-    db.task.groupBy({
-      by: ["assigneeId"],
-      where: { status: "done", completedAt: { gte: new Date(range[0] + "T00:00:00Z") } },
-      _count: true,
+    db.task.findMany({
+      where: { status: "done", completedAt: { not: null } },
+      select: { assigneeId: true, completedAt: true },
     }),
     db.studySession.findMany({
       where: { date: { gte: range[0] } },
       select: { userId: true, minutes: true },
     }),
+    // Full history so streaks aren't capped at 30 days.
     db.habit.findMany({
-      include: { checkins: { where: { date: { gte: range[0] } } } },
+      include: { checkins: { select: { date: true } } },
     }),
   ]);
 
+  // Count completions that landed within the 30-day window in the viewer's tz.
+  const doneByUser = new Map<string, number>();
+  for (const t of doneTasks) {
+    if (!t.assigneeId || !t.completedAt) continue;
+    if (dateInTz(t.completedAt, me.timezone) < range[0]) continue;
+    doneByUser.set(t.assigneeId, (doneByUser.get(t.assigneeId) ?? 0) + 1);
+  }
+
   const rows = users.map((u) => {
     const studyMin = studyRows.filter((s) => s.userId === u.id).reduce((a, s) => a + s.minutes, 0);
-    const done = donePerUser.find((d) => d.assigneeId === u.id)?._count ?? 0;
+    const done = doneByUser.get(u.id) ?? 0;
     const myHabits = habits.filter((h) => h.ownerId === u.id);
     const bestStreak = myHabits.length
       ? Math.max(...myHabits.map((h) => currentStreak(new Set(h.checkins.map((c) => c.date)), today)))

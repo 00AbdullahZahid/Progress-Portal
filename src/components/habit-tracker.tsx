@@ -6,8 +6,8 @@ import {
   createHabit,
   toggleCheckIn,
   deleteHabit,
-  type ActionResult,
 } from "@/lib/actions/habits";
+import type { ActionResult } from "@/lib/actions/tasks";
 import { Card, Button, Input, EmptyState } from "./ui";
 import { Avatar } from "./avatar";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -15,7 +15,7 @@ import { useToast } from "./toast";
 import { currentStreak } from "@/lib/dates";
 import { HabitsIcon, FlameIcon, PlusIcon, XIcon, CheckIcon } from "./icons";
 
-type Habit = { id: string; name: string; checkinDates: string[] };
+type Habit = { id: string; name: string; checkinDates: string[]; allDates: string[] };
 type GroupMember = { id: string; name: string; color: string };
 
 export function HabitTracker({
@@ -105,7 +105,8 @@ export function HabitTracker({
         <div className="flex flex-col gap-4">
           {habits.map((habit) => {
             const set = new Set(habit.checkinDates);
-            const streak = currentStreak(set, today);
+            // Streak uses the full history, not just the visible window.
+            const streak = currentStreak(new Set(habit.allDates), today);
             return (
               <Card key={habit.id} className="p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -156,8 +157,8 @@ export function HabitTracker({
       </div>
 
       <Card className="h-fit">
-        <h2 className="mb-1 font-semibold">Today's check-ins</h2>
-        <p className="mb-3 text-xs text-muted">Who's on track right now</p>
+        <h2 className="mb-1 font-semibold">Today&apos;s check-ins</h2>
+        <p className="mb-3 text-xs text-muted">Who&apos;s on track right now</p>
         {groupToday.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted">
             No check-ins yet today. Be the first!

@@ -32,7 +32,13 @@ export function ProfileForm({
   function submit(fd: FormData) {
     startTransition(async () => {
       try {
-        await updateProfile(fd);
+        const res = (await updateProfile(fd)) as
+          | { ok?: boolean; error?: string }
+          | undefined;
+        if (res?.error) {
+          toast(res.error, "error");
+          return;
+        }
         toast("Profile saved", "success");
         router.refresh();
       } catch {
@@ -45,12 +51,22 @@ export function ProfileForm({
     <Card>
       <form action={submit} className="flex flex-col gap-4">
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Display name</label>
-          <Input name="name" defaultValue={user.name} required maxLength={40} />
+          <label htmlFor="profile-name" className="mb-1.5 block text-sm font-medium">
+            Display name
+          </label>
+          <Input
+            id="profile-name"
+            name="name"
+            defaultValue={user.name}
+            required
+            maxLength={40}
+          />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Color</label>
+          <label htmlFor="profile-color" className="mb-1.5 block text-sm font-medium">
+            Color
+          </label>
           <div className="flex flex-wrap gap-2">
             {COLORS.map((c) => (
               <label
@@ -58,6 +74,7 @@ export function ProfileForm({
                 className={`cursor-pointer rounded-full p-1 transition-transform ${
                   user.color === c ? "ring-2 ring-brand ring-offset-2 ring-offset-surface" : ""
                 }`}
+                title={c}
               >
                 <input
                   type="radio"
@@ -65,18 +82,35 @@ export function ProfileForm({
                   value={c}
                   defaultChecked={user.color === c}
                   className="sr-only"
+                  aria-label={`Color ${c}`}
                 />
                 <span className="block h-7 w-7 rounded-full" style={{ backgroundColor: c }} />
               </label>
             ))}
+            {COLORS.includes(user.color) ? null : (
+              <label className="cursor-pointer rounded-full p-1 ring-2 ring-brand ring-offset-2 ring-offset-surface">
+                <input
+                  type="radio"
+                  name="color"
+                  value={user.color}
+                  defaultChecked
+                  className="sr-only"
+                  aria-label="Current color"
+                />
+                <span
+                  className="block h-7 w-7 rounded-full"
+                  style={{ backgroundColor: user.color }}
+                />
+              </label>
+            )}
           </div>
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium">
-            Timezone <span className="text-xs text-muted">(used for streaks and "today")</span>
+          <label htmlFor="profile-tz" className="mb-1.5 block text-sm font-medium">
+            Timezone <span className="text-xs text-muted">(used for streaks and &quot;today&quot;)</span>
           </label>
-          <Select name="timezone" defaultValue={user.timezone}>
+          <Select id="profile-tz" name="timezone" defaultValue={user.timezone}>
             {timezones.map((tz) => (
               <option key={tz} value={tz}>
                 {tz}

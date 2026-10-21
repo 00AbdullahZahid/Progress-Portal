@@ -58,6 +58,7 @@ export default async function TasksPage() {
         }))}
         members={members.map((u) => ({ id: u.id, name: u.name, color: u.color }))}
         isAdmin={me.role === "admin"}
+        meId={me.id}
       />
     </div>
   );

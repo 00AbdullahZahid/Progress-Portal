@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { lastNDays, todayStr, prettyDate } from "@/lib/dates";
+import { supportedTimezones } from "@/lib/validation";
 import { PageHeader, Card } from "@/components/ui";
 import { StatCard } from "@/components/stat-card";
 import { AdminUserManager } from "@/components/admin-user-manager";
@@ -90,8 +91,16 @@ export default async function AdminDashboardPage() {
             role: u.role,
             color: u.color,
             timezone: u.timezone,
+            isActive: u.isActive,
           }))}
           meId={me.id}
+          timezoneOptions={[
+            "Asia/Karachi",
+            "UTC",
+            ...supportedTimezones().filter(
+              (tz) => tz !== "Asia/Karachi" && tz !== "UTC"
+            ),
+          ]}
         />
       </div>
 

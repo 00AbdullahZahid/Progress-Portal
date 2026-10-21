@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { lastNDays, prettyDate } from "@/lib/dates";
+import { lastNDays, prettyDate, todayStr } from "@/lib/dates";
 import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { StudyForm } from "@/components/study-form";
 import { SessionList } from "@/components/session-list";
@@ -8,6 +8,7 @@ import { TargetIcon, ClockIcon, StudyIcon } from "@/components/icons";
 
 export default async function StudyPage() {
   const me = await requireUser();
+  const today = todayStr(me.timezone);
   const last30 = lastNDays(me.timezone, 30);
 
   const sessions = await db.studySession.findMany({
@@ -39,7 +40,7 @@ export default async function StudyPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <StudyForm />
+          <StudyForm today={today} />
         </div>
 
         <div className="flex flex-col gap-6 lg:col-span-2">
@@ -92,6 +93,7 @@ export default async function StudyPage() {
                 }))}
                 meId={me.id}
                 prettyDate={prettyDate}
+                today={today}
               />
             )}
           </Card>

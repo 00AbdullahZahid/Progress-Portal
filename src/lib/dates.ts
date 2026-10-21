@@ -46,3 +46,16 @@ export function prettyDate(dateStr: string): string {
     timeZone: "UTC",
   });
 }
+
+/**
+ * The calendar date (YYYY-MM-DD) that a timestamp falls on in a given timezone.
+ * Used to bucket task completions by the viewer's local day rather than UTC.
+ */
+export function dateInTz(date: Date, tz: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz || "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}

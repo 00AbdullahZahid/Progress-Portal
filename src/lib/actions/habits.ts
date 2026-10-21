@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { todayStr } from "../dates";
+import { cleanText, validateLogDate } from "../validation";
 import type { ActionResult } from "./tasks";
-
-export type { ActionResult };
 
 function refresh() {
   revalidatePath("/habits");
@@ -16,9 +15,9 @@ function refresh() {
 export async function createHabit(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) return { ok: false, error: "Habit name is required." };
-  await db.habit.create({ data: { ownerId: me.id, name: name.slice(0, 120) } });
+  const nameRes = cleanText(formData.get("name"), 80);
+  if (!nameRes.ok) return nameRes;
+  await db.habit.create({ data: { ownerId: me.id, name: nameRes.value } });
   refresh();
   return { ok: true };
 }
@@ -27,17 +26,22 @@ export async function toggleCheckIn(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();
   const habitId = String(formData.get("habitId") ?? "");
-  const date = String(formData.get("date") ?? todayStr(me.timezone));
+  const today = todayStr(me.timezone);
+
+  const dateRes = validateLogDate(String(formData.get("date") ?? today), today);
+  if (!dateRes.ok) return dateRes;
+
   const habit = await db.habit.findUnique({ where: { id: habitId } });
   if (!habit || habit.ownerId !== me.id)
     return { ok: false, error: "You can only update your own habits." };
+
   const existing = await db.habitCheckIn.findUnique({
-    where: { habitId_date: { habitId, date } },
+    where: { habitId_date: { habitId, date: dateRes.date } },
   });
   if (existing) {
     await db.habitCheckIn.delete({ where: { id: existing.id } });
   } else {
-    await db.habitCheckIn.create({ data: { habitId, date } });
+    await db.habitCheckIn.create({ data: { habitId, date: dateRes.date } });
   }
   refresh();
   return { ok: true };

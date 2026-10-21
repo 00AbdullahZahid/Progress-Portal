@@ -43,40 +43,56 @@ export function ChangePasswordForm() {
         <KeyIcon width={18} height={18} className="text-brand" />
         Change your password
       </h2>
-      <p className="mb-3 text-sm text-muted">Use at least 6 characters.</p>
+      <p className="mb-3 text-sm text-muted">Use at least 8 characters.</p>
       <form onSubmit={submit} className="flex flex-col gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted">Current password</label>
+          <label htmlFor="cp-current" className="mb-1 block text-xs font-medium text-muted">
+            Current password
+          </label>
           <Input
+            id="cp-current"
             type="password"
             autoComplete="current-password"
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
+            maxLength={200}
             required
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted">New password</label>
+          <label htmlFor="cp-next" className="mb-1 block text-xs font-medium text-muted">
+            New password
+          </label>
           <Input
+            id="cp-next"
             type="password"
             autoComplete="new-password"
             value={next}
             onChange={(e) => setNext(e.target.value)}
+            minLength={8}
+            maxLength={200}
             required
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted">Confirm new password</label>
+          <label htmlFor="cp-confirm" className="mb-1 block text-xs font-medium text-muted">
+            Confirm new password
+          </label>
           <Input
+            id="cp-confirm"
             type="password"
             autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
+            minLength={8}
+            maxLength={200}
             required
           />
         </div>
         {msg ? (
           <p
+            role="status"
+            aria-live="polite"
             className={`rounded-xl px-3 py-2 text-sm ${
               msg.type === "ok"
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
@@ -86,7 +102,11 @@ export function ChangePasswordForm() {
             {msg.text}
           </p>
         ) : null}
-        <Button type="submit" disabled={pending} className="self-start">
+        <Button
+          type="submit"
+          disabled={pending || next.length < 8}
+          className="self-start"
+        >
           {pending ? "Updating…" : "Update password"}
         </Button>
       </form>

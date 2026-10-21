@@ -1,4 +1,3 @@
-import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
@@ -8,11 +7,6 @@ export default async function LoginPage() {
   // (Prevents an infinite loop when a stale cookie references a deleted user.)
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
-
-  const members = await db.user.findMany({
-    orderBy: [{ role: "desc" }, { name: "asc" }],
-    select: { handle: true, name: true, role: true, color: true },
-  });
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-blue-50 via-bg to-sky-50 p-4 dark:from-blue-950/40 dark:via-bg dark:to-sky-950/30">
@@ -39,7 +33,7 @@ export default async function LoginPage() {
           </p>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-          <LoginForm members={members} />
+          <LoginForm />
         </div>
         <p className="mt-4 text-center text-xs text-muted">
           Invite-only. Forgot your password? Ask the super admin.
