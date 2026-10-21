@@ -2,7 +2,7 @@
 
 A private web app for a small group to track **tasks and goals**, **habits**, and **study sessions**, and to **chat** — all in one place with a shared analytics dashboard.
 
-Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Prisma + SQLite**, and **Recharts**.
+Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Prisma + Postgres**, and **Recharts**.
 
 ---
 
@@ -43,8 +43,9 @@ The super admin can reset anyone's password from **Settings > Reset a member's p
 # 1. Install dependencies
 npm install
 
-# 2. Set up the database (creates SQLite file, applies migrations, seeds)
-npx prisma migrate dev --name init
+# 2. Set up the database (applies migrations and seeds)
+npx prisma migrate deploy
+npx prisma db seed
 
 # 3. Run in development
 npm run dev
@@ -64,7 +65,7 @@ npm run start
 Copy `.env.example` to `.env` and set:
 
 ```
-DATABASE_URL="file:./dev.db"      # SQLite file path
+DATABASE_URL="postgresql://..."   # Postgres connection string (see below)
 AUTH_SECRET="long-random-hex"     # used to sign session cookies
 APP_URL="http://localhost:3000"
 ```
@@ -75,16 +76,30 @@ Generate a secret with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## Switching from SQLite to Postgres (for real hosting)
+## Database (Postgres)
 
-The app runs locally with zero config via SQLite. To host it online (for example Vercel + Neon):
+This app uses **Postgres** so it can run both locally and on Vercel (SQLite does not work on serverless hosts).
 
-1. In `prisma/schema.prisma`, change the datasource provider from `sqlite` to `postgresql`.
-2. Point `DATABASE_URL` at your Postgres connection string.
-3. Delete the old `prisma/migrations/` folder and run `npx prisma migrate dev --name init` again (SQLite and Postgres migrations are not interchangeable).
-4. Deploy.
+1. Create a free Postgres database — for example [Neon](https://neon.tech) or Vercel's Postgres integration.
+2. Put the **pooled** connection string in `DATABASE_URL` (Vercel's integration calls it `POSTGRES_PRISMA_URL`).
+3. Create the tables:
+   ```bash
+   npx prisma migrate deploy
+   ```
+4. Seed the admin and members:
+   ```bash
+   npx prisma db seed
+   ```
 
-Note: SQLite does not work on serverless hosts like Vercel, so you will need Postgres (for example Neon's free tier) for online hosting.
+### Deploying to Vercel
+
+1. In the Vercel project, add environment variables: `DATABASE_URL` (pooled Postgres URL), `AUTH_SECRET`, and `APP_URL`.
+2. Deploy. The `postinstall` script runs `prisma generate` automatically.
+3. Run the schema against the production database (locally, with the prod `DATABASE_URL` in `.env`):
+   ```bash
+   npx prisma migrate deploy
+   npx prisma db seed
+   ```
 
 ## Project structure
 
@@ -117,7 +132,7 @@ src/
 ## Tech choices (and why)
 
 - **Polling chat instead of WebSockets** — zero extra infrastructure, perfectly fine for a small group.
-- **SQLite** — run instantly with no accounts. Swap to Postgres when hosting (see above).
+- **Postgres** — works both locally and on serverless hosts like Vercel (SQLite can't persist on serverless).
 - **scrypt from Node's crypto** — no external dependency needed for password hashing.
 
 ---

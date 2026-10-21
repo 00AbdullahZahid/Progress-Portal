@@ -17,8 +17,8 @@ prisma/dev.db-journal
 
 # Environment variables (never commit secrets)
 .env
-.env*.local
-.env.production
+.env*
+!.env.example
 
 # Debug logs
 npm-debug.log*
@@ -38,5 +38,5 @@ Thumbs.db
 # TypeScript cache
 *.tsbuildinfo
 
-# Vercel (for later hosting)
+# Vercel
 .vercel
