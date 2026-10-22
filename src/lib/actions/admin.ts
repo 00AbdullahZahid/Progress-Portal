@@ -12,7 +12,7 @@ import {
 } from "../validation";
 import { hashPassword, validatePassword } from "../security";
 import { audit } from "../audit";
-import { deleteBlobs } from "../blob";
+import { deleteBlobs, deletableUrls } from "../blob";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -63,7 +63,8 @@ export async function adminUpdateUser(formData: FormData): Promise<ActionResult>
   });
   if (clash) return { ok: false, error: "That username is already taken." };
 
-  // Optional: a super admin may set or clear another user's photo.
+  // Optional: a super admin may set or clear another user's photo. The upload
+  // belongs to the admin (they uploaded it), so ownership checks use `me.id`.
   const imageRaw = formData.get("image");
   const data: {
     name: string;
@@ -83,9 +84,16 @@ export async function adminUpdateUser(formData: FormData): Promise<ActionResult>
 
   await db.user.update({ where: { id: userId }, data });
 
-  // Clean up the previous avatar if this update replaced or cleared it.
-  if (data.image !== undefined && target.image && target.image !== data.image) {
-    await deleteBlobs([target.image]);
+  // Clean up the previous avatar if this update replaced or cleared it. Only
+  // delete when the admin owns the file and nothing else references it.
+  if (
+    data.image !== undefined &&
+    target.image &&
+    target.image !== data.image &&
+    isBlobUrl(target.image)
+  ) {
+    const safe = await deletableUrls(db, me.id, [target.image]);
+    await deleteBlobs(safe);
   }
 
   await audit(me.id, "user.update", {
@@ -193,19 +201,34 @@ export async function adminDeleteUser(formData: FormData): Promise<ActionResult>
     return { ok: false, error: "You can't delete the last admin." };
   }
 
-  // Gather every blob this user owns (avatar + study attachments) so storage
-  // doesn't keep files nobody references anymore.
-  const ownedSessions = await db.studySession.findMany({
-    where: { userId },
-    select: { image: true, fileUrl: true },
+  // Gather every blob this user owns (avatar + study attachments + notes) so
+  // storage doesn't keep files nobody references. Ownership is checked against
+  // the *deleted* user (they uploaded these), before the row is removed.
+  const [ownedSessions, ownedNotes] = await Promise.all([
+    db.studySession.findMany({
+      where: { userId },
+      select: { image: true, fileUrl: true },
+    }),
+    db.note.findMany({
+      where: { authorId: userId },
+      select: { image: true, fileUrl: true },
+    }),
+  ]);
+
+  const candidates = [
+    target.image,
+    ...ownedSessions.flatMap((s) => [s.image, s.fileUrl]),
+    ...ownedNotes.flatMap((n) => [n.image, n.fileUrl]),
+  ];
+  // Resolve which of these the target owns and nothing else references, while
+  // their rows still exist.
+  const safe = await deletableUrls(db, userId, candidates, {
+    skipReferenceCheck: true,
   });
 
   await db.user.delete({ where: { id: userId } });
 
-  await deleteBlobs([
-    target.image,
-    ...ownedSessions.flatMap((s) => [s.image, s.fileUrl]),
-  ]);
+  await deleteBlobs(safe);
 
   await audit(me.id, "user.delete", {
     targetId: userId,

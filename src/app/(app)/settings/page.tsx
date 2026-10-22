@@ -3,6 +3,7 @@ import { PageHeader, Card, Button } from "@/components/ui";
 import { ProfileForm } from "@/components/profile-form";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { AdminResetPanel } from "@/components/admin-reset-panel";
+import { PreferencesForm } from "@/components/preferences-form";
 import { signOut } from "@/lib/actions/auth";
 import { db } from "@/lib/db";
 import { supportedTimezones } from "@/lib/validation";
@@ -58,6 +59,14 @@ export default async function SettingsPage() {
 
       <div className="mt-6">
         <ChangePasswordForm />
+      </div>
+
+      <div className="mt-6">
+        <PreferencesForm
+          weeklyGoalMinutes={me.weeklyGoalMinutes}
+          notifyTasks={me.notifyTasks}
+          notifyExams={me.notifyExams}
+        />
       </div>
 
       {isAdmin ? (

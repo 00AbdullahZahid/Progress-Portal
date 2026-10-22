@@ -3,8 +3,14 @@ import {
   TasksIcon,
   HabitsIcon,
   StudyIcon,
+  NotesIcon,
   ChatIcon,
   PeopleIcon,
+  CalendarIcon,
+  CardIcon,
+  QuestionIcon,
+  BookIcon,
+  ClassroomIcon,
 } from "./icons";
 
 const LINKS = [
@@ -27,6 +33,48 @@ const LINKS = [
     Icon: StudyIcon,
   },
   {
+    href: "/notes",
+    label: "Notes",
+    hint: "Shared study notes",
+    Icon: NotesIcon,
+  },
+  {
+    href: "/exams",
+    label: "Deadlines",
+    hint: "Exam and assignment countdown",
+    Icon: CalendarIcon,
+  },
+  {
+    href: "/flashcards",
+    label: "Flashcards",
+    hint: "Spaced-repetition decks",
+    Icon: CardIcon,
+  },
+  {
+    href: "/questions",
+    label: "Doubts",
+    hint: "Ask and answer questions",
+    Icon: QuestionIcon,
+  },
+  {
+    href: "/resources",
+    label: "Resources",
+    hint: "Past papers and links",
+    Icon: BookIcon,
+  },
+  {
+    href: "/timetable",
+    label: "Timetable",
+    hint: "Your weekly classes",
+    Icon: ClassroomIcon,
+  },
+  {
+    href: "/grades",
+    label: "Grades",
+    hint: "Private GPA tracker",
+    Icon: ClassroomIcon,
+  },
+  {
     href: "/chat",
     label: "Chat",
     hint: "Talk with the group",
@@ -42,7 +90,7 @@ const LINKS = [
 
 export function QuickLinks() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {LINKS.map(({ href, label, hint, Icon }) => (
         <Link
           key={href}

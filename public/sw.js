@@ -1,0 +1,40 @@
+// A minimal service worker: network-first for pages, with a cached fallback so
+// recently visited pages (notes, study) are readable offline. API calls and
+// server actions are never cached.
+const CACHE = "portal-v1";
+
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  // Never cache the API or Next.js data/action requests.
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/_next/data/")) return;
+
+  // Network-first: fresh content when online, cached copy when offline.
+  event.respondWith(
+    fetch(req)
+      .then((res) => {
+        if (res.ok && (req.destination === "document" || req.destination === "script" || req.destination === "style")) {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(req, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req).then((cached) => cached || caches.match("/dashboard")))
+  );
+});

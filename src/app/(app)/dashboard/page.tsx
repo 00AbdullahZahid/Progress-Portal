@@ -1,11 +1,13 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { lastNDays, todayStr, currentStreak, prettyDate, dateInTz } from "@/lib/dates";
+import { lastNDays, todayStr, currentStreak, prettyDate, dateInTz, nowMs } from "@/lib/dates";
 import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { Avatar } from "@/components/avatar";
 import { StatCard } from "@/components/stat-card";
 import { ProgressCharts } from "@/components/charts";
 import { QuickLinks } from "@/components/quick-links";
+import { DashboardWidgets } from "@/components/dashboard-widgets";
+import { PresenceHeartbeat } from "@/components/presence-heartbeat";
 import { TasksIcon, CheckIcon, StudyIcon, FlameIcon, TrophyIcon, ChatIcon } from "@/components/icons";
 
 export default async function DashboardPage() {
@@ -27,6 +29,9 @@ export default async function DashboardPage() {
     checkinRows,
     recentMsgs,
     checkinHistory,
+    upcomingExams,
+    todayStudyByUser,
+    mySubjects,
   ] = await Promise.all([
     db.user.findMany({ orderBy: { name: "asc" } }),
     db.task.findMany({
@@ -50,6 +55,25 @@ export default async function DashboardPage() {
     // Full check-in history for streaks — no artificial cap.
     db.habitCheckIn.findMany({
       select: { date: true, habit: { select: { ownerId: true } } },
+    }),
+    // Upcoming exams/assignments for the countdown widget.
+    db.exam.findMany({
+      where: { date: { gte: today } },
+      orderBy: { date: "asc" },
+      select: { id: true, title: true, subject: true, kind: true, date: true },
+      take: 6,
+    }),
+    // Which members have logged study today, for the presence widget.
+    db.studySession.findMany({
+      where: { date: today },
+      select: { userId: true },
+      distinct: ["userId"],
+    }),
+    // The viewer's own subject breakdown for the weekly report.
+    db.studySession.groupBy({
+      by: ["subject"],
+      where: { userId: me.id, date: { gte: weekStart } },
+      _sum: { minutes: true },
     }),
   ]);
 
@@ -114,8 +138,42 @@ export default async function DashboardPage() {
 
   const myStreak = bestStreakFor(me.id);
 
+  // Widget data.
+  const deadlineItems = upcomingExams.map((e) => ({
+    id: e.id,
+    title: e.title,
+    subject: e.subject,
+    kind: e.kind,
+    date: e.date,
+    days: Math.round(
+      (Date.parse(e.date + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86_400_000
+    ),
+  }));
+
+  const studyingIds = new Set(todayStudyByUser.map((s) => s.userId));
+  const nowTime = nowMs();
+  const presence = users
+    .filter((u) => u.id !== me.id)
+    .filter((u) => studyingIds.has(u.id) || (u.lastSeenAt && nowTime - u.lastSeenAt.getTime() < 10 * 60 * 1000))
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      color: u.color,
+      image: u.image,
+      studying: studyingIds.has(u.id),
+    }));
+
+  const myWeekMinutes = weekStudy
+    .filter((s) => s.userId === me.id)
+    .reduce((a, s) => a + s.minutes, 0);
+  const report = mySubjects
+    .map((r) => ({ subject: r.subject, minutes: r._sum.minutes ?? 0 }))
+    .sort((a, b) => b.minutes - a.minutes)
+    .slice(0, 6);
+
   return (
     <div>
+      <PresenceHeartbeat />
       <PageHeader
         title={`Hey ${me.name}`}
         subtitle={`Here's how the group is doing as of ${prettyDate(today)}.`}
@@ -146,6 +204,19 @@ export default async function DashboardPage() {
 
       <div className="mt-6">
         <ProgressCharts tasksByDay={tasksByDay} studyByDay={studyByDay} studyByUser={studyByUser} />
+      </div>
+
+      <div className="mt-6">
+        <DashboardWidgets
+          goalMinutes={me.weeklyGoalMinutes}
+          goalTargetMinutes={me.weeklyGoalMinutes}
+          myWeekMinutes={myWeekMinutes}
+          myStreak={myStreak}
+          freezes={me.streakFreezesFree}
+          deadlines={deadlineItems}
+          presence={presence}
+          report={report}
+        />
       </div>
 
       <div className="mt-6">

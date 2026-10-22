@@ -265,3 +265,100 @@ export function InfoIcon(props: P) {
     </svg>
   );
 }
+
+export function NotesIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16l4 4v12.5A1.5 1.5 0 0 1 18.5 21h-13A1.5 1.5 0 0 1 4 19.5z" />
+      <path d="M15 3v5h5" />
+      <path d="M8 13h8M8 17h5" />
+    </svg>
+  );
+}
+
+export function TimerIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l2.5 2" />
+      <path d="M9 2h6" />
+    </svg>
+  );
+}
+
+export function CalendarIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4.5" width="18" height="16" rx="2" />
+      <path d="M3 9h18M8 2.5v4M16 2.5v4" />
+    </svg>
+  );
+}
+
+export function SearchIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+export function BookIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z" />
+      <path d="M4 17.5h14" />
+    </svg>
+  );
+}
+
+export function CardIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18M7 15h4" />
+    </svg>
+  );
+}
+
+export function QuestionIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7v.3" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+export function ClassroomIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 6h18" />
+      <path d="M5 6v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6" />
+      <path d="M9 10h6M9 14h4" />
+      <path d="M3 6l9-3 9 3" />
+    </svg>
+  );
+}
+
+export function BellIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
+export function DownloadIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}
+

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl, isHexColor, isValidTimezone } from "../validation";
-import { deleteBlobs } from "../blob";
+import { deleteBlobs, deletableUrls } from "../blob";
 import type { ActionResult } from "./tasks";
 
 export async function updateProfile(formData: FormData): Promise<ActionResult> {
@@ -49,9 +49,11 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
     },
   });
 
-  // Delete the old avatar if it was replaced or cleared.
+  // Delete the old avatar if it was replaced or cleared — and only if this user
+  // actually owns that file.
   if (imageData !== undefined && before?.image && before.image !== imageData) {
-    await deleteBlobs([before.image]);
+    const safe = await deletableUrls(db, me.id, [before.image]);
+    await deleteBlobs(safe);
   }
 
   revalidatePath("/settings");

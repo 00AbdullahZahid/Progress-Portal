@@ -1,0 +1,17 @@
+{
+  "name": "Group Portal",
+  "short_name": "Portal",
+  "description": "Tasks, habits, study logs, notes and chat for our study group.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

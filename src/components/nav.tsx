@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
 import { Avatar } from "./avatar";
+import { SearchBox } from "./search-box";
 import {
   DashboardIcon,
   TasksIcon,
   HabitsIcon,
   StudyIcon,
+  NotesIcon,
   ChatIcon,
   PeopleIcon,
   LogoutIcon,
@@ -17,6 +19,13 @@ import {
   BarChartIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CalendarIcon,
+  CardIcon,
+  QuestionIcon,
+  BookIcon,
+  ClassroomIcon,
+  TrophyIcon,
+  SearchIcon,
 } from "./icons";
 import { signOut } from "@/lib/actions/auth";
 import { SIDEBAR_EVENT, readCollapsed } from "./shell";
@@ -50,13 +59,21 @@ export function Nav({ user }: { user: User }) {
   }
 
   const links = [
-    { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
-    ...(isAdmin ? [{ href: "/admin", label: "Admin", Icon: ShieldIcon }] : []),
-    { href: "/tasks", label: "Tasks", Icon: TasksIcon },
-    { href: "/habits", label: "Habits", Icon: HabitsIcon },
-    { href: "/study", label: "Study", Icon: StudyIcon },
-    { href: "/chat", label: "Chat", Icon: ChatIcon },
-    { href: "/people", label: "People", Icon: PeopleIcon },
+    { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon, mobile: true },
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", Icon: ShieldIcon, mobile: false }] : []),
+    { href: "/tasks", label: "Tasks", Icon: TasksIcon, mobile: true },
+    { href: "/habits", label: "Habits", Icon: HabitsIcon, mobile: false },
+    { href: "/study", label: "Study", Icon: StudyIcon, mobile: true },
+    { href: "/notes", label: "Notes", Icon: NotesIcon, mobile: true },
+    { href: "/exams", label: "Deadlines", Icon: CalendarIcon, mobile: false },
+    { href: "/flashcards", label: "Flashcards", Icon: CardIcon, mobile: false },
+    { href: "/questions", label: "Doubts", Icon: QuestionIcon, mobile: false },
+    { href: "/resources", label: "Resources", Icon: BookIcon, mobile: false },
+    { href: "/timetable", label: "Timetable", Icon: ClassroomIcon, mobile: false },
+    { href: "/grades", label: "Grades", Icon: TrophyIcon, mobile: false },
+    { href: "/search", label: "Search", Icon: SearchIcon, mobile: true },
+    { href: "/chat", label: "Chat", Icon: ChatIcon, mobile: true },
+    { href: "/people", label: "People", Icon: PeopleIcon, mobile: false },
   ];
 
   const isCollapsed = mounted ? collapsed : false;
@@ -97,7 +114,13 @@ export function Nav({ user }: { user: User }) {
           )}
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 px-3">
+        {!isCollapsed ? (
+          <div className="px-3 pb-2">
+            <SearchBox />
+          </div>
+        ) : null}
+
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pb-2">
           {links.map(({ href, label, Icon }) => {
             const active = pathname.startsWith(href);
             return (
@@ -170,8 +193,9 @@ export function Nav({ user }: { user: User }) {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-surface/90 px-4 py-3 backdrop-blur md:hidden">
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-surface/90 px-4 py-3 backdrop-blur md:hidden">
         <span className="font-bold">Group Portal</span>
+        <SearchBox className="max-w-[10rem] flex-1" />
         <div className="flex items-center gap-1">
           {isAdmin ? (
             <Link
@@ -192,7 +216,7 @@ export function Nav({ user }: { user: User }) {
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-border bg-surface/95 py-1.5 backdrop-blur md:hidden">
         {links
-          .filter((l) => l.href !== "/admin")
+          .filter((l) => l.mobile)
           .map(({ href, label, Icon }) => {
             const active = pathname.startsWith(href);
             return (

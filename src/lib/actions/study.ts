@@ -5,7 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { todayStr } from "../dates";
 import { cleanText, isBlobUrl, validateLogDate } from "../validation";
-import { deleteBlobs } from "../blob";
+import { deleteBlobs, deletableUrls } from "../blob";
 import type { ActionResult } from "./tasks";
 
 const MAX_MINUTES = 24 * 60;
@@ -35,6 +35,16 @@ function parseMinutes(value: unknown): number | null {
   const rounded = Math.round(n);
   if (rounded < 1 || rounded > MAX_MINUTES) return null;
   return rounded;
+}
+
+/** Mark any uploads we just attached as claimed so cleanup won't reap them. */
+async function claimUploads(ownerId: string, urls: (string | null)[]) {
+  const targets = urls.filter((u): u is string => Boolean(u) && isBlobUrl(u!));
+  if (targets.length === 0) return;
+  await db.upload.updateMany({
+    where: { ownerId, url: { in: targets } },
+    data: { claimedAt: new Date() },
+  });
 }
 
 export async function logStudy(formData: FormData): Promise<ActionResult> {
@@ -98,6 +108,7 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
       shared,
     },
   });
+  await claimUploads(me.id, [imageData, url]);
   refresh();
   return { ok: true };
 }
@@ -172,12 +183,17 @@ export async function updateStudySession(
   if (sharedRaw !== null) data.shared = String(sharedRaw) === "true";
 
   await db.studySession.update({ where: { id }, data });
+  await claimUploads(me.id, [data.image ?? null, data.fileUrl ?? null]);
 
-  // Remove blobs that this edit replaced or cleared.
-  await deleteBlobs([
-    existing.image !== data.image ? existing.image : null,
-    existing.fileUrl !== data.fileUrl ? existing.fileUrl : null,
-  ]);
+  // Remove blobs this edit replaced or cleared — but only when the field was
+  // actually part of this update. A partial update (e.g. a share toggle) leaves
+  // `data.image` undefined and must NOT delete the file still in the row.
+  const replaced = [
+    data.image !== undefined ? existing.image : null,
+    data.fileUrl !== undefined ? existing.fileUrl : null,
+  ];
+  const safe = await deletableUrls(db, me.id, replaced, { excludeRowId: id });
+  await deleteBlobs(safe);
 
   refresh();
   return { ok: true };
@@ -191,7 +207,7 @@ export async function deleteStudySession(
   const id = String(formData.get("sessionId") ?? "");
   if (!id) return { ok: false, error: "Session not found." };
 
-  // Read first so we know which blobs to clean up after the row is gone.
+  // Read first so we know which blobs to (maybe) clean up after the row is gone.
   const existing = await db.studySession.findUnique({
     where: { id },
     select: { userId: true, image: true, fileUrl: true },
@@ -200,7 +216,10 @@ export async function deleteStudySession(
     return { ok: false, error: "You can only delete your own sessions." };
 
   await db.studySession.delete({ where: { id } });
-  await deleteBlobs([existing.image, existing.fileUrl]);
+
+  // Only delete files this user owns and that no other row references.
+  const safe = await deletableUrls(db, me.id, [existing.image, existing.fileUrl]);
+  await deleteBlobs(safe);
 
   refresh();
   return { ok: true };

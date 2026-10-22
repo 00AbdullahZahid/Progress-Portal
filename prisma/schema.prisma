@@ -30,6 +30,22 @@ enum ChannelKind {
   project
 }
 
+enum ResourceKind {
+  paper
+  notes
+  book
+  video
+  link
+  other
+}
+
+enum ExamKind {
+  exam
+  assignment
+  quiz
+  deadline
+}
+
 model User {
   id           String   @id @default(cuid())
   handle       String   @unique
@@ -44,14 +60,199 @@ model User {
   tokenVersion Int      @default(0)
   createdAt    DateTime @default(now())
 
-  tasks    Task[]
-  comments TaskComment[]
-  habits   Habit[]
-  sessions StudySession[]
-  messages Message[]
-  auditLogs AuditLog[]
+  // Weekly study target in minutes (0 = no goal set).
+  weeklyGoalMinutes Int       @default(0)
+  // Optional per-day rest allowance so one missed day doesn't kill a streak.
+  streakFreezesFree Int       @default(1)
+  // Notification preferences.
+  notifyTasks       Boolean   @default(true)
+  notifyExams       Boolean   @default(true)
+  // Presence: the last time this user opened the app.
+  lastSeenAt        DateTime?
+
+  tasks      Task[]
+  comments   TaskComment[]
+  habits     Habit[]
+  sessions   StudySession[]
+  messages   Message[]
+  auditLogs  AuditLog[]
+  uploads    Upload[]
+  notes      Note[]
+  resources  Resource[]
+  exams      Exam[]
+  flashcards Flashcard[]
+  reviews    FlashcardReview[]
+  questions  Question[]
+  answers    Answer[]
+  courses    Course[]
+  timetable  TimetableEntry[]
 
   @@index([role])
+}
+
+model Upload {
+  id        String    @id @default(cuid())
+  url       String    @unique
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  mime      String?
+  size      Int?
+  // Set once the file is attached to a saved form row (session, note, ...).
+  // Unattached uploads older than a day are swept by the cleanup job.
+  claimedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([ownerId])
+  @@index([claimedAt, createdAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  subject   String
+  // Everyone in the group can read and edit notes; only the author (or an
+  // admin) can delete one.
+  image     String?
+  fileUrl   String?
+  fileName  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([subject])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model Resource {
+  id        String       @id @default(cuid())
+  title     String
+  kind      ResourceKind @default(other)
+  subject   String
+  url       String?
+  note      String?
+  addedById String
+  addedBy   User         @relation(fields: [addedById], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@index([subject])
+  @@index([kind])
+}
+
+model Exam {
+  id          String   @id @default(cuid())
+  title       String
+  kind        ExamKind @default(exam)
+  subject     String
+  // The calendar date of the exam/assignment, as YYYY-MM-DD.
+  date        String
+  notes       String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([subject])
+}
+
+model Flashcard {
+  id          String   @id @default(cuid())
+  deck        String
+  front       String
+  back        String
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  reviews FlashcardReview[]
+
+  @@index([deck])
+}
+
+model FlashcardReview {
+  id         String    @id @default(cuid())
+  cardId     String
+  card       Flashcard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Spaced-repetition bookkeeping.
+  box        Int       @default(1)
+  dueAt      DateTime  @default(now())
+  lastResult String?
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([cardId, userId])
+  @@index([userId, dueAt])
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  subject   String
+  title     String
+  body      String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  answers Answer[]
+
+  @@index([subject])
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  body       String
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  accepted   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([questionId])
+}
+
+model Course {
+  id      String @id @default(cuid())
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name    String
+  credits Int    @default(3)
+
+  items GradeItem[]
+
+  @@index([ownerId])
+}
+
+model GradeItem {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  // Weight as a percentage of the course grade.
+  weight    Int      @default(0)
+  // Percentage scored (0-100), or null when ungraded.
+  score     Int?
+  createdAt DateTime @default(now())
+
+  @@index([courseId])
+}
+
+model TimetableEntry {
+  id       String  @id @default(cuid())
+  ownerId  String
+  owner    User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  // 0 = Sunday ... 6 = Saturday (JS getDay()).
+  weekday  Int
+  startMin Int
+  endMin   Int
+  title    String
+  location String?
+  color    String  @default("#2563eb")
+
+  @@index([ownerId, weekday])
 }
 
 model Project {
@@ -65,12 +266,12 @@ model Project {
 }
 
 model Goal {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   projectId  String
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title      String
   targetDate DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   tasks Task[]
 
@@ -192,4 +393,3 @@ model AuditLog {
   @@index([createdAt])
   @@index([actorId])
 }
-

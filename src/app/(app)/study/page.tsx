@@ -4,6 +4,8 @@ import { lastNDays, todayStr } from "@/lib/dates";
 import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { StudyForm } from "@/components/study-form";
 import { SessionList } from "@/components/session-list";
+import { StudyNotesPanel } from "@/components/study-notes-panel";
+import { FocusTimer } from "@/components/focus-timer";
 import { TargetIcon, ClockIcon, StudyIcon } from "@/components/icons";
 
 export default async function StudyPage() {
@@ -22,25 +24,36 @@ export default async function StudyPage() {
     take: 50,
   });
 
-  // The group total is a separate aggregate over ALL sessions in the window, so
-  // private sessions from other members are counted. It sums minutes only and
-  // never loads notes or attachments, so nothing private is exposed.
-  const groupAgg = await db.studySession.aggregate({
-    where: { date: { gte: last30[0] } },
-    _sum: { minutes: true },
-  });
+  // The list is capped, but every number below is computed from separate
+  // aggregates over the FULL window so a busy group can't undercount them.
+  const window = { date: { gte: last30[0] } };
 
-  const myTotal = sessions
-    .filter((s) => s.userId === me.id)
-    .reduce((a, s) => a + s.minutes, 0);
+  const [groupAgg, myAgg, myBySubject, recentNotes] = await Promise.all([
+    // Group total across ALL members (minutes only; no notes/attachments).
+    db.studySession.aggregate({ where: window, _sum: { minutes: true } }),
+    // Your own total, independent of the list cap or other people's sessions.
+    db.studySession.aggregate({
+      where: { ...window, userId: me.id },
+      _sum: { minutes: true },
+    }),
+    db.studySession.groupBy({
+      by: ["subject"],
+      where: { ...window, userId: me.id },
+      _sum: { minutes: true },
+    }),
+    // A short preview of the shared notes so study material is one click away.
+    db.note.findMany({
+      include: { author: { select: { id: true, name: true, color: true, image: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+    }),
+  ]);
+
+  const myTotal = myAgg._sum.minutes ?? 0;
   const groupTotal = groupAgg._sum.minutes ?? 0;
-  const bySubject = sessions
-    .filter((s) => s.userId === me.id)
-    .reduce<Record<string, number>>((acc, s) => {
-      acc[s.subject] = (acc[s.subject] ?? 0) + s.minutes;
-      return acc;
-    }, {});
-  const subjectRows = Object.entries(bySubject).sort((a, b) => b[1] - a[1]);
+  const subjectRows = myBySubject
+    .map((r) => [r.subject, r._sum.minutes ?? 0] as [string, number])
+    .sort((a, b) => b[1] - a[1]);
   const maxSubject = Math.max(1, ...subjectRows.map(([, v]) => v));
 
   return (
@@ -51,8 +64,19 @@ export default async function StudyPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
+        <div className="flex flex-col gap-6 lg:col-span-1">
+          <FocusTimer />
           <StudyForm today={today} />
+          <StudyNotesPanel
+            meId={me.id}
+            notes={recentNotes.map((n) => ({
+              id: n.id,
+              title: n.title,
+              subject: n.subject,
+              authorName: n.author.name,
+              authorId: n.authorId,
+            }))}
+          />
         </div>
 
         <div className="flex flex-col gap-6 lg:col-span-2">
