@@ -5,12 +5,14 @@ import { db } from "../db";
 import { requireAdmin } from "../auth";
 import {
   cleanText,
+  isBlobUrl,
   isHexColor,
   isValidTimezone,
   HANDLE_RE,
 } from "../validation";
 import { hashPassword, validatePassword } from "../security";
 import { audit } from "../audit";
+import { deleteBlobs } from "../blob";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -75,16 +77,17 @@ export async function adminUpdateUser(formData: FormData): Promise<ActionResult>
   if (imageRaw !== null) {
     const value = String(imageRaw).trim();
     if (!value) data.image = null;
-    else if (
-      value.startsWith("https://") ||
-      value.startsWith("http://localhost") ||
-      value.startsWith("data:image/")
-    )
-      data.image = value;
+    else if (isBlobUrl(value) && value.length <= 500) data.image = value;
     else return { ok: false, error: "That image couldn't be saved." };
   }
 
   await db.user.update({ where: { id: userId }, data });
+
+  // Clean up the previous avatar if this update replaced or cleared it.
+  if (data.image !== undefined && target.image && target.image !== data.image) {
+    await deleteBlobs([target.image]);
+  }
+
   await audit(me.id, "user.update", {
     targetId: userId,
     detail: `@${target.handle} -> @${handle}`,
@@ -190,7 +193,20 @@ export async function adminDeleteUser(formData: FormData): Promise<ActionResult>
     return { ok: false, error: "You can't delete the last admin." };
   }
 
+  // Gather every blob this user owns (avatar + study attachments) so storage
+  // doesn't keep files nobody references anymore.
+  const ownedSessions = await db.studySession.findMany({
+    where: { userId },
+    select: { image: true, fileUrl: true },
+  });
+
   await db.user.delete({ where: { id: userId } });
+
+  await deleteBlobs([
+    target.image,
+    ...ownedSessions.flatMap((s) => [s.image, s.fileUrl]),
+  ]);
+
   await audit(me.id, "user.delete", {
     targetId: userId,
     detail: `deleted @${target.handle}`,

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { todayStr } from "../dates";
-import { cleanText, validateLogDate } from "../validation";
+import { cleanText, isBlobUrl, validateLogDate } from "../validation";
+import { deleteBlobs } from "../blob";
 import type { ActionResult } from "./tasks";
 
 const MAX_MINUTES = 24 * 60;
@@ -65,12 +66,8 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
   let imageData: string | null = null;
   if (image && typeof image === "string" && image.trim()) {
     const value = image.trim();
-    // Accept a blob URL from our upload endpoint, or a data URL fallback.
-    const ok =
-      value.startsWith("https://") ||
-      value.startsWith("http://localhost") ||
-      value.startsWith("data:image/");
-    if (!ok || value.length > 5_000_000) {
+    // Only our own Blob storage is accepted — no external links, no base64.
+    if (!isBlobUrl(value) || value.length > 500) {
       return { ok: false, error: "That image couldn't be saved." };
     }
     imageData = value;
@@ -79,9 +76,9 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
   let url: string | null = null;
   if (fileUrl && typeof fileUrl === "string" && fileUrl.trim()) {
     const value = fileUrl.trim();
-    if (!/^https?:\/\//.test(value))
-      return { ok: false, error: "Attachment link must be a valid URL." };
-    url = value.slice(0, 500);
+    if (!isBlobUrl(value) || value.length > 500)
+      return { ok: false, error: "Attachments must be uploaded through the app." };
+    url = value;
   }
   let name: string | null = null;
   if (fileName && typeof fileName === "string" && fileName.trim()) {
@@ -155,12 +152,7 @@ export async function updateStudySession(
   if (imageRaw !== null) {
     const value = String(imageRaw).trim();
     if (!value) data.image = null;
-    else if (
-      value.startsWith("https://") ||
-      value.startsWith("http://localhost") ||
-      value.startsWith("data:image/")
-    )
-      data.image = value;
+    else if (isBlobUrl(value) && value.length <= 500) data.image = value;
     else return { ok: false, error: "That image couldn't be saved." };
   }
 
@@ -169,17 +161,24 @@ export async function updateStudySession(
     if (!value) {
       data.fileUrl = null;
       data.fileName = null;
-    } else if (/^https?:\/\//.test(value)) {
-      data.fileUrl = value.slice(0, 500);
+    } else if (isBlobUrl(value) && value.length <= 500) {
+      data.fileUrl = value;
       data.fileName = fileNameRaw ? String(fileNameRaw).trim().slice(0, 200) : null;
     } else {
-      return { ok: false, error: "Attachment link must be a valid URL." };
+      return { ok: false, error: "Attachments must be uploaded through the app." };
     }
   }
 
   if (sharedRaw !== null) data.shared = String(sharedRaw) === "true";
 
   await db.studySession.update({ where: { id }, data });
+
+  // Remove blobs that this edit replaced or cleared.
+  await deleteBlobs([
+    existing.image !== data.image ? existing.image : null,
+    existing.fileUrl !== data.fileUrl ? existing.fileUrl : null,
+  ]);
+
   refresh();
   return { ok: true };
 }
@@ -191,11 +190,18 @@ export async function deleteStudySession(
   const me = await requireUser();
   const id = String(formData.get("sessionId") ?? "");
   if (!id) return { ok: false, error: "Session not found." };
-  const result = await db.studySession.deleteMany({
-    where: { id, userId: me.id },
+
+  // Read first so we know which blobs to clean up after the row is gone.
+  const existing = await db.studySession.findUnique({
+    where: { id },
+    select: { userId: true, image: true, fileUrl: true },
   });
-  if (result.count === 0)
+  if (!existing || existing.userId !== me.id)
     return { ok: false, error: "You can only delete your own sessions." };
+
+  await db.studySession.delete({ where: { id } });
+  await deleteBlobs([existing.image, existing.fileUrl]);
+
   refresh();
   return { ok: true };
 }

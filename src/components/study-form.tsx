@@ -42,8 +42,8 @@ export function StudyForm({ today }: { today: string }) {
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = e.target.files?.[0];
     if (!picked) return;
-    if (picked.size > 4 * 1024 * 1024) {
-      toast("File must be under 4MB", "error");
+    if (picked.size > 3.5 * 1024 * 1024) {
+      toast("File must be under 3.5MB", "error");
       e.target.value = "";
       return;
     }
@@ -194,6 +194,11 @@ export function StudyForm({ today }: { today: string }) {
           />
           Share this session with the group
         </label>
+        <p className="text-xs text-muted">
+          Uploaded files are stored with a private, hard-to-guess link. Anyone who
+          has the link can open it, even after you unshare, so don&apos;t upload
+          anything you wouldn&apos;t want copied.
+        </p>
         <Button type="submit" disabled={pending || uploading}>
           {uploading ? "Uploading…" : pending ? "Logging…" : "Log session"}
         </Button>

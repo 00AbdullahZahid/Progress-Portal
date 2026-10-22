@@ -106,8 +106,12 @@ Study attachments and profile pictures are stored with **Vercel Blob**:
 3. Redeploy.
 
 If the token is unset, uploads are disabled with a clear message but the rest of
-the app keeps working. Uploads are capped at 4MB (2MB for avatars) and limited to
-images and common document types.
+the app keeps working. Files are capped at 3.5MB (2MB for avatars), limited to
+images and common document types (no SVG or HTML), checked by extension and
+magic bytes, and rate-limited to 20 uploads per hour per user. Uploaded files use
+private, hard-to-guess links — anyone with the link can open them, so treat them
+as shareable rather than secret. Replaced and deleted files are cleaned up from
+storage automatically.
 
 Generate a secret with:
 
@@ -178,7 +182,7 @@ src/
 - Admin-only actions (projects, goals, tasks, channels, user management, password resets) are enforced on the server, not just hidden in the UI.
 - Admin mutations are recorded in an `AuditLog` and visible on the Admin page.
 - Habit and study actions are scoped to the current user — you can only edit or delete your own sessions, and only `shared` sessions are visible to others.
-- Uploads are validated by size and MIME type in `/api/upload`, require a signed-in session, and use randomized blob paths.
+- Uploads are validated by size, MIME type, extension, and magic bytes in `/api/upload`, require a signed-in session, are rate-limited per user, and use randomized blob paths. Replaced or deleted files are removed from Blob storage.
 - Security headers and a Content-Security-Policy are set in `next.config.ts`.
 
 ## Tech choices (and why)

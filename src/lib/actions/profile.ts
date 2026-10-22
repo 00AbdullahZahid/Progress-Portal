@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
-import { cleanText, isHexColor, isValidTimezone } from "../validation";
+import { cleanText, isBlobUrl, isHexColor, isValidTimezone } from "../validation";
+import { deleteBlobs } from "../blob";
 import type { ActionResult } from "./tasks";
 
 export async function updateProfile(formData: FormData): Promise<ActionResult> {
@@ -21,27 +22,37 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
   if (!isValidTimezone(timezone))
     return { ok: false, error: "Please choose a valid timezone." };
 
+  // The settings form always sends `image`: a Blob URL to set it, an empty
+  // string to clear it. When the field is absent we leave the photo untouched,
+  // matching how adminUpdateUser behaves.
   const image = formData.get("image");
-  let imageData: string | null = null;
-  if (image && typeof image === "string" && image.trim()) {
-    const value = image.trim();
-    // Accept a blob URL from our upload endpoint (https) or a data URL as a
-    // legacy fallback, but never store arbitrary oversized strings.
-    const ok =
-      value.startsWith("https://") ||
-      value.startsWith("http://localhost") ||
-      value.startsWith("data:image/");
-    if (!ok || value.length > 5_000_000) {
-      return { ok: false, error: "That image couldn't be saved." };
-    }
-    imageData = value;
+  let imageData: string | null | undefined;
+  if (image !== null) {
+    const value = String(image).trim();
+    if (!value) imageData = null;
+    else if (isBlobUrl(value) && value.length <= 500) imageData = value;
+    else return { ok: false, error: "That image couldn't be saved." };
   }
+
+  const before = await db.user.findUnique({
+    where: { id: me.id },
+    select: { image: true },
+  });
 
   await db.user.update({
     where: { id: me.id },
-    // `image` is always written, so clearing the photo (empty field) works.
-    data: { name: nameRes.value, color, timezone, image: imageData },
+    data: {
+      name: nameRes.value,
+      color,
+      timezone,
+      ...(imageData !== undefined ? { image: imageData } : {}),
+    },
   });
+
+  // Delete the old avatar if it was replaced or cleared.
+  if (imageData !== undefined && before?.image && before.image !== imageData) {
+    await deleteBlobs([before.image]);
+  }
 
   revalidatePath("/settings");
   revalidatePath("/dashboard");

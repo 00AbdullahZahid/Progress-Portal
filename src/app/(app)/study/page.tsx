@@ -19,12 +19,21 @@ export default async function StudyPage() {
     },
     include: { user: true },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    take: 50,
+  });
+
+  // The group total is a separate aggregate over ALL sessions in the window, so
+  // private sessions from other members are counted. It sums minutes only and
+  // never loads notes or attachments, so nothing private is exposed.
+  const groupAgg = await db.studySession.aggregate({
+    where: { date: { gte: last30[0] } },
+    _sum: { minutes: true },
   });
 
   const myTotal = sessions
     .filter((s) => s.userId === me.id)
     .reduce((a, s) => a + s.minutes, 0);
-  const groupTotal = sessions.reduce((a, s) => a + s.minutes, 0);
+  const groupTotal = groupAgg._sum.minutes ?? 0;
   const bySubject = sessions
     .filter((s) => s.userId === me.id)
     .reduce<Record<string, number>>((acc, s) => {
@@ -85,7 +94,7 @@ export default async function StudyPage() {
               <EmptyState icon={<StudyIcon />} title="No sessions logged" hint="Log your first study session on the left." />
             ) : (
               <SessionList
-                sessions={sessions.slice(0, 50).map((s) => ({
+                sessions={sessions.map((s) => ({
                   id: s.id,
                   subject: s.subject,
                   minutes: s.minutes,

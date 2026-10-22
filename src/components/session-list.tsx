@@ -96,6 +96,25 @@ export function SessionList({
     setEditImage(res.url);
   }
 
+  async function onEditFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    if (picked.size > 3.5 * 1024 * 1024) {
+      toast("File must be under 3.5MB", "error");
+      e.target.value = "";
+      return;
+    }
+    setUploading(true);
+    const res = await uploadFile(picked);
+    setUploading(false);
+    if (!res.ok) {
+      toast(res.error, "error");
+      e.target.value = "";
+      return;
+    }
+    setEditFile({ url: res.url, name: res.name });
+  }
+
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editing || saving) return;
@@ -214,22 +233,30 @@ export function SessionList({
                         ) : null}
                       </div>
                     </div>
-                    <label className="block">
+                    <div className="block">
                       <span className="mb-1 block text-[11px] font-medium text-muted">
                         Attachment
                       </span>
-                      <Input
-                        value={editFile?.url ?? ""}
-                        placeholder="https://..."
-                        onChange={(e) =>
-                          setEditFile(
-                            e.target.value.trim()
-                              ? { url: e.target.value, name: editFile?.name || "Attachment" }
-                              : null
-                          )
-                        }
-                      />
-                    </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept=".pdf,.txt,.doc,.docx,.xls,.xlsx"
+                          onChange={onEditFile}
+                          disabled={uploading}
+                          className="text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface2 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
+                        />
+                        {editFile ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditFile(null)}
+                            className="max-w-[8rem] truncate text-[11px] text-muted underline hover:text-ink"
+                            title={editFile.name}
+                          >
+                            {editFile.name} &times;
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
 
                   <label className="flex items-center gap-2 text-xs">

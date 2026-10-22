@@ -85,3 +85,23 @@ export function cleanText(
 }
 
 export const HANDLE_RE = /^[a-z0-9_]{2,20}$/;
+
+/**
+ * True only for URLs served by Vercel Blob storage.
+ *
+ * Uploads always produce a URL like
+ *   https://<store>.public.blob.vercel-storage.com/uploads/...
+ * so anything else (an arbitrary external link, a phishing URL, or a base64
+ * `data:` URL) is rejected. The host must END with the Blob domain, which also
+ * blocks look-alikes such as `https://x.public.blob.vercel-storage.com.evil.com`.
+ */
+export function isBlobUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  return url.hostname.endsWith(".public.blob.vercel-storage.com");
+}
