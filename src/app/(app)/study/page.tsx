@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { lastNDays, prettyDate, todayStr } from "@/lib/dates";
+import { lastNDays, todayStr } from "@/lib/dates";
 import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { StudyForm } from "@/components/study-form";
 import { SessionList } from "@/components/session-list";
@@ -11,17 +11,20 @@ export default async function StudyPage() {
   const today = todayStr(me.timezone);
   const last30 = lastNDays(me.timezone, 30);
 
+  // Your own sessions (always) plus other people's sessions they've shared.
   const sessions = await db.studySession.findMany({
-    where: { date: { gte: last30[0] } },
+    where: {
+      date: { gte: last30[0] },
+      OR: [{ userId: me.id }, { shared: true }],
+    },
     include: { user: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });
 
   const myTotal = sessions
     .filter((s) => s.userId === me.id)
     .reduce((a, s) => a + s.minutes, 0);
   const groupTotal = sessions.reduce((a, s) => a + s.minutes, 0);
-
   const bySubject = sessions
     .filter((s) => s.userId === me.id)
     .reduce<Record<string, number>>((acc, s) => {
@@ -82,17 +85,25 @@ export default async function StudyPage() {
               <EmptyState icon={<StudyIcon />} title="No sessions logged" hint="Log your first study session on the left." />
             ) : (
               <SessionList
-                sessions={sessions.slice(0, 20).map((s) => ({
+                sessions={sessions.slice(0, 50).map((s) => ({
                   id: s.id,
                   subject: s.subject,
                   minutes: s.minutes,
                   notes: s.notes,
                   date: s.date,
                   userId: s.userId,
-                  user: { id: s.user.id, name: s.user.name, color: s.user.color },
+                  user: {
+                    id: s.user.id,
+                    name: s.user.name,
+                    color: s.user.color,
+                    image: s.user.image,
+                  },
+                  image: s.image,
+                  fileUrl: s.fileUrl,
+                  fileName: s.fileName,
+                  shared: s.shared,
                 }))}
                 meId={me.id}
-                prettyDate={prettyDate}
                 today={today}
               />
             )}

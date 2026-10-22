@@ -27,12 +27,15 @@ export default async function ChatPage({
 
   const [messages, members] = await Promise.all([
     active
-      ? db.message.findMany({
-          where: { channelId: active.id },
-          include: { author: true },
-          orderBy: { createdAt: "asc" },
-          take: 200,
-        })
+      ? (async () => {
+          const recent = await db.message.findMany({
+            where: { channelId: active.id },
+            include: { author: true },
+            orderBy: { createdAt: "desc" },
+            take: 200,
+          });
+          return recent.reverse();
+        })()
       : Promise.resolve([]),
     db.user.findMany({ orderBy: { name: "asc" } }),
   ]);
@@ -51,12 +54,14 @@ export default async function ChatPage({
             id: m.author.id,
             name: m.author.name,
             color: m.author.color,
+            image: m.author.image,
           },
         }))}
         members={members.map((u) => ({
           id: u.id,
           name: u.name,
           color: u.color,
+          image: u.image,
         }))}
         meId={me.id}
         isAdmin={me.role === "admin"}

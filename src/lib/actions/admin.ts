@@ -61,10 +61,30 @@ export async function adminUpdateUser(formData: FormData): Promise<ActionResult>
   });
   if (clash) return { ok: false, error: "That username is already taken." };
 
-  await db.user.update({
-    where: { id: userId },
-    data: { name: nameRes.value, handle, role, color, timezone },
-  });
+  // Optional: a super admin may set or clear another user's photo.
+  const imageRaw = formData.get("image");
+  const data: {
+    name: string;
+    handle: string;
+    role: "admin" | "member";
+    color: string;
+    timezone: string;
+    image?: string | null;
+  } = { name: nameRes.value, handle, role, color, timezone };
+
+  if (imageRaw !== null) {
+    const value = String(imageRaw).trim();
+    if (!value) data.image = null;
+    else if (
+      value.startsWith("https://") ||
+      value.startsWith("http://localhost") ||
+      value.startsWith("data:image/")
+    )
+      data.image = value;
+    else return { ok: false, error: "That image couldn't be saved." };
+  }
+
+  await db.user.update({ where: { id: userId }, data });
   await audit(me.id, "user.update", {
     targetId: userId,
     detail: `@${target.handle} -> @${handle}`,
@@ -159,10 +179,16 @@ export async function adminDeleteUser(formData: FormData): Promise<ActionResult>
   const me = await requireAdmin();
   const userId = String(formData.get("userId") ?? "");
 
+  if (userId === me.id)
+    return { ok: false, error: "You can't delete your own account." };
+
   const target = await db.user.findUnique({ where: { id: userId } });
   if (!target) return { ok: false, error: "User not found." };
-  if (target.id === me.id)
-    return { ok: false, error: "You can't delete your own account." };
+
+  const adminCount = await db.user.count({ where: { role: "admin" } });
+  if (target.role === "admin" && adminCount <= 1) {
+    return { ok: false, error: "You can't delete the last admin." };
+  }
 
   await db.user.delete({ where: { id: userId } });
   await audit(me.id, "user.delete", {

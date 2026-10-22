@@ -295,164 +295,165 @@ export function TaskBoard({
             </form>
           ) : null}
 
-          {/* Task columns */}
-          <div className="grid gap-4 md:grid-cols-3">
-            {(["todo", "doing", "done"] as const).map((status) => {
-              const list = project.tasks.filter((t) => t.status === status);
+          {/* Flat task list (no status columns) */}
+          <div className="flex flex-col gap-2">
+            {project.tasks.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted">
+                No tasks yet
+              </p>
+            ) : null}
+            {project.tasks.map((task) => {
+              const canMove =
+                isAdmin || (task.assignee !== null && task.assignee.id === meId);
               return (
-                <div key={status} className="flex flex-col gap-2">
-                  <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
-                    <span className={`h-2 w-2 rounded-full ${statusMeta[status].dot}`} />
-                    {statusMeta[status].label} ({list.length})
-                  </p>
-                  {list.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted">
-                      Nothing here
-                    </p>
-                  ) : null}
-                  {list.map((task) => {
-                    const canMove =
-                      isAdmin || (task.assignee !== null && task.assignee.id === meId);
-                    return (
-                    <div
-                      key={task.id}
-                      className="rounded-xl border border-border bg-surface2/50 p-3"
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={`text-sm font-medium ${
-                              task.status === "done" ? "text-muted line-through" : ""
-                            }`}
-                          >
-                            {task.title}
-                          </p>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            <Badge kind={task.priority} />
-                            {task.goal ? (
-                              <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] text-brand">
-                                {task.goal.title.slice(0, 18)}
-                              </span>
-                            ) : null}
-                            {task.dueDate ? (
-                              <span className="text-[11px] text-muted">
-                                due {new Date(task.dueDate).toLocaleDateString()}
-                              </span>
-                            ) : null}
-                          </div>
-
-                          {/* Explicit status buttons — no more cycling. */}
-                          <div className="mt-2 flex flex-wrap items-center gap-1">
-                            {(["todo", "doing", "done"] as const).map((s) => (
-                              <form key={s} action={act(setTaskStatus, "Task updated")}>
-                                <input type="hidden" name="taskId" value={task.id} />
-                                <input type="hidden" name="status" value={s} />
-                                <button
-                                  type="submit"
-                                  disabled={!canMove || task.status === s}
-                                  aria-label={`Mark as ${statusMeta[s].label}`}
-                                  aria-pressed={task.status === s}
-                                  title={
-                                    canMove
-                                      ? `Mark as ${statusMeta[s].label}`
-                                      : "Only the assignee or an admin can change this"
-                                  }
-                                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                                    task.status === s
-                                      ? "bg-brand text-white"
-                                      : canMove
-                                        ? "text-muted hover:bg-surface2 hover:text-ink"
-                                        : "cursor-not-allowed text-muted/50"
-                                  }`}
-                                >
-                                  {statusMeta[s].label}
-                                </button>
-                              </form>
-                            ))}
-                          </div>
-
-                          <div className="mt-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {task.assignee ? (
-                                <Avatar user={task.assignee} size="sm" />
-                              ) : (
-                                <span className="text-[11px] text-muted">unassigned</span>
-                              )}
-                              <button
-                                type="button"
-                                aria-expanded={Boolean(openComments[task.id])}
-                                aria-label={`Comments (${task.comments.length})`}
-                                onClick={() =>
-                                  setOpenComments((o) => ({ ...o, [task.id]: !o[task.id] }))
-                                }
-                                className="flex items-center gap-1 text-xs text-muted hover:text-ink"
-                              >
-                                <ChatIcon width={14} height={14} />
-                                {task.comments.length}
-                              </button>
-                            </div>
-                            {isAdmin ? (
-                              <form
-                                onSubmit={askDelete({
-                                  title: "Delete this task?",
-                                  body: `"${task.title}" and its comments will be permanently removed.`,
-                                  confirmLabel: "Delete task",
-                                  run: deleteTask,
-                                  data: (() => {
-                                    const fd = new FormData();
-                                    fd.set("taskId", task.id);
-                                    return fd;
-                                  })(),
-                                  success: "Task deleted",
-                                })}
-                              >
-                                <input type="hidden" name="taskId" value={task.id} />
-                                <button
-                                  type="submit"
-                                  className="text-xs text-muted hover:text-rose-600"
-                                  title="Delete task"
-                                  aria-label="Delete task"
-                                >
-                                  <XIcon width={16} height={16} />
-                                </button>
-                              </form>
-                            ) : null}
-                          </div>
-
-                          {openComments[task.id] ? (
-                            <div className="mt-2 flex flex-col gap-2 border-t border-border pt-2">
-                              {task.comments.map((c) => (
-                                <div key={c.id} className="flex items-start gap-1.5">
-                                  <Avatar user={c.author} size="sm" />
-                                  <p className="text-xs">
-                                    <span className="font-semibold">{c.author.name}</span>{" "}
-                                    {c.body}
-                                  </p>
-                                </div>
-                              ))}
-                              <form
-                                action={act(addComment, "Comment added")}
-                                className="flex items-center gap-1.5"
-                              >
-                                <input type="hidden" name="taskId" value={task.id} />
-                                <Input
-                                  name="body"
-                                  aria-label="Write a comment"
-                                  placeholder="Write a comment…"
-                                  className="text-xs"
-                                  required
-                                />
-                                <Button type="submit" variant="outline" className="px-2.5 py-1.5 text-xs">
-                                  Send
-                                </Button>
-                              </form>
-                            </div>
-                          ) : null}
-                        </div>
+                <div
+                  key={task.id}
+                  className="rounded-xl border border-border bg-surface2/50 p-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-sm font-medium ${
+                          task.status === "done" ? "text-muted line-through" : ""
+                        }`}
+                      >
+                        {task.title}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <Badge kind={task.priority} />
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            task.status === "done"
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                              : task.status === "doing"
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                : "bg-surface2 text-muted"
+                          }`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${statusMeta[task.status]?.dot ?? "bg-muted"}`} />
+                          {statusMeta[task.status]?.label ?? task.status}
+                        </span>
+                        {task.goal ? (
+                          <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] text-brand">
+                            {task.goal.title.slice(0, 18)}
+                          </span>
+                        ) : null}
+                        {task.dueDate ? (
+                          <span className="text-[11px] text-muted">
+                            due {new Date(task.dueDate).toLocaleDateString()}
+                          </span>
+                        ) : null}
                       </div>
+
+                      {/* Explicit status buttons — no more cycling. */}
+                      <div className="mt-2 flex flex-wrap items-center gap-1">
+                        {(["todo", "doing", "done"] as const).map((s) => (
+                          <form key={s} action={act(setTaskStatus, "Task updated")}>
+                            <input type="hidden" name="taskId" value={task.id} />
+                            <input type="hidden" name="status" value={s} />
+                            <button
+                              type="submit"
+                              disabled={!canMove || task.status === s}
+                              aria-label={`Mark as ${statusMeta[s].label}`}
+                              aria-pressed={task.status === s}
+                              title={
+                                canMove
+                                  ? `Mark as ${statusMeta[s].label}`
+                                  : "Only the assignee or an admin can change this"
+                              }
+                              className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                                task.status === s
+                                  ? "bg-brand text-white"
+                                  : canMove
+                                    ? "text-muted hover:bg-surface2 hover:text-ink"
+                                    : "cursor-not-allowed text-muted/50"
+                              }`}
+                            >
+                              {statusMeta[s].label}
+                            </button>
+                          </form>
+                        ))}
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {task.assignee ? (
+                            <Avatar user={task.assignee} size="sm" />
+                          ) : (
+                            <span className="text-[11px] text-muted">unassigned</span>
+                          )}
+                          <button
+                            type="button"
+                            aria-expanded={Boolean(openComments[task.id])}
+                            aria-label={`Comments (${task.comments.length})`}
+                            onClick={() =>
+                              setOpenComments((o) => ({ ...o, [task.id]: !o[task.id] }))
+                            }
+                            className="flex items-center gap-1 text-xs text-muted hover:text-ink"
+                          >
+                            <ChatIcon width={14} height={14} />
+                            {task.comments.length}
+                          </button>
+                        </div>
+                        {isAdmin ? (
+                          <form
+                            onSubmit={askDelete({
+                              title: "Delete this task?",
+                              body: `"${task.title}" and its comments will be permanently removed.`,
+                              confirmLabel: "Delete task",
+                              run: deleteTask,
+                              data: (() => {
+                                const fd = new FormData();
+                                fd.set("taskId", task.id);
+                                return fd;
+                              })(),
+                              success: "Task deleted",
+                            })}
+                          >
+                            <input type="hidden" name="taskId" value={task.id} />
+                            <button
+                              type="submit"
+                              className="text-xs text-muted hover:text-rose-600"
+                              title="Delete task"
+                              aria-label="Delete task"
+                            >
+                              <XIcon width={16} height={16} />
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+
+                      {openComments[task.id] ? (
+                        <div className="mt-2 flex flex-col gap-2 border-t border-border pt-2">
+                          {task.comments.map((c) => (
+                            <div key={c.id} className="flex items-start gap-1.5">
+                              <Avatar user={c.author} size="sm" />
+                              <p className="text-xs">
+                                <span className="font-semibold">{c.author.name}</span>{" "}
+                                {c.body}
+                              </p>
+                            </div>
+                          ))}
+                          <form
+                            action={act(addComment, "Comment added")}
+                            className="flex items-center gap-1.5"
+                          >
+                            <input type="hidden" name="taskId" value={task.id} />
+                            <Input
+                              name="body"
+                              aria-label="Write a comment"
+                              placeholder="Write a comment…"
+                              className="text-xs"
+                              required
+                            />
+                            <Button type="submit" variant="outline" className="px-2.5 py-1.5 text-xs">
+                              Send
+                            </Button>
+                          </form>
+                        </div>
+                      ) : null}
                     </div>
-                    );
-                  })}
+                  </div>
                 </div>
               );
             })}

@@ -36,6 +36,7 @@ model User {
   name         String
   role         Role     @default(member)
   color        String   @default("#2563eb")
+  image        String?
   passwordHash String
   timezone     String   @default("UTC")
   isActive     Boolean  @default(true)
@@ -143,6 +144,10 @@ model StudySession {
   minutes   Int
   notes     String?
   date      String
+  image     String?
+  fileUrl   String?
+  fileName  String?
+  shared    Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([userId])

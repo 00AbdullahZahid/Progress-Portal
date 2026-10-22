@@ -52,7 +52,7 @@ export default async function SettingsPage() {
       <PageHeader title="Settings" subtitle="Your profile, password, and preferences." />
 
       <ProfileForm
-        user={{ name: me.name, color: me.color, timezone: me.timezone }}
+        user={{ name: me.name, color: me.color, timezone: me.timezone, image: me.image }}
         timezones={timezones}
       />
 

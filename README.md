@@ -11,10 +11,11 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Members and auth** — Invite-only. Username + password login (scrypt-hashed). One or more **super admin** accounts.
 - **Super admin** — Admins can add, deactivate, reactivate, and delete users; edit anyone's details (name, username, color, timezone, role); and reset any member's password. Creating and deleting projects, goals, tasks, and chat channels is admin-only, enforced on the server.
 - **Admin dashboard** — A dedicated super-admin page with group stats, a user manager, and recent audit activity.
-- **Tasks and projects** — Projects, goals, and tasks with status columns (todo / doing / done), assignees, priorities, due dates, and progress bars. Assignees (and admins) can move a task's status.
+- **Tasks and projects** — Projects, goals, and tasks with status badges (todo / doing / done), assignees, priorities, due dates, and progress bars. Assignees (and admins) can move a task's status.
 - **Comments** — Comment threads on any task.
 - **Habits and check-ins** — Daily habit grid with streaks that keep counting past the current record.
-- **Study log** — Log sessions (subject, minutes, notes, date) with per-subject progress bars and inline editing.
+- **Study log** — Log sessions (subject, minutes, notes, date) with optional image and file attachments, per-subject progress bars, and inline editing. Sessions you mark as shared are visible to the rest of the group; private ones stay yours.
+- **Profile pictures** — Upload a photo from Settings (or the admin page for any member); it shows up next to your name everywhere. Falls back to colored initials when unset.
 - **Group chat** — Real-time-ish chat with polling (no extra infra needed). Messages can be edited by their author and deleted by the author or an admin; edits and deletes sync into other open windows.
 - **Dashboard** — 7-day leaderboard, tasks-completed chart, study-minutes chart, study-by-person breakdown, and quick links to every section. Charts load lazily so the first paint stays fast.
 - **Polished flow** — Toast notifications, confirmation dialogs for destructive actions, inline validation, and empty states on every screen.
@@ -90,9 +91,23 @@ APP_URL="http://localhost:3000"
 ADMIN_HANDLES="admin"                  # usernames to create as super admins
 SEED_MEMBERS="0"                        # "1" only for local dev
 # SEED_ADMIN_PASSWORD=""               # optional; random when unset
+# BLOB_READ_WRITE_TOKEN=""             # Vercel Blob token for uploads
 ```
 
 `.env` is git-ignored. Only `.env.example` (placeholders) is committed.
+
+### File uploads (Vercel Blob)
+
+Study attachments and profile pictures are stored with **Vercel Blob**:
+
+1. In the Vercel dashboard, open **Storage > Blob** and create a store.
+2. Copy its **read/write token** into `BLOB_READ_WRITE_TOKEN` (locally in `.env`,
+   and in the Vercel project's environment variables).
+3. Redeploy.
+
+If the token is unset, uploads are disabled with a clear message but the rest of
+the app keeps working. Uploads are capped at 4MB (2MB for avatars) and limited to
+images and common document types.
 
 Generate a secret with:
 
@@ -117,7 +132,7 @@ This app uses **Postgres** so it can run both locally and on Vercel (SQLite does
 
 ### Deploying to Vercel
 
-1. In the Vercel project, add environment variables: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `APP_URL`, and `ADMIN_HANDLES` (leave `SEED_ADMIN_PASSWORD` unset unless you want a known password).
+1. In the Vercel project, add environment variables: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `APP_URL`, `ADMIN_HANDLES`, and `BLOB_READ_WRITE_TOKEN` (leave `SEED_ADMIN_PASSWORD` unset unless you want a known password).
 2. Deploy. The `postinstall` script runs `prisma generate` automatically.
 3. Run the schema and seed against the production database (locally, with the prod URLs in `.env`):
    ```bash
@@ -137,6 +152,7 @@ src/
   app/
     (app)/               # Authenticated pages (dashboard, admin, tasks, habits, study, chat, people, settings)
     api/chat/            # Chat polling endpoint
+    api/upload/          # File upload endpoint (Vercel Blob)
     login/               # Login page
     error.tsx            # Route error boundary
     not-found.tsx        # 404 page
@@ -150,6 +166,7 @@ src/
     validation.ts        # Shared input validation
     rate-limit.ts        # Login attempt throttling
     audit.ts             # Admin action audit logging
+    upload-client.ts     # Client helper for the upload endpoint
   middleware.ts          # Cookie-presence auth gate for app routes
 ```
 
@@ -160,7 +177,8 @@ src/
 - The production build refuses to start without a `AUTH_SECRET`.
 - Admin-only actions (projects, goals, tasks, channels, user management, password resets) are enforced on the server, not just hidden in the UI.
 - Admin mutations are recorded in an `AuditLog` and visible on the Admin page.
-- Habit and study actions are scoped to the current user.
+- Habit and study actions are scoped to the current user — you can only edit or delete your own sessions, and only `shared` sessions are visible to others.
+- Uploads are validated by size and MIME type in `/api/upload`, require a signed-in session, and use randomized blob paths.
 - Security headers and a Content-Security-Policy are set in `next.config.ts`.
 
 ## Tech choices (and why)

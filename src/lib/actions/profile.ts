@@ -21,9 +21,26 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
   if (!isValidTimezone(timezone))
     return { ok: false, error: "Please choose a valid timezone." };
 
+  const image = formData.get("image");
+  let imageData: string | null = null;
+  if (image && typeof image === "string" && image.trim()) {
+    const value = image.trim();
+    // Accept a blob URL from our upload endpoint (https) or a data URL as a
+    // legacy fallback, but never store arbitrary oversized strings.
+    const ok =
+      value.startsWith("https://") ||
+      value.startsWith("http://localhost") ||
+      value.startsWith("data:image/");
+    if (!ok || value.length > 5_000_000) {
+      return { ok: false, error: "That image couldn't be saved." };
+    }
+    imageData = value;
+  }
+
   await db.user.update({
     where: { id: me.id },
-    data: { name: nameRes.value, color, timezone },
+    // `image` is always written, so clearing the photo (empty field) works.
+    data: { name: nameRes.value, color, timezone, image: imageData },
   });
 
   revalidatePath("/settings");

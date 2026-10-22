@@ -16,7 +16,7 @@ import { currentStreak } from "@/lib/dates";
 import { HabitsIcon, FlameIcon, PlusIcon, XIcon, CheckIcon } from "./icons";
 
 type Habit = { id: string; name: string; checkinDates: string[]; allDates: string[] };
-type GroupMember = { id: string; name: string; color: string };
+type GroupMember = { id: string; name: string; color: string; image?: string | null };
 
 export function HabitTracker({
   habits,

@@ -37,6 +37,7 @@ export default async function HabitsPage() {
       id: c.habit.owner.id,
       name: c.habit.owner.name,
       color: c.habit.owner.color,
+      image: c.habit.owner.image,
     },
   }));
 

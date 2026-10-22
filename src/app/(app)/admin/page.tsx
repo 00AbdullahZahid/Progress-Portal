@@ -92,6 +92,7 @@ export default async function AdminDashboardPage() {
             color: u.color,
             timezone: u.timezone,
             isActive: u.isActive,
+            image: u.image,
           }))}
           meId={me.id}
           timezoneOptions={[

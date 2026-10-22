@@ -57,6 +57,37 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
   const dateRes = validateLogDate(String(formData.get("date") ?? today), today);
   if (!dateRes.ok) return dateRes;
 
+  const image = formData.get("image");
+  const fileUrl = formData.get("fileUrl");
+  const fileName = formData.get("fileName");
+  const shared = formData.get("shared") === "true";
+
+  let imageData: string | null = null;
+  if (image && typeof image === "string" && image.trim()) {
+    const value = image.trim();
+    // Accept a blob URL from our upload endpoint, or a data URL fallback.
+    const ok =
+      value.startsWith("https://") ||
+      value.startsWith("http://localhost") ||
+      value.startsWith("data:image/");
+    if (!ok || value.length > 5_000_000) {
+      return { ok: false, error: "That image couldn't be saved." };
+    }
+    imageData = value;
+  }
+
+  let url: string | null = null;
+  if (fileUrl && typeof fileUrl === "string" && fileUrl.trim()) {
+    const value = fileUrl.trim();
+    if (!/^https?:\/\//.test(value))
+      return { ok: false, error: "Attachment link must be a valid URL." };
+    url = value.slice(0, 500);
+  }
+  let name: string | null = null;
+  if (fileName && typeof fileName === "string" && fileName.trim()) {
+    name = fileName.trim().slice(0, 200);
+  }
+
   await db.studySession.create({
     data: {
       userId: me.id,
@@ -64,6 +95,10 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
       minutes,
       notes: notesRes.value || null,
       date: dateRes.date,
+      image: imageData,
+      fileUrl: url,
+      fileName: name,
+      shared,
     },
   });
   refresh();
@@ -95,15 +130,56 @@ export async function updateStudySession(
   const dateRes = validateLogDate(String(formData.get("date") ?? existing.date), today);
   if (!dateRes.ok) return dateRes;
 
-  await db.studySession.update({
-    where: { id },
-    data: {
-      subject: normalizeSubject(subjectRes.value),
-      minutes,
-      notes: notesRes.value || null,
-      date: dateRes.date,
-    },
-  });
+  // Attachments are optional on edit; only touch them when the form sends them.
+  const imageRaw = formData.get("image");
+  const fileUrlRaw = formData.get("fileUrl");
+  const fileNameRaw = formData.get("fileName");
+  const sharedRaw = formData.get("shared");
+
+  const data: {
+    subject: string;
+    minutes: number;
+    notes: string | null;
+    date: string;
+    image?: string | null;
+    fileUrl?: string | null;
+    fileName?: string | null;
+    shared?: boolean;
+  } = {
+    subject: normalizeSubject(subjectRes.value),
+    minutes,
+    notes: notesRes.value || null,
+    date: dateRes.date,
+  };
+
+  if (imageRaw !== null) {
+    const value = String(imageRaw).trim();
+    if (!value) data.image = null;
+    else if (
+      value.startsWith("https://") ||
+      value.startsWith("http://localhost") ||
+      value.startsWith("data:image/")
+    )
+      data.image = value;
+    else return { ok: false, error: "That image couldn't be saved." };
+  }
+
+  if (fileUrlRaw !== null) {
+    const value = String(fileUrlRaw).trim();
+    if (!value) {
+      data.fileUrl = null;
+      data.fileName = null;
+    } else if (/^https?:\/\//.test(value)) {
+      data.fileUrl = value.slice(0, 500);
+      data.fileName = fileNameRaw ? String(fileNameRaw).trim().slice(0, 200) : null;
+    } else {
+      return { ok: false, error: "Attachment link must be a valid URL." };
+    }
+  }
+
+  if (sharedRaw !== null) data.shared = String(sharedRaw) === "true";
+
+  await db.studySession.update({ where: { id }, data });
   refresh();
   return { ok: true };
 }

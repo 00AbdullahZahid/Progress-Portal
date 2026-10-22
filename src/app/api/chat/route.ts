@@ -66,7 +66,7 @@ type MessageWithAuthor = {
   id: string;
   body: string;
   createdAt: Date;
-  author: { id: string; name: string; color: string };
+  author: { id: string; name: string; color: string; image: string | null };
 };
 
 function serialize(m: MessageWithAuthor) {
@@ -78,6 +78,7 @@ function serialize(m: MessageWithAuthor) {
       id: m.author.id,
       name: m.author.name,
       color: m.author.color,
+      image: m.author.image,
     },
   };
 }

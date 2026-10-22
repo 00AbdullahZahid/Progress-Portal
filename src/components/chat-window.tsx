@@ -14,7 +14,7 @@ type Message = {
   id: string;
   body: string;
   createdAt: string;
-  author: { id: string; name: string; color: string };
+  author: { id: string; name: string; color: string; image?: string | null };
 };
 
 export function ChatWindow({
@@ -28,7 +28,7 @@ export function ChatWindow({
   channels: Channel[];
   activeId: string;
   initialMessages: Message[];
-  members: { id: string; name: string; color: string }[];
+  members: { id: string; name: string; color: string; image?: string | null }[];
   meId: string;
   isAdmin: boolean;
   tz?: string;

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
+    "@vercel/blob": "^2.8.2",
     "jose": "^5.9.6",
     "next": "^15.5.0",
     "react": "^19.0.0",

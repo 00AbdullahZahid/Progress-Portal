@@ -10,10 +10,21 @@ export function Avatar({
   user,
   size = "md",
 }: {
-  user: Pick<User, "name" | "color">;
+  user: Pick<User, "name" | "color"> & { image?: string | null };
   size?: keyof typeof sizes;
 }) {
   const initial = user.name.trim().charAt(0).toUpperCase() || "?";
+  if (user.image) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- avatars are tiny, remote blobs
+      <img
+        src={user.image}
+        alt={user.name}
+        className={`inline-flex shrink-0 select-none rounded-full object-cover ${sizes[size]}`}
+        title={user.name}
+      />
+    );
+  }
   return (
     <span
       className={`inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold text-white ${sizes[size]}`}

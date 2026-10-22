@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/admin";
 import { Card, Button, Input, Select } from "./ui";
 import { Avatar } from "./avatar";
+import { uploadFile } from "@/lib/upload-client";
 import { ConfirmDialog } from "./confirm-dialog";
 import { ShieldIcon, PlusIcon, XIcon, CheckIcon } from "./icons";
 import { useToast } from "./toast";
@@ -22,6 +23,7 @@ type Member = {
   color: string;
   timezone: string;
   isActive: boolean;
+  image?: string | null;
 };
 
 const COLORS = [
@@ -53,10 +55,34 @@ export function AdminUserManager({
   const [showCreate, setShowCreate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Member | null>(null);
   const [msg, setMsg] = useState<{ id: string; type: "ok" | "err"; text: string } | null>(null);
+  // Per-user photo overrides while editing (undefined = leave untouched).
+  const [photos, setPhotos] = useState<Record<string, string | null>>({});
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+  async function uploadPhoto(id: string, file: File | undefined) {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast("Image must be under 2MB", "error");
+      return;
+    }
+    setUploadingId(id);
+    const res = await uploadFile(file);
+    setUploadingId(null);
+    if (!res.ok) {
+      toast(res.error, "error");
+      return;
+    }
+    setPhotos((p) => ({ ...p, [id]: res.url }));
+  }
 
   function save(fd: FormData) {
     const id = String(fd.get("userId"));
     const name = String(fd.get("name") ?? "");
+    // Only send the photo field when this row was edited, so untouched users
+    // keep their current photo.
+    if (Object.prototype.hasOwnProperty.call(photos, id)) {
+      fd.set("image", photos[id] ?? "");
+    }
     setMsg(null);
     setSavingId(id);
     startTransition(async () => {
@@ -241,8 +267,37 @@ export function AdminUserManager({
           >
             <input type="hidden" name="userId" value={m.id} />
             <div className="flex items-start gap-3">
-              <div className="hidden shrink-0 pt-6 sm:block">
-                <Avatar user={{ name: m.name, color: m.color }} size="lg" />
+              <div className="flex shrink-0 flex-col items-center gap-1.5 pt-6">
+                <Avatar
+                  user={{
+                    name: m.name,
+                    color: m.color,
+                    image:
+                      Object.prototype.hasOwnProperty.call(photos, m.id)
+                        ? photos[m.id]
+                        : m.image,
+                  }}
+                  size="lg"
+                />
+                <label className="cursor-pointer text-[10px] text-muted underline hover:text-ink">
+                  {uploadingId === m.id ? "Uploading…" : "Photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    disabled={uploadingId === m.id}
+                    onChange={(e) => uploadPhoto(m.id, e.target.files?.[0])}
+                  />
+                </label>
+                {Object.prototype.hasOwnProperty.call(photos, m.id) && photos[m.id] ? (
+                  <button
+                    type="button"
+                    onClick={() => setPhotos((p) => ({ ...p, [m.id]: null }))}
+                    className="text-[10px] text-muted hover:text-rose-600"
+                  >
+                    Clear
+                  </button>
+                ) : null}
               </div>
               <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="block">
