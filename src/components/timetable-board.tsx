@@ -16,9 +16,17 @@ export type EntryRow = {
   location: string | null;
   color: string;
   ownerId: string;
+  ownerName: string;
 };
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Height of one hour in the calendar, in pixels. */
+const HOUR_PX = 64;
+
+/** The calendar always shows at least 07:00–22:00, stretching for early/late classes. */
+const BASE_START_HOUR = 7;
+const BASE_END_HOUR = 22;
 
 function fmt(min: number): string {
   const h = Math.floor(min / 60);
@@ -26,7 +34,57 @@ function fmt(min: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-export function TimetableBoard({ entries, meId }: { entries: EntryRow[]; meId: string }) {
+type Placed = { entry: EntryRow; col: number; cols: number };
+
+/**
+ * Assign side-by-side columns to classes that overlap in time, so two classes
+ * at 09:00 are both readable instead of covering each other. Classes are
+ * grouped into "clusters" of overlapping times; each cluster shares a column
+ * count so widths stay consistent within it.
+ */
+function placeEntries(entries: EntryRow[]): Placed[] {
+  const sorted = [...entries].sort(
+    (a, b) => a.startMin - b.startMin || a.endMin - b.endMin
+  );
+
+  const placed: Placed[] = [];
+  let cluster: { entry: EntryRow; col: number }[] = [];
+  let columnEnds: number[] = [];
+  let clusterEnd = -1;
+
+  function flush() {
+    if (cluster.length === 0) return;
+    const cols = columnEnds.length;
+    for (const item of cluster) placed.push({ entry: item.entry, col: item.col, cols });
+    cluster = [];
+    columnEnds = [];
+    clusterEnd = -1;
+  }
+
+  for (const entry of sorted) {
+    // A class that starts at or after the end of the current cluster cannot
+    // overlap it, so start a fresh cluster.
+    if (cluster.length > 0 && entry.startMin >= clusterEnd) flush();
+
+    const free = columnEnds.findIndex((end) => end <= entry.startMin);
+    const col = free === -1 ? columnEnds.length : free;
+    columnEnds[col] = entry.endMin;
+
+    cluster.push({ entry, col });
+    clusterEnd = Math.max(clusterEnd, entry.endMin);
+  }
+  flush();
+
+  return placed;
+}
+
+export function TimetableBoard({
+  entries,
+  isAdmin,
+}: {
+  entries: EntryRow[];
+  isAdmin: boolean;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [creating, setCreating] = useState(false);
@@ -61,23 +119,52 @@ export function TimetableBoard({ entries, meId }: { entries: EntryRow[]; meId: s
     router.refresh();
   }
 
-  const mine = entries.filter((e) => e.ownerId === meId);
+  // Fit the visible range to the earliest/latest class, but never shrink below
+  // the base working-day window.
+  let startHour = BASE_START_HOUR;
+  let endHour = BASE_END_HOUR;
+  for (const e of entries) {
+    startHour = Math.min(startHour, Math.floor(e.startMin / 60));
+    endHour = Math.max(endHour, Math.ceil(e.endMin / 60));
+  }
+  startHour = Math.max(0, startHour);
+  endHour = Math.min(24, Math.max(startHour + 1, endHour));
+
+  const hours: number[] = [];
+  for (let h = startHour; h <= endHour; h += 1) hours.push(h);
+  const bodyHeight = (endHour - startHour) * HOUR_PX;
 
   return (
     <div className="flex flex-col gap-4">
       <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-semibold">
-            <CalendarIcon width={18} height={18} className="text-brand" />
-            Weekly classes
-          </h2>
-          <Button type="button" variant="outline" className="px-3 py-1.5 text-sm" onClick={() => setCreating((c) => !c)}>
-            <PlusIcon width={15} height={15} />
-            Add
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold">
+              <CalendarIcon width={18} height={18} className="text-brand" />
+              Group timetable
+            </h2>
+            <p className="mt-1 text-xs text-muted">
+              {entries.length === 0
+                ? isAdmin
+                  ? "No classes yet. Add the first one."
+                  : "No classes yet. An admin can add them."
+                : "Everyone sees this schedule. Only admins can change it."}
+            </p>
+          </div>
+          {isAdmin ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="px-3 py-1.5 text-sm"
+              onClick={() => setCreating((c) => !c)}
+            >
+              <PlusIcon width={15} height={15} />
+              {creating ? "Close" : "Add class"}
+            </Button>
+          ) : null}
         </div>
 
-        {creating ? (
+        {isAdmin && creating ? (
           <form action={submit} className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <label className="block sm:col-span-2">
@@ -115,7 +202,12 @@ export function TimetableBoard({ entries, meId }: { entries: EntryRow[]; meId: s
               <Button type="submit" disabled={busy} className="px-3 py-1.5 text-sm">
                 {busy ? "Saving…" : "Add entry"}
               </Button>
-              <Button type="button" variant="outline" className="px-3 py-1.5 text-sm" onClick={() => setCreating(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="px-3 py-1.5 text-sm"
+                onClick={() => setCreating(false)}
+              >
                 Cancel
               </Button>
             </div>
@@ -123,44 +215,117 @@ export function TimetableBoard({ entries, meId }: { entries: EntryRow[]; meId: s
         ) : null}
       </Card>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
-        {DAYS.map((day, i) => {
-          const list = mine.filter((e) => e.weekday === i).sort((a, b) => a.startMin - b.startMin);
-          return (
-            <Card key={day} className="flex flex-col gap-2 p-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{day}</h3>
-              {list.length === 0 ? (
-                <p className="text-xs text-muted">—</p>
-              ) : (
-                list.map((e) => (
+      <Card className="p-0">
+        <div className="overflow-x-auto">
+          <div className="min-w-[720px]">
+            {/* Day headings */}
+            <div
+              className="grid border-b border-border"
+              style={{ gridTemplateColumns: "56px repeat(7, minmax(0, 1fr))" }}
+            >
+              <div aria-hidden="true" />
+              {DAYS.map((day) => (
+                <div
+                  key={day}
+                  className="border-l border-border py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted"
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Time grid */}
+            <div
+              className="relative grid"
+              style={{
+                gridTemplateColumns: "56px repeat(7, minmax(0, 1fr))",
+                height: `${bodyHeight}px`,
+              }}
+            >
+              {/* Hour labels */}
+              <div className="relative" aria-hidden="true">
+                {hours.map((h) => (
                   <div
-                    key={e.id}
-                    className="group flex items-start justify-between gap-1 rounded-lg px-2 py-1.5 text-xs"
-                    style={{ backgroundColor: e.color + "22", borderLeft: `3px solid ${e.color}` }}
+                    key={h}
+                    className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-muted"
+                    style={{ top: `${(h - startHour) * HOUR_PX}px` }}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-ink">{e.title}</p>
-                      <p className="text-muted">
-                        {fmt(e.startMin)}–{fmt(e.endMin)}
-                      </p>
-                      {e.location ? <p className="truncate text-muted">{e.location}</p> : null}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => remove(e.id)}
-                      title="Remove"
-                      aria-label="Remove"
-                      className="shrink-0 text-muted opacity-0 transition-opacity hover:text-rose-600 group-hover:opacity-100"
-                    >
-                      <XIcon width={13} height={13} />
-                    </button>
+                    {fmt(h * 60)}
                   </div>
-                ))
-              )}
-            </Card>
-          );
-        })}
-      </div>
+                ))}
+              </div>
+
+              {/* One column per day */}
+              {DAYS.map((day, dayIndex) => {
+                const placed = placeEntries(entries.filter((e) => e.weekday === dayIndex));
+                return (
+                  <div key={day} className="relative border-l border-border">
+                    {hours.map((h) => (
+                      <div
+                        key={h}
+                        aria-hidden="true"
+                        className="absolute inset-x-0 border-t border-border"
+                        style={{ top: `${(h - startHour) * HOUR_PX}px` }}
+                      />
+                    ))}
+
+                    {placed.map(({ entry, col, cols }) => {
+                      const top = ((entry.startMin - startHour * 60) / 60) * HOUR_PX;
+                      const height = ((entry.endMin - entry.startMin) / 60) * HOUR_PX;
+                      const wide = cols > 1;
+                      const details = height >= 44;
+                      return (
+                        <div
+                          key={entry.id}
+                          className="group absolute overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-[11px] leading-tight"
+                          style={{
+                            top: `${top}px`,
+                            height: `${Math.max(height, 22)}px`,
+                            left: wide
+                              ? `calc(${(col / cols) * 100}% + 2px)`
+                              : "2px",
+                            width: wide
+                              ? `calc(${100 / cols}% - 4px)`
+                              : "calc(100% - 4px)",
+                            backgroundColor: `${entry.color}22`,
+                            borderLeftColor: entry.color,
+                          }}
+                          title={`${entry.title} - ${fmt(entry.startMin)}-${fmt(entry.endMin)}${
+                            entry.location ? ` - ${entry.location}` : ""
+                          } - added by ${entry.ownerName}`}
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="min-w-0 flex-1 truncate font-semibold text-ink">
+                              {entry.title}
+                            </p>
+                            {isAdmin ? (
+                              <button
+                                type="button"
+                                onClick={() => remove(entry.id)}
+                                title="Remove class"
+                                aria-label={`Remove ${entry.title}`}
+                                className="shrink-0 text-muted opacity-0 transition-opacity hover:text-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
+                              >
+                                <XIcon width={12} height={12} />
+                              </button>
+                            ) : null}
+                          </div>
+                          {details ? (
+                            <p className="truncate text-muted">
+                              {fmt(entry.startMin)}-{fmt(entry.endMin)}
+                              {entry.location ? ` · ${entry.location}` : ""}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

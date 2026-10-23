@@ -4,6 +4,7 @@ import { ProfileForm } from "@/components/profile-form";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { AdminResetPanel } from "@/components/admin-reset-panel";
 import { PreferencesForm } from "@/components/preferences-form";
+import { TutorialPreference } from "@/components/tutorial";
 import { signOut } from "@/lib/actions/auth";
 import { db } from "@/lib/db";
 import { supportedTimezones } from "@/lib/validation";
@@ -67,6 +68,16 @@ export default async function SettingsPage() {
           notifyTasks={me.notifyTasks}
           notifyExams={me.notifyExams}
         />
+      </div>
+
+      <div className="mt-6">
+        <Card>
+          <h2 className="mb-1 font-semibold">Tutorial and feature guide</h2>
+          <p className="mb-3 text-sm text-muted">
+            New here, or need a refresher? The tour walks through each area of the portal.
+          </p>
+          <TutorialPreference />
+        </Card>
       </div>
 
       {isAdmin ? (

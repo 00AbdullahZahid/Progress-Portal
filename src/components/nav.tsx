@@ -25,6 +25,7 @@ import {
   ClassroomIcon,
   TrophyIcon,
   SearchIcon,
+  InfoIcon,
 } from "./icons";
 import { LogoutButton } from "./logout-button";
 import { SIDEBAR_EVENT, readCollapsed } from "./shell";
@@ -73,6 +74,7 @@ export function Nav({ user }: { user: User }) {
     { href: "/search", label: "Search", Icon: SearchIcon, mobile: true },
     { href: "/chat", label: "Chat", Icon: ChatIcon, mobile: true },
     { href: "/people", label: "People", Icon: PeopleIcon, mobile: false },
+    { href: "/guide", label: "Guide", Icon: InfoIcon, mobile: false },
   ];
 
   const isCollapsed = mounted ? collapsed : false;

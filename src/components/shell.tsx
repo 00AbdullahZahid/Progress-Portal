@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Nav } from "./nav";
+import { Tutorial } from "./tutorial";
 import type { User } from "@prisma/client";
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -48,6 +49,7 @@ export function Shell({ user, children }: { user: User; children: React.ReactNod
       >
         {children}
       </main>
+      <Tutorial />
     </div>
   );
 }

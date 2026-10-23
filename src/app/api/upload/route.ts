@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
@@ -14,7 +14,26 @@ import {
 
 export const runtime = "nodejs";
 
+/** Short, loggable description of an unknown error without leaking internals. */
+function describe(err: unknown): string {
+  if (err instanceof Error) return `${err.name}: ${err.message}`;
+  return String(err);
+}
+
 export async function POST(request: Request) {
+  try {
+    return await handleUpload(request);
+  } catch (err) {
+    // Anything unexpected (signature check, auth, request parsing) lands here.
+    console.error("[upload] unexpected error:", describe(err));
+    return NextResponse.json(
+      { error: "Upload failed. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleUpload(request: Request) {
   const me = await getCurrentUser();
   if (!me) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
@@ -87,34 +106,54 @@ export async function POST(request: Request) {
   const folder = isImage ? "images" : "files";
   const path = `uploads/${folder}/${me.id}-${Date.now()}-${safeName(file.name)}`;
 
+  let url: string;
   try {
     const blob = await put(path, file, {
       access: "public",
       contentType: file.type,
       addRandomSuffix: true,
     });
+    url = blob.url;
+  } catch (err) {
+    // Most common here: BLOB_READ_WRITE_TOKEN is missing, revoked, or belongs
+    // to a Blob store that is not linked to this project.
+    console.error("[upload] put() failed:", describe(err));
+    return NextResponse.json(
+      { error: "Storage is unavailable right now. Please try again later." },
+      { status: 502 }
+    );
+  }
 
-    // Record ownership so actions can later prove who a file belongs to before
-    // deleting it. `claimedAt` stays null until a form attaches it to a row.
+  // Record ownership so actions can later prove who a file belongs to before
+  // deleting it. `claimedAt` stays null until a form attaches it to a row.
+  try {
     await db.upload.create({
       data: {
-        url: blob.url,
+        url,
         ownerId: me.id,
         mime: file.type,
         size: file.size,
       },
     });
-
-    return NextResponse.json({
-      url: blob.url,
-      name: file.name,
-      size: file.size,
-      isImage,
-    });
-  } catch {
+  } catch (err) {
+    // Without a tracking row the cleanup job can never find this file, so it
+    // would become a permanent orphan. Remove it and report a failure instead.
+    console.error("[upload] failed to record Upload row:", describe(err));
+    try {
+      await del(url);
+    } catch {
+      // Best effort — the file may already be gone.
+    }
     return NextResponse.json(
-      { error: "Upload failed. Please try again." },
+      { error: "Could not save the upload. Please try again." },
       { status: 500 }
     );
   }
+
+  return NextResponse.json({
+    url,
+    name: file.name,
+    size: file.size,
+    isImage,
+  });
 }

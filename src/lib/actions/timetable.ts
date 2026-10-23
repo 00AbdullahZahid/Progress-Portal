@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "../db";
-import { requireUser } from "../auth";
+import { requireAdmin } from "../auth";
 import { cleanText, isHexColor } from "../validation";
 import type { ActionResult } from "./tasks";
 
@@ -21,7 +21,8 @@ function parseTime(value: unknown): number | null {
 }
 
 export async function createTimetableEntry(formData: FormData): Promise<ActionResult> {
-  const me = await requireUser();
+  // The timetable is shared by the whole group, so only an admin may change it.
+  const me = await requireAdmin();
   const titleRes = cleanText(formData.get("title"), 100);
   if (!titleRes.ok) return titleRes;
   const locationRes = cleanText(formData.get("location"), 80, { required: false });
@@ -43,6 +44,7 @@ export async function createTimetableEntry(formData: FormData): Promise<ActionRe
 
   await db.timetableEntry.create({
     data: {
+      // Kept for audit: which admin added this class.
       ownerId: me.id,
       weekday,
       startMin,
@@ -57,15 +59,13 @@ export async function createTimetableEntry(formData: FormData): Promise<ActionRe
 }
 
 export async function deleteTimetableEntry(formData: FormData): Promise<ActionResult> {
-  const me = await requireUser();
+  await requireAdmin();
   const id = String(formData.get("entryId") ?? "");
   const entry = await db.timetableEntry.findUnique({
     where: { id },
-    select: { ownerId: true },
+    select: { id: true },
   });
   if (!entry) return { ok: false, error: "Entry not found." };
-  if (entry.ownerId !== me.id && me.role !== "admin")
-    return { ok: false, error: "You can only edit your own timetable." };
 
   await db.timetableEntry.delete({ where: { id } });
   refresh();

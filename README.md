@@ -16,18 +16,19 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Habits and check-ins** — Daily habit grid with streaks that keep counting past the current record.
 - **Study log** — Log sessions (subject, minutes, notes, date) with optional image and file attachments, per-subject progress bars, and inline editing. Sessions you mark as shared are visible to the rest of the group; private ones stay yours.
 - **Focus timer** — A Pomodoro timer (25/5, 50/10, 15/3) that logs a study session automatically when a focus block finishes, so the log stays accurate without manual minute entry.
-- **Notes library** — Shared study notes anyone can add to and read. Search and filter by subject; only the author (or an admin) can delete a note.
+- **Notes library** — Shared study notes anyone can add to and read. Search and filter by subject; only the author (or an admin) can edit or delete a note.
 - **Deadlines & exams** — A shared countdown of exams, quizzes and assignments, with the soonest shown on the dashboard.
 - **Flashcards** — Shared decks with spaced repetition (Leitner boxes). Reviews are personal to each member.
 - **Doubts / Q&A board** — Ask a question per subject; the group answers and the asker marks one answer as accepted.
 - **Resources library** — Past papers, books and links, organised by subject.
-- **Timetable** — A weekly grid of your classes.
+- **Timetable** — A shared weekly class calendar on a time grid. Everyone can view it; only admins add or remove classes.
 - **Grade & GPA tracker** — Private courses with weights and scores; predicts your GPA on a 4.0 scale.
 - **Global search** — Search across notes, tasks, chat messages and resources from the sidebar.
 - **Weekly goals & notifications** — Set a weekly study target (shown as a progress ring on the dashboard) and choose what the daily digest includes. The digest is posted to a Discord or Telegram webhook (or any JSON endpoint).
 - **Presence & weekly report** — See who is online or studying now, plus a week-in-review breakdown by subject.
-- **Data export** — Download your own study sessions, habits, tasks, notes and grades as JSON.
-- **PWA** — Installable, with offline reading of recently visited pages.
+- **Data export** — Download your own study sessions, habits, tasks, notes and grades as JSON. Questions, answers and resources are intentionally not included.
+- **PWA** — Installable. Static assets are cached for speed, private pages are never cached, and caches are cleared on sign out.
+- **Feature guide and tutorial** — An in-app Guide page explains every page and permission, and an optional eight-step tour walks through the app. The tour can be turned off or replayed from Settings. See [`docs/FEATURES.md`](docs/FEATURES.md).
 - **Profile pictures** — Upload a photo from Settings (or the admin page for any member); it shows up next to your name everywhere. Falls back to colored initials when unset.
 - **Group chat** — Real-time-ish chat with polling (no extra infra needed). Messages can be edited by their author and deleted by the author or an admin; edits and deletes sync into other open windows.
 - **Dashboard** — 7-day leaderboard, tasks-completed chart, study-minutes chart, study-by-person breakdown, weekly-goal ring, deadline countdown, presence, and quick links to every section. Charts load lazily so the first paint stays fast.
