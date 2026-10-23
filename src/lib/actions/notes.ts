@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl } from "../validation";
-import { deleteBlobs, deletableUrls } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -72,15 +72,6 @@ function parseNote(
   };
 }
 
-async function claim(ownerId: string, urls: (string | null)[]) {
-  const targets = urls.filter((u): u is string => Boolean(u) && isBlobUrl(u!));
-  if (targets.length === 0) return;
-  await db.upload.updateMany({
-    where: { ownerId, url: { in: targets } },
-    data: { claimedAt: new Date() },
-  });
-}
-
 export async function createNote(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();
@@ -90,7 +81,7 @@ export async function createNote(formData: FormData): Promise<ActionResult> {
   await db.note.create({
     data: { authorId: me.id, ...parsed.value },
   });
-  await claim(me.id, [parsed.value.image, parsed.value.fileUrl]);
+  await claimUploads(me.id, [parsed.value.image, parsed.value.fileUrl]);
   refresh();
   return { ok: true };
 }
@@ -104,15 +95,26 @@ export async function updateNote(formData: FormData): Promise<ActionResult> {
   const existing = await db.note.findUnique({ where: { id } });
   if (!existing) return { ok: false, error: "Note not found." };
 
-  // Everything is shared: anyone can edit any note. Only deletion is limited.
+  // Editing is limited to the author or an admin, so a teammate can't overwrite
+  // or vandalize someone else's note. (Everyone can still read every note.)
+  if (existing.authorId !== me.id && me.role !== "admin")
+    return { ok: false, error: "Only the author or an admin can edit this note." };
+
   const parsed = parseNote(formData);
   if (!parsed.ok) return parsed;
 
   await db.note.update({ where: { id }, data: parsed.value });
-  await claim(me.id, [parsed.value.image, parsed.value.fileUrl]);
+  await claimUploads(me.id, [parsed.value.image, parsed.value.fileUrl]);
 
+  // Delete whatever this edit replaced/cleared once nothing references it. No
+  // owner gate here: the file might have been uploaded by a different member,
+  // and leaving it orphaned would mean the cron never reaps it either. The
+  // reference check (excluding this row) is what makes it safe.
   const replaced = [existing.image, existing.fileUrl];
-  const safe = await deletableUrls(db, me.id, replaced, { excludeRowId: id });
+  const safe = await deletableUrls(db, null, replaced, {
+    excludeRowId: id,
+    requireOwnerId: false,
+  });
   await deleteBlobs(safe);
 
   refresh();
@@ -134,7 +136,11 @@ export async function deleteNote(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "Only the author or an admin can delete this note." };
 
   await db.note.delete({ where: { id } });
-  const safe = await deletableUrls(db, note.authorId, [note.image, note.fileUrl]);
+  // Nothing references the files anymore (the row is gone), so no owner gate —
+  // otherwise an admin deleting a teammate's note would orphan the files.
+  const safe = await deletableUrls(db, null, [note.image, note.fileUrl], {
+    requireOwnerId: false,
+  });
   await deleteBlobs(safe);
 
   refresh();

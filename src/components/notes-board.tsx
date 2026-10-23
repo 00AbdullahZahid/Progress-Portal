@@ -285,7 +285,7 @@ export function NotesBoard({
           title={notes.length === 0 ? "No notes yet" : "No notes match"}
           hint={
             notes.length === 0
-              ? "Add the first note and everyone in the group can read it."
+              ? "Add the first note; only the author or an admin can edit or delete it later."
               : "Try a different search or subject filter."
           }
         />
@@ -367,15 +367,17 @@ export function NotesBoard({
                         <XIcon width={15} height={15} />
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => startEdit(n)}
-                      title="Edit note"
-                      aria-label="Edit note"
-                      className="text-muted transition-colors hover:text-ink"
-                    >
-                      <EditIcon width={15} height={15} />
-                    </button>
+                    {(mine || isAdmin) && (
+                      <button
+                        type="button"
+                        onClick={() => startEdit(n)}
+                        title="Edit note"
+                        aria-label="Edit note"
+                        className="text-muted transition-colors hover:text-ink"
+                      >
+                        <EditIcon width={15} height={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <span className="w-fit rounded-full bg-brand-soft px-2 py-0.5 text-[10px] text-brand">

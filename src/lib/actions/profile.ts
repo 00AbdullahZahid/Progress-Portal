@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl, isHexColor, isValidTimezone } from "../validation";
-import { deleteBlobs, deletableUrls } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
 import type { ActionResult } from "./tasks";
 
 export async function updateProfile(formData: FormData): Promise<ActionResult> {
@@ -49,10 +49,16 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
     },
   });
 
-  // Delete the old avatar if it was replaced or cleared — and only if this user
-  // actually owns that file.
+  // Claim the new avatar right away so the cleanup job never treats a photo
+  // that is already in use as an orphan.
+  if (imageData) await claimUploads(me.id, [imageData]);
+
+  // Delete the old avatar if it was replaced or cleared, once nothing else
+  // references it (reference-based, so a teammate's file is never touched).
   if (imageData !== undefined && before?.image && before.image !== imageData) {
-    const safe = await deletableUrls(db, me.id, [before.image]);
+    const safe = await deletableUrls(db, null, [before.image], {
+      requireOwnerId: false,
+    });
     await deleteBlobs(safe);
   }
 

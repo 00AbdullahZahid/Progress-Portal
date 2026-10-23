@@ -29,16 +29,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Protect everything except: the login page, auth API surface, Next internals,
-  // and static files. Anything not listed here still gets per-page checks.
+  // Protect everything except: the login page, the auth API surface, Next
+  // internals, and static files. Inverted (rather than listing each page) so a
+  // new route can never silently skip the first auth gate.
   matcher: [
-    "/dashboard/:path*",
-    "/tasks/:path*",
-    "/habits/:path*",
-    "/study/:path*",
-    "/chat/:path*",
-    "/people/:path*",
-    "/settings/:path*",
-    "/admin/:path*",
+    "/((?!login|api|_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|sw.js).*)",
   ],
 };

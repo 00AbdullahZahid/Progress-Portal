@@ -66,30 +66,76 @@ export async function buildDigest(): Promise<{ text: string; items: DigestItem[]
   return { text, items };
 }
 
+/** Discord rejects messages longer than this, so we split before sending. */
+const DISCORD_LIMIT = 2000;
+
+/** Break text into chunks no longer than `limit`, preferring line boundaries. */
+export function chunkText(text: string, limit: number): string[] {
+  if (text.length <= limit) return [text];
+  const chunks: string[] = [];
+  let current = "";
+  for (const line of text.split("\n")) {
+    // A single line longer than the limit is hard-split.
+    if (line.length > limit) {
+      if (current) {
+        chunks.push(current);
+        current = "";
+      }
+      for (let i = 0; i < line.length; i += limit) {
+        chunks.push(line.slice(i, i + limit));
+      }
+      continue;
+    }
+    if (current && current.length + 1 + line.length > limit) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current = current ? `${current}\n${line}` : line;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 /**
  * Send the digest to a webhook. Supports Discord ({"content"}) and Telegram
  * (chat_id + text) in addition to a generic {"text"} endpoint.
+ *
+ * Mentions are always suppressed: task and exam titles are user-entered, so a
+ * title containing "@everyone" must not ping the whole channel.
  */
 export async function sendDigest(text: string): Promise<{ ok: boolean; error?: string }> {
   const url = process.env.NOTIFY_WEBHOOK_URL;
   if (!url) return { ok: false, error: "NOTIFY_WEBHOOK_URL not set" };
 
-  let body: Record<string, unknown> = { text };
-  if (url.includes("discord.com") || url.includes("discordapp.com")) {
-    body = { content: text };
-  } else if (url.includes("api.telegram.org")) {
-    const chatId = process.env.NOTIFY_TELEGRAM_CHAT_ID;
-    if (!chatId) return { ok: false, error: "NOTIFY_TELEGRAM_CHAT_ID not set" };
-    body = { chat_id: chatId, text };
-  }
+  const isDiscord = url.includes("discord.com") || url.includes("discordapp.com");
+  const isTelegram = url.includes("api.telegram.org");
+
+  // Discord's hard limit; split into several messages when the digest is big.
+  const parts = isDiscord ? chunkText(text, DISCORD_LIMIT) : [text];
 
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) return { ok: false, error: `webhook responded ${res.status}` };
+    for (const part of parts) {
+      let body: Record<string, unknown> = { text: part };
+      if (isDiscord) {
+        body = {
+          content: part,
+          // Never let a user-entered title ping @everyone/@here/roles.
+          allowed_mentions: { parse: [] },
+        };
+      } else if (isTelegram) {
+        const chatId = process.env.NOTIFY_TELEGRAM_CHAT_ID;
+        if (!chatId) return { ok: false, error: "NOTIFY_TELEGRAM_CHAT_ID not set" };
+        body = { chat_id: chatId, text: part, disable_notification: false };
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) return { ok: false, error: `webhook responded ${res.status}` };
+    }
     return { ok: true };
   } catch {
     return { ok: false, error: "webhook request failed" };

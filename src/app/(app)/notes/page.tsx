@@ -41,7 +41,7 @@ export default async function NotesPage() {
     <div>
       <PageHeader
         title="Notes"
-        subtitle="Shared study notes. Anyone can add or edit; only the author or an admin can delete."
+        subtitle="Shared study notes. Only the author or an admin can edit or delete them."
       />
       <NotesBoard
         notes={rows}

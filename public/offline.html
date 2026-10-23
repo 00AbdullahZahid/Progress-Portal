@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline - Group Portal</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0b1220; color: #e2e8f0; }
+        .card { background: #131c30; border-color: #1e293b; }
+      }
+      .card {
+        max-width: 22rem;
+        margin: 1rem;
+        padding: 2rem;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        background: #fff;
+      }
+      .dot {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3rem;
+        height: 3rem;
+        margin-bottom: 1rem;
+        border-radius: 9999px;
+        background: #eff6ff;
+        color: #2563eb;
+      }
+      h1 { font-size: 1.125rem; margin: 0 0 0.5rem; }
+      p { font-size: 0.875rem; color: #64748b; margin: 0 0 1rem; }
+      a {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 0.75rem;
+        background: #2563eb;
+        color: #fff;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <span class="dot" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 1l22 22" />
+          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+          <path d="M10.71 5.05A16 16 0 0 1 22.58 9" />
+          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+          <line x1="12" y1="20" x2="12.01" y2="20" />
+        </svg>
+      </span>
+      <h1>You are offline</h1>
+      <p>Private pages like Grades and Settings are not cached for safety. Reconnect to the network to load them.</p>
+      <a href="/dashboard">Return to dashboard</a>
+    </div>
+  </body>
+</html>

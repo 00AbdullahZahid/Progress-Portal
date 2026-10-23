@@ -5,7 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { todayStr } from "../dates";
 import { cleanText, isBlobUrl, validateLogDate } from "../validation";
-import { deleteBlobs, deletableUrls } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
 import type { ActionResult } from "./tasks";
 
 const MAX_MINUTES = 24 * 60;
@@ -35,16 +35,6 @@ function parseMinutes(value: unknown): number | null {
   const rounded = Math.round(n);
   if (rounded < 1 || rounded > MAX_MINUTES) return null;
   return rounded;
-}
-
-/** Mark any uploads we just attached as claimed so cleanup won't reap them. */
-async function claimUploads(ownerId: string, urls: (string | null)[]) {
-  const targets = urls.filter((u): u is string => Boolean(u) && isBlobUrl(u!));
-  if (targets.length === 0) return;
-  await db.upload.updateMany({
-    where: { ownerId, url: { in: targets } },
-    data: { claimedAt: new Date() },
-  });
 }
 
 export async function logStudy(formData: FormData): Promise<ActionResult> {
@@ -188,11 +178,16 @@ export async function updateStudySession(
   // Remove blobs this edit replaced or cleared — but only when the field was
   // actually part of this update. A partial update (e.g. a share toggle) leaves
   // `data.image` undefined and must NOT delete the file still in the row.
+  // No owner gate: cleanup is driven by "nothing else references it", which
+  // also catches files uploaded by another member.
   const replaced = [
     data.image !== undefined ? existing.image : null,
     data.fileUrl !== undefined ? existing.fileUrl : null,
   ];
-  const safe = await deletableUrls(db, me.id, replaced, { excludeRowId: id });
+  const safe = await deletableUrls(db, null, replaced, {
+    excludeRowId: id,
+    requireOwnerId: false,
+  });
   await deleteBlobs(safe);
 
   refresh();
@@ -217,8 +212,11 @@ export async function deleteStudySession(
 
   await db.studySession.delete({ where: { id } });
 
-  // Only delete files this user owns and that no other row references.
-  const safe = await deletableUrls(db, me.id, [existing.image, existing.fileUrl]);
+  // Nothing references these anymore, so no owner gate (works for admin deletes
+  // of shared sessions too).
+  const safe = await deletableUrls(db, null, [existing.image, existing.fileUrl], {
+    requireOwnerId: false,
+  });
   await deleteBlobs(safe);
 
   refresh();

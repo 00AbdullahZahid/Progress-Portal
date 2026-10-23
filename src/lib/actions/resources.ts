@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl } from "../validation";
+import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
 import type { ActionResult } from "./tasks";
 
 const KINDS = ["paper", "notes", "book", "video", "link", "other"] as const;
@@ -58,6 +59,8 @@ export async function createResource(formData: FormData): Promise<ActionResult> 
       addedById: me.id,
     },
   });
+  // Only uploaded files need claiming; external links are ignored by cleanup.
+  if (isBlobUrl(urlRes.url)) await claimUploads(me.id, [urlRes.url]);
   refresh();
   return { ok: true };
 }
@@ -67,13 +70,17 @@ export async function deleteResource(formData: FormData): Promise<ActionResult> 
   const id = String(formData.get("resourceId") ?? "");
   const res = await db.resource.findUnique({
     where: { id },
-    select: { addedById: true },
+    select: { addedById: true, url: true },
   });
   if (!res) return { ok: false, error: "Resource not found." };
   if (res.addedById !== me.id && me.role !== "admin")
     return { ok: false, error: "Only the person who added it or an admin can remove it." };
 
   await db.resource.delete({ where: { id } });
+  // Remove the uploaded file too, once nothing else references it. External
+  // links are skipped by the blob URL check.
+  const safe = await deletableUrls(db, null, [res.url], { requireOwnerId: false });
+  await deleteBlobs(safe);
   refresh();
   return { ok: true };
 }

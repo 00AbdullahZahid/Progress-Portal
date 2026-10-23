@@ -12,7 +12,7 @@ import {
 } from "../validation";
 import { hashPassword, validatePassword } from "../security";
 import { audit } from "../audit";
-import { deleteBlobs, deletableUrls } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -84,15 +84,21 @@ export async function adminUpdateUser(formData: FormData): Promise<ActionResult>
 
   await db.user.update({ where: { id: userId }, data });
 
-  // Clean up the previous avatar if this update replaced or cleared it. Only
-  // delete when the admin owns the file and nothing else references it.
+  // The admin uploaded this photo, so it is owned by `me`; claim it so cleanup
+  // never reaps a photo that is now in use.
+  if (typeof data.image === "string") await claimUploads(me.id, [data.image]);
+
+  // Clean up the previous avatar if this update replaced or cleared it, once no
+  // row references it anymore.
   if (
     data.image !== undefined &&
     target.image &&
     target.image !== data.image &&
     isBlobUrl(target.image)
   ) {
-    const safe = await deletableUrls(db, me.id, [target.image]);
+    const safe = await deletableUrls(db, null, [target.image], {
+      requireOwnerId: false,
+    });
     await deleteBlobs(safe);
   }
 
@@ -201,10 +207,11 @@ export async function adminDeleteUser(formData: FormData): Promise<ActionResult>
     return { ok: false, error: "You can't delete the last admin." };
   }
 
-  // Gather every blob this user owns (avatar + study attachments + notes) so
-  // storage doesn't keep files nobody references. Ownership is checked against
-  // the *deleted* user (they uploaded these), before the row is removed.
-  const [ownedSessions, ownedNotes] = await Promise.all([
+  // Gather every blob the deleted user's rows point at (avatar + study
+  // attachments + notes) so storage doesn't keep files nobody references. Also
+  // include any uploads the deleted user owned, even ones an admin attached
+  // elsewhere. Ownership is resolved before the row is removed.
+  const [ownedSessions, ownedNotes, ownedUploads] = await Promise.all([
     db.studySession.findMany({
       where: { userId },
       select: { image: true, fileUrl: true },
@@ -213,17 +220,23 @@ export async function adminDeleteUser(formData: FormData): Promise<ActionResult>
       where: { authorId: userId },
       select: { image: true, fileUrl: true },
     }),
+    db.upload.findMany({
+      where: { ownerId: userId },
+      select: { url: true },
+    }),
   ]);
 
   const candidates = [
     target.image,
     ...ownedSessions.flatMap((s) => [s.image, s.fileUrl]),
     ...ownedNotes.flatMap((n) => [n.image, n.fileUrl]),
+    ...ownedUploads.map((u) => u.url),
   ];
   // Resolve which of these the target owns and nothing else references, while
-  // their rows still exist.
+  // their rows still exist. This is a hard delete, so no reference check.
   const safe = await deletableUrls(db, userId, candidates, {
     skipReferenceCheck: true,
+    requireOwnerId: true,
   });
 
   await db.user.delete({ where: { id: userId } });

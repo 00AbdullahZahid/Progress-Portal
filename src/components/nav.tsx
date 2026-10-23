@@ -14,7 +14,6 @@ import {
   NotesIcon,
   ChatIcon,
   PeopleIcon,
-  LogoutIcon,
   ShieldIcon,
   BarChartIcon,
   ChevronLeftIcon,
@@ -27,7 +26,7 @@ import {
   TrophyIcon,
   SearchIcon,
 } from "./icons";
-import { signOut } from "@/lib/actions/auth";
+import { LogoutButton } from "./logout-button";
 import { SIDEBAR_EVENT, readCollapsed } from "./shell";
 import type { User } from "@prisma/client";
 
@@ -150,15 +149,7 @@ export function Nav({ user }: { user: User }) {
                 <Avatar user={user} size="md" />
               </Link>
               <ThemeToggle />
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  aria-label="Sign out"
-                  className="rounded-xl p-2 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
-                >
-                  <LogoutIcon />
-                </button>
-              </form>
+              <LogoutButton collapsed />
             </div>
           ) : (
             <div className="flex flex-col gap-1">
@@ -178,15 +169,7 @@ export function Nav({ user }: { user: User }) {
                 <span className="text-xs text-muted">Theme</span>
                 <ThemeToggle />
               </div>
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
-                >
-                  <LogoutIcon width={20} height={20} />
-                  Sign out
-                </button>
-              </form>
+              <LogoutButton />
             </div>
           )}
         </div>

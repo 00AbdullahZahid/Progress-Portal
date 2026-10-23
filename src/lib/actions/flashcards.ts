@@ -86,7 +86,6 @@ export async function reviewFlashcard(formData: FormData): Promise<ActionResult>
     },
     update: { box, dueAt, lastResult: correct ? "correct" : "wrong" },
   });
-  refresh();
   // Don't revalidate the whole page on each swipe; the client tracks progress.
   return { ok: true };
 }
