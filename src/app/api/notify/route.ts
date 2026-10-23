@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildDigest, sendDigest } from "@/lib/notify";
-import { cronAuthorized } from "../cleanup/route";
+import { cronAuthorized } from "@/lib/cron";
 
 export const runtime = "nodejs";
 
