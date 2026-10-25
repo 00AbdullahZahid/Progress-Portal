@@ -3,7 +3,6 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
-import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "Group Portal",
@@ -41,7 +40,6 @@ export default function RootLayout({
           {children}
           <Analytics />
         </ToastProvider>
-        <Analytics />
       </body>
     </html>
   );
