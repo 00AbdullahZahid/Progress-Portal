@@ -3,13 +3,17 @@ import type { ReactNode } from "react";
 export function Card({
   children,
   className = "",
+  padded = true,
 }: {
   children: ReactNode;
   className?: string;
+  padded?: boolean;
 }) {
   return (
     <div
-      className={`rounded-2xl border border-border bg-surface p-5 shadow-sm ${className}`}
+      className={`rounded-2xl border border-border bg-surface shadow-sm ${
+        padded ? "p-4 sm:p-5" : ""
+      } ${className}`}
     >
       {children}
     </div>
@@ -26,12 +30,14 @@ export function PageHeader({
   right?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {subtitle ? <p className="mt-1 text-sm text-muted">{subtitle}</p> : null}
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3 sm:mb-6 sm:items-end">
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold tracking-tight break-words sm:text-2xl">{title}</h1>
+        {subtitle ? (
+          <p className="mt-1 text-sm text-muted break-words">{subtitle}</p>
+        ) : null}
       </div>
-      {right}
+      {right ? <div className="shrink-0">{right}</div> : null}
     </div>
   );
 }
@@ -74,7 +80,7 @@ export function Button({
       value={value}
       formAction={formAction}
       onClick={onClick}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand ${styles[variant]} ${className}`}
+      className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand ${styles[variant]} ${className}`}
     >
       {children}
     </button>
@@ -86,7 +92,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...rest}
-      className={`w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand ${className}`}
+      className={`min-h-10 w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-sm ${className}`}
     />
   );
 }
@@ -98,7 +104,7 @@ export function Textarea(
   return (
     <textarea
       {...rest}
-      className={`w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand ${className}`}
+      className={`w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-sm ${className}`}
     />
   );
 }
@@ -108,7 +114,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...rest}
-      className={`w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand ${className}`}
+      className={`min-h-10 w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-sm ${className}`}
     />
   );
 }
@@ -148,7 +154,7 @@ export function EmptyState({
   hint?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-10 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-6 text-center sm:p-10">
       {icon ? (
         <div className="text-muted [&>svg]:h-10 [&>svg]:w-10">{icon}</div>
       ) : null}

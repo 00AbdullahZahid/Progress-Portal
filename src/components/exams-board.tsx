@@ -100,7 +100,7 @@ export function ExamsBoard({
     return (
       <li
         key={e.id}
-        className="flex items-center gap-3 rounded-xl border border-border px-3 py-2.5"
+        className="flex items-center gap-2 rounded-xl border border-border px-3 py-2.5 sm:gap-3"
       >
         <div
           className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl text-xs font-bold ${
@@ -111,7 +111,7 @@ export function ExamsBoard({
           <span>{days >= 0 ? days : "–"}</span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{e.title}</p>
+          <p className="break-words text-sm font-medium">{e.title}</p>
           <p className="truncate text-xs text-muted">
             {e.subject} · {e.date} · {countdownLabel(days)}
           </p>
@@ -124,7 +124,7 @@ export function ExamsBoard({
             onClick={() => setPending(e)}
             title="Delete"
             aria-label="Delete"
-            className="text-muted transition-colors hover:text-rose-600"
+            className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
           >
             <XIcon width={15} height={15} />
           </button>
@@ -170,15 +170,19 @@ export function ExamsBoard({
               <span className="mb-1 block text-xs font-medium text-muted">Notes (optional)</span>
               <Textarea name="notes" rows={2} maxLength={500} />
             </label>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={busy} className="px-3 py-1.5 text-sm">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={busy}
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
+              >
                 <PlusIcon width={15} height={15} />
                 {busy ? "Saving…" : "Add"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="px-3 py-1.5 text-sm"
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
                 onClick={() => setCreating(false)}
               >
                 Cancel

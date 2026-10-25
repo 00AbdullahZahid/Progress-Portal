@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl } from "../validation";
-import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
 import type { ActionResult } from "./tasks";
 
 const KINDS = ["paper", "notes", "book", "video", "link", "other"] as const;
@@ -48,6 +48,11 @@ export async function createResource(formData: FormData): Promise<ActionResult> 
   if (!urlRes.ok) return urlRes;
   if (!urlRes.url)
     return { ok: false, error: "Add a link or upload a file first." };
+
+  if (isBlobUrl(urlRes.url)) {
+    const attachment = await attachmentError(me.id, [[urlRes.url, null]]);
+    if (attachment) return { ok: false, error: attachment };
+  }
 
   await db.resource.create({
     data: {

@@ -95,12 +95,12 @@ export function ResourcesBoard({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="flex flex-wrap items-center gap-3 p-4">
+      <Card className="grid grid-cols-1 gap-2 p-4 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         <Select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Filter by subject"
-          className="w-auto"
+          className="w-full sm:w-auto"
         >
           <option value="">All subjects</option>
           {subjects.map((s) => (
@@ -109,7 +109,12 @@ export function ResourcesBoard({
             </option>
           ))}
         </Select>
-        <Button type="button" variant="outline" className="ml-auto" onClick={() => setCreating((c) => !c)}>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:ml-auto sm:w-auto"
+          onClick={() => setCreating((c) => !c)}
+        >
           <PlusIcon width={16} height={16} />
           Add resource
         </Button>
@@ -162,12 +167,21 @@ export function ResourcesBoard({
               <span className="mb-1 block text-xs font-medium text-muted">Note (optional)</span>
               <Textarea name="note" rows={2} maxLength={500} />
             </label>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={busy} className="px-3 py-1.5 text-sm">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={busy}
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
+              >
                 <PlusIcon width={15} height={15} />
                 {busy ? "Saving…" : "Add"}
               </Button>
-              <Button type="button" variant="outline" className="px-3 py-1.5 text-sm" onClick={() => setCreating(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
+                onClick={() => setCreating(false)}
+              >
                 Cancel
               </Button>
             </div>
@@ -217,7 +231,7 @@ export function ResourcesBoard({
                       onClick={() => setPending(r)}
                       title="Remove"
                       aria-label="Remove"
-                      className="text-muted transition-colors hover:text-rose-600"
+                      className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                     >
                       <XIcon width={15} height={15} />
                     </button>

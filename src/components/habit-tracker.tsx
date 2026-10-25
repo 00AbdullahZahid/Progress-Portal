@@ -84,13 +84,23 @@ export function HabitTracker({
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <Card className="mb-4 p-4">
-          <form action={act(createHabit, "Habit created")} className="flex flex-wrap items-center gap-2">
+          <form
+            action={act(createHabit, "Habit created")}
+            className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+          >
             <span className="flex items-center gap-1.5 text-sm font-medium">
               <PlusIcon width={16} height={16} className="text-brand" />
               New habit
             </span>
-            <Input name="name" placeholder="e.g. Deep work 1h" className="min-w-40 flex-1" required />
-            <Button type="submit">Add</Button>
+            <Input
+              name="name"
+              placeholder="e.g. Deep work 1h"
+              className="min-w-0 flex-1 sm:min-w-40"
+              required
+            />
+            <Button type="submit" className="w-full sm:w-auto">
+              Add
+            </Button>
           </form>
         </Card>
 
@@ -109,11 +119,11 @@ export function HabitTracker({
             const streak = currentStreak(new Set(habit.allDates), today);
             return (
               <Card key={habit.id} className="p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <HabitsIcon width={18} height={18} className="text-brand" />
-                    <span className="font-semibold">{habit.name}</span>
-                    <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-950 dark:text-orange-300">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <HabitsIcon width={18} height={18} className="shrink-0 text-brand" />
+                    <span className="break-words font-semibold">{habit.name}</span>
+                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-950 dark:text-orange-300">
                       <FlameIcon width={12} height={12} />
                       {streak} day{streak === 1 ? "" : "s"}
                     </span>
@@ -121,7 +131,7 @@ export function HabitTracker({
                   <button
                     type="button"
                     onClick={() => setPendingDelete({ id: habit.id, name: habit.name })}
-                    className="flex items-center gap-1 text-xs text-muted hover:text-rose-600"
+                    className="flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-xs text-muted hover:bg-surface2 hover:text-rose-600"
                   >
                     <XIcon width={14} height={14} />
                     Remove
@@ -138,7 +148,7 @@ export function HabitTracker({
                         <button
                           type="submit"
                           title={d}
-                          className={`h-7 w-7 rounded-md text-xs transition-colors ${
+                          className={`h-8 w-8 rounded-md text-xs transition-colors sm:h-7 sm:w-7 ${
                             done
                               ? "bg-brand text-white"
                               : "bg-surface2 text-muted hover:bg-border"
@@ -170,12 +180,12 @@ export function HabitTracker({
               return (
                 <div key={uid} className="flex items-start gap-2">
                   <Avatar user={owner} size="sm" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {owner.name}
                       {uid === meId ? <span className="text-xs text-muted"> (you)</span> : null}
                     </p>
-                    <p className="text-xs text-muted">
+                    <p className="break-words text-xs text-muted">
                       {items.map((i) => i.habitName).join(" · ")}
                     </p>
                   </div>

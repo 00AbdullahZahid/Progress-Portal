@@ -236,14 +236,14 @@ export function ChatWindow({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-15rem)] flex-col overflow-hidden rounded-2xl border border-border bg-surface md:h-[calc(100dvh-9rem)]">
+    <div className="flex h-[calc(100dvh-13.5rem)] min-h-[22rem] flex-col overflow-hidden rounded-2xl border border-border bg-surface md:h-[calc(100dvh-9rem)]">
       {/* Channel tabs */}
       <div className="flex gap-1 overflow-x-auto border-b border-border p-2">
         {channels.map((c) => (
           <button
             key={c.id}
             onClick={() => router.push(`/chat?ch=${c.id}`)}
-            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`min-h-9 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               c.id === activeId
                 ? "bg-brand-soft text-brand"
                 : "text-muted hover:bg-surface2"

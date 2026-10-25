@@ -5,7 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { todayStr } from "../dates";
 import { cleanText, isBlobUrl, validateLogDate } from "../validation";
-import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
 import type { ActionResult } from "./tasks";
 
 const MAX_MINUTES = 24 * 60;
@@ -13,6 +13,7 @@ const MAX_MINUTES = 24 * 60;
 function refresh() {
   revalidatePath("/study");
   revalidatePath("/dashboard");
+  revalidatePath("/tasks");
 }
 
 /** Normalize a subject so "React", " react " and "REACT" group together. */
@@ -37,6 +38,28 @@ function parseMinutes(value: unknown): number | null {
   return rounded;
 }
 
+/**
+ * Resolve an optional task link. Members may only link their own tasks; admins
+ * may link any task. An empty value means "no task".
+ */
+async function parseTaskId(
+  me: { id: string; role: string },
+  value: unknown
+): Promise<{ ok: true; taskId: string | null } | { ok: false; error: string }> {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return { ok: true, taskId: null };
+
+  const task = await db.task.findUnique({
+    where: { id: raw },
+    select: { id: true, assigneeId: true },
+  });
+  if (!task) return { ok: false, error: "Task not found." };
+  if (me.role !== "admin" && task.assigneeId !== me.id)
+    return { ok: false, error: "You can only link study time to your own tasks." };
+
+  return { ok: true, taskId: task.id };
+}
+
 export async function logStudy(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();
@@ -57,6 +80,9 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
   const today = todayStr(me.timezone);
   const dateRes = validateLogDate(String(formData.get("date") ?? today), today);
   if (!dateRes.ok) return dateRes;
+
+  const taskRes = await parseTaskId(me, formData.get("taskId"));
+  if (!taskRes.ok) return taskRes;
 
   const image = formData.get("image");
   const fileUrl = formData.get("fileUrl");
@@ -85,9 +111,16 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
     name = fileName.trim().slice(0, 200);
   }
 
+  const attachment = await attachmentError(me.id, [
+    [imageData, null],
+    [url, null],
+  ]);
+  if (attachment) return { ok: false, error: attachment };
+
   await db.studySession.create({
     data: {
       userId: me.id,
+      taskId: taskRes.taskId,
       subject: normalizeSubject(subjectRes.value),
       minutes,
       notes: notesRes.value || null,
@@ -171,6 +204,12 @@ export async function updateStudySession(
   }
 
   if (sharedRaw !== null) data.shared = String(sharedRaw) === "true";
+
+  const attachment = await attachmentError(me.id, [
+    [data.image, existing.image],
+    [data.fileUrl, existing.fileUrl],
+  ]);
+  if (attachment) return { ok: false, error: attachment };
 
   await db.studySession.update({ where: { id }, data });
   await claimUploads(me.id, [data.image ?? null, data.fileUrl ?? null]);

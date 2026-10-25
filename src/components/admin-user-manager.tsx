@@ -169,7 +169,7 @@ export function AdminUserManager({
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <h2 className="mb-1 flex items-center gap-2 font-semibold">
             <ShieldIcon width={18} height={18} className="text-amber-500" />
             Manage users
@@ -179,7 +179,12 @@ export function AdminUserManager({
             right away.
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={() => setShowCreate((v) => !v)}>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={() => setShowCreate((v) => !v)}
+        >
           <PlusIcon width={16} height={16} />
           {showCreate ? "Close" : "New user"}
         </Button>
@@ -266,8 +271,8 @@ export function AdminUserManager({
             }`}
           >
             <input type="hidden" name="userId" value={m.id} />
-            <div className="flex items-start gap-3">
-              <div className="flex shrink-0 flex-col items-center gap-1.5 pt-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+              <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:gap-1.5 sm:pt-6">
                 <Avatar
                   user={{
                     name: m.name,
@@ -377,14 +382,14 @@ export function AdminUserManager({
                     type="button"
                     onClick={() => toggleActive(m)}
                     disabled={pending}
-                    className="text-[11px] font-medium text-muted hover:text-ink"
+                    className="rounded-lg px-2 py-1 text-[11px] font-medium text-muted hover:bg-surface2 hover:text-ink"
                   >
                     {m.isActive ? "Deactivate" : "Reactivate"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(m)}
-                    className="text-[11px] font-medium text-muted hover:text-rose-600"
+                    className="rounded-lg px-2 py-1 text-[11px] font-medium text-muted hover:bg-surface2 hover:text-rose-600"
                   >
                     Delete
                   </button>
@@ -408,7 +413,7 @@ export function AdminUserManager({
       <ConfirmDialog
         open={confirmDelete !== null}
         title={`Delete ${confirmDelete?.name ?? "user"}?`}
-        body="This permanently removes the account and everything it owns: tasks, habits, study sessions, and messages. This cannot be undone."
+        body="This permanently removes the account and its private data (habits, study sessions, grades). Shared notes, resources, questions, messages and timetable entries are reassigned to you. To keep everything under the original author, deactivate the account instead."
         confirmLabel="Delete user"
         onConfirm={doDelete}
         onCancel={() => setConfirmDelete(null)}

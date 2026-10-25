@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl } from "../validation";
-import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -78,6 +78,12 @@ export async function createNote(formData: FormData): Promise<ActionResult> {
   const parsed = parseNote(formData);
   if (!parsed.ok) return parsed;
 
+  const attachment = await attachmentError(me.id, [
+    [parsed.value.image, null],
+    [parsed.value.fileUrl, null],
+  ]);
+  if (attachment) return { ok: false, error: attachment };
+
   await db.note.create({
     data: { authorId: me.id, ...parsed.value },
   });
@@ -102,6 +108,12 @@ export async function updateNote(formData: FormData): Promise<ActionResult> {
 
   const parsed = parseNote(formData);
   if (!parsed.ok) return parsed;
+
+  const attachment = await attachmentError(me.id, [
+    [parsed.value.image, existing.image],
+    [parsed.value.fileUrl, existing.fileUrl],
+  ]);
+  if (attachment) return { ok: false, error: attachment };
 
   await db.note.update({ where: { id }, data: parsed.value });
   await claimUploads(me.id, [parsed.value.image, parsed.value.fileUrl]);

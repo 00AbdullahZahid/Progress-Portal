@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setWeeklyGoal } from "@/lib/actions/goals";
 import { setNotificationPrefs } from "@/lib/actions/notifications";
-import { exportMyData } from "@/lib/actions/export";
+import { exportMyData, exportMyDataCsv } from "@/lib/actions/export";
 import { Button, Card, Input } from "./ui";
 import { useToast } from "./toast";
 import { TimerIcon, BellIcon, DownloadIcon } from "./icons";
@@ -26,6 +26,7 @@ export function PreferencesForm({
   const [prefs, setPrefs] = useState({ tasks: notifyTasks, exams: notifyExams });
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   async function saveGoal() {
     const fd = new FormData();
@@ -75,6 +76,32 @@ export function PreferencesForm({
       toast("Could not build the export. Please try again.", "error");
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function downloadCsv() {
+    setExportingCsv(true);
+    try {
+      const res = await exportMyDataCsv();
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      // The BOM helps Excel open non-ASCII note text correctly.
+      const blob = new Blob(["\uFEFF" + res.csv], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `group-portal-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("CSV downloaded", "success");
+    } catch {
+      toast("Could not build the CSV. Please try again.", "error");
+    } finally {
+      setExportingCsv(false);
     }
   }
 
@@ -142,12 +169,18 @@ export function PreferencesForm({
           Export your data
         </h3>
         <p className="mb-2 text-xs text-muted">
-          Download your study sessions, habits, tasks, notes and grades as JSON.
+          Download your study sessions, habits, tasks, notes and grades as JSON or CSV.
         </p>
-        <Button type="button" variant="outline" onClick={download} disabled={exporting}>
-          <DownloadIcon width={15} height={15} />
-          {exporting ? "Building…" : "Download JSON"}
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button type="button" variant="outline" onClick={download} disabled={exporting || exportingCsv}>
+            <DownloadIcon width={15} height={15} />
+            {exporting ? "Building…" : "Download JSON"}
+          </Button>
+          <Button type="button" variant="outline" onClick={downloadCsv} disabled={exporting || exportingCsv}>
+            <DownloadIcon width={15} height={15} />
+            {exportingCsv ? "Building…" : "Download CSV"}
+          </Button>
+        </div>
       </div>
     </Card>
   );

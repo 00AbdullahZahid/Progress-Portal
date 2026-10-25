@@ -142,7 +142,7 @@ export function GradesBoard({ courses }: { courses: CourseRow[] }) {
         <Button
           type="button"
           variant="outline"
-          className={gpa !== null ? "ml-auto" : ""}
+          className={gpa !== null ? "w-full sm:ml-auto sm:w-auto" : "w-full sm:w-auto"}
           onClick={() => setAddingCourse((c) => !c)}
         >
           <PlusIcon width={16} height={16} />
@@ -152,21 +152,28 @@ export function GradesBoard({ courses }: { courses: CourseRow[] }) {
 
       {addingCourse ? (
         <Card className="p-4">
-          <form action={submitCourse} className="flex flex-wrap items-end gap-3">
-            <label className="block min-w-[12rem] flex-1">
+          <form action={submitCourse} className="grid grid-cols-1 items-end gap-3 sm:flex sm:flex-wrap">
+            <label className="block min-w-0 flex-1 sm:min-w-[12rem]">
               <span className="mb-1 block text-xs font-medium text-muted">Course name</span>
               <Input name="name" maxLength={100} required />
             </label>
-            <label className="block w-24">
+            <label className="block w-full sm:w-24">
               <span className="mb-1 block text-xs font-medium text-muted">Credits</span>
               <Input type="number" name="credits" min={0} max={30} defaultValue={3} required />
             </label>
-            <Button type="submit" disabled={busy} className="px-3 py-2 text-sm">
-              {busy ? "Saving…" : "Add"}
-            </Button>
-            <Button type="button" variant="outline" className="px-3 py-2 text-sm" onClick={() => setAddingCourse(false)}>
-              Cancel
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={busy} className="flex-1 px-3 py-2 text-sm sm:flex-none">
+                {busy ? "Saving…" : "Add"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 px-3 py-2 text-sm sm:flex-none"
+                onClick={() => setAddingCourse(false)}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         </Card>
       ) : null}
@@ -182,15 +189,15 @@ export function GradesBoard({ courses }: { courses: CourseRow[] }) {
           const pct = coursePercent(course);
           return (
             <Card key={course.id} className="flex flex-col gap-3 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <h2 className="font-semibold">{course.name}</h2>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h2 className="break-words font-semibold">{course.name}</h2>
                   <p className="text-xs text-muted">
                     {course.credits} credits
                     {pct !== null ? ` · ${pct.toFixed(1)}% · ${gradePoint(pct).toFixed(1)} GP` : ""}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -215,10 +222,10 @@ export function GradesBoard({ courses }: { courses: CourseRow[] }) {
               {course.items.length > 0 ? (
                 <ul className="flex flex-col divide-y divide-border">
                   {course.items.map((i) => (
-                    <li key={i.id} className="flex items-center gap-3 py-2 text-sm">
+                    <li key={i.id} className="flex items-center gap-2 py-2 text-sm sm:gap-3">
                       <span className="min-w-0 flex-1 truncate">{i.title}</span>
-                      <span className="text-xs text-muted">{i.weight}%</span>
-                      <span className="w-12 text-right font-medium">
+                      <span className="shrink-0 text-xs text-muted">{i.weight}%</span>
+                      <span className="w-10 shrink-0 text-right font-medium sm:w-12">
                         {i.score === null ? "—" : `${i.score}%`}
                       </span>
                       <button
@@ -226,7 +233,7 @@ export function GradesBoard({ courses }: { courses: CourseRow[] }) {
                         onClick={() => removeItem(i.id)}
                         title="Remove item"
                         aria-label="Remove item"
-                        className="text-muted transition-colors hover:text-rose-600"
+                        className="shrink-0 rounded-lg p-1 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                       >
                         <XIcon width={14} height={14} />
                       </button>
@@ -240,21 +247,25 @@ export function GradesBoard({ courses }: { courses: CourseRow[] }) {
               {addingItemTo === course.id ? (
                 <form
                   action={(fd) => submitItem(course.id, fd)}
-                  className="flex flex-wrap items-end gap-3 border-t border-border pt-3"
+                  className="grid grid-cols-2 items-end gap-3 border-t border-border pt-3 sm:flex sm:flex-wrap"
                 >
-                  <label className="block min-w-[10rem] flex-1">
+                  <label className="col-span-2 block min-w-0 flex-1 sm:min-w-[10rem]">
                     <span className="mb-1 block text-xs font-medium text-muted">Title</span>
                     <Input name="title" maxLength={100} required placeholder="e.g. Final exam" />
                   </label>
-                  <label className="block w-24">
+                  <label className="block w-full sm:w-24">
                     <span className="mb-1 block text-xs font-medium text-muted">Weight %</span>
                     <Input type="number" name="weight" min={0} max={100} required />
                   </label>
-                  <label className="block w-24">
+                  <label className="block w-full sm:w-24">
                     <span className="mb-1 block text-xs font-medium text-muted">Score %</span>
                     <Input type="number" name="score" min={0} max={100} placeholder="—" />
                   </label>
-                  <Button type="submit" disabled={busy} className="px-3 py-2 text-sm">
+                  <Button
+                    type="submit"
+                    disabled={busy}
+                    className="col-span-2 w-full px-3 py-2 text-sm sm:w-auto"
+                  >
                     Add
                   </Button>
                 </form>

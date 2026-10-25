@@ -16,8 +16,13 @@ export default async function PeoplePage() {
       where: { status: "done", completedAt: { not: null } },
       select: { assigneeId: true, completedAt: true },
     }),
+    // Only shared sessions count for other members; your own private ones are
+    // included so your card stays accurate.
     db.studySession.findMany({
-      where: { date: { gte: range[0] } },
+      where: {
+        date: { gte: range[0] },
+        OR: [{ shared: true }, { userId: me.id }],
+      },
       select: { userId: true, minutes: true },
     }),
     // Full history so streaks aren't capped at 30 days.

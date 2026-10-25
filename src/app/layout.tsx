@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
@@ -38,6 +39,7 @@ export default function RootLayout({
           <ServiceWorkerRegister />
           {children}
         </ToastProvider>
+        <Analytics />
       </body>
     </html>
   );

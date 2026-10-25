@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   if (full) {
     const recent = await db.message.findMany({
       where: { channelId },
-      include: { author: true },
+      select: MESSAGE_SELECT,
       orderBy: { createdAt: "desc" },
       take: 200,
     });
@@ -54,13 +54,24 @@ export async function GET(request: Request) {
       channelId,
       ...(afterDate ? { createdAt: { gt: afterDate } } : {}),
     },
-    include: { author: true },
+    select: MESSAGE_SELECT,
     orderBy: { createdAt: "asc" },
     take: 100,
   });
 
   return NextResponse.json({ messages: messages.map(serialize) });
 }
+
+// Only the fields the response needs. Never select the whole User row here:
+// that would load passwordHash into memory on every poll.
+const MESSAGE_SELECT = {
+  id: true,
+  body: true,
+  createdAt: true,
+  author: {
+    select: { id: true, name: true, color: true, image: true },
+  },
+} as const;
 
 type MessageWithAuthor = {
   id: string;

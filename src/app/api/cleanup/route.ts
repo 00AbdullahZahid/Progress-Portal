@@ -4,13 +4,51 @@ import { db } from "@/lib/db";
 import { referencedUrls } from "@/lib/blob";
 import { cronAuthorized } from "@/lib/cron";
 
+const DAY = 24 * 60 * 60 * 1000;
+
+/** How many claimed uploads to re-check per run. Keeps the cron bounded. */
+const CLAIMED_BATCH = 100;
+
+type UploadRow = { id: string; url: string };
+
+/**
+ * Delete the given blobs, falling back to one-by-one when a batch fails.
+ * Returns the ids whose file is gone so the tracking rows can be removed.
+ */
+async function removeBlobs(rows: UploadRow[]): Promise<string[]> {
+  if (rows.length === 0) return [];
+  try {
+    await del(rows.map((u) => u.url));
+    return rows.map((u) => u.id);
+  } catch {
+    const deleted: string[] = [];
+    for (const u of rows) {
+      try {
+        await del(u.url);
+        deleted.push(u.id);
+      } catch {
+        // Leave this row alone; the next run will try again.
+      }
+    }
+    return deleted;
+  }
+}
+
 /**
  * Daily cleanup job for orphaned uploads.
  *
- * A file is orphaned when it was never attached to a saved row ("claimedAt" is
- * null) and is more than 24 hours old. Before deleting, every table that can
- * hold a blob URL is checked, so avatars and resource files are never reaped
- * even if their action forgot to claim them.
+ * Two passes:
+ *
+ * 1. Unclaimed uploads older than 24 hours never finished a form submission.
+ * 2. Claimed uploads that are older than 7 days are re-checked in bounded
+ *    batches. A claim only proves the file was attached once; it can become an
+ *    orphan later when the row is edited or deleted. Referenced rows have their
+ *    `claimedAt` bumped so the queue rotates and every row is eventually
+ *    checked without scanning the whole table each night.
+ *
+ * Before deleting anything, every table that can hold a blob URL is checked,
+ * so avatars and resource files are never reaped even if their action forgot to
+ * claim them.
  */
 export async function GET(request: Request) {
   if (!cronAuthorized(request)) {
@@ -20,41 +58,33 @@ export async function GET(request: Request) {
     return NextResponse.json({ skipped: "blob storage not configured" });
   }
 
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-  // Unclaimed uploads older than a day: never finished a form submission.
+  // Pass 1: never-claimed uploads.
+  const cutoff = new Date(Date.now() - DAY);
   const stale = await db.upload.findMany({
     where: { claimedAt: null, createdAt: { lt: cutoff } },
     select: { id: true, url: true },
   });
 
-  // One reference query for every candidate at once.
-  const referenced = await referencedUrls(db, stale.map((u) => u.url));
+  const referenced = await referencedUrls(
+    db,
+    stale.map((u) => u.url)
+  );
 
-  const toDelete: string[] = [];
+  const toDelete: UploadRow[] = [];
   const rowsToClear: string[] = [];
   for (const u of stale) {
-    // Guard against reaping a file that any saved row still points at.
     if (referenced.has(u.url)) {
       // It is used — mark it claimed so we stop re-checking it every night.
       rowsToClear.push(u.id);
       continue;
     }
-    toDelete.push(u.url);
+    toDelete.push(u);
   }
 
-  let removed = 0;
-  if (toDelete.length > 0) {
-    try {
-      await del(toDelete);
-      removed = toDelete.length;
-    } catch {
-      // Best effort — try again next run.
-    }
+  const unclaimedDeleted = await removeBlobs(toDelete);
+  if (unclaimedDeleted.length > 0) {
+    await db.upload.deleteMany({ where: { id: { in: unclaimedDeleted } } });
   }
-
-  // Drop the rows for deleted files and for referenced-but-unclaimed files that
-  // we just confirmed are in use.
   if (rowsToClear.length > 0) {
     await db.upload.updateMany({
       where: { id: { in: rowsToClear } },
@@ -62,5 +92,44 @@ export async function GET(request: Request) {
     });
   }
 
-  return NextResponse.json({ scanned: stale.length, removed });
+  // Pass 2: claimed uploads that may have been orphaned by a later edit/delete.
+  // Ordering by claimedAt makes this a rotating queue: referenced rows move to
+  // the end when their claim is refreshed.
+  const claimedCutoff = new Date(Date.now() - 7 * DAY);
+  const staleClaimed = await db.upload.findMany({
+    where: { claimedAt: { not: null, lt: claimedCutoff } },
+    select: { id: true, url: true },
+    orderBy: { claimedAt: "asc" },
+    take: CLAIMED_BATCH,
+  });
+
+  const claimedReferenced = await referencedUrls(
+    db,
+    staleClaimed.map((u) => u.url)
+  );
+
+  const claimedToDelete = staleClaimed.filter(
+    (u) => !claimedReferenced.has(u.url)
+  );
+  const claimedToTouch = staleClaimed
+    .filter((u) => claimedReferenced.has(u.url))
+    .map((u) => u.id);
+
+  const claimedDeleted = await removeBlobs(claimedToDelete);
+  if (claimedDeleted.length > 0) {
+    await db.upload.deleteMany({ where: { id: { in: claimedDeleted } } });
+  }
+  if (claimedToTouch.length > 0) {
+    await db.upload.updateMany({
+      where: { id: { in: claimedToTouch } },
+      data: { claimedAt: new Date() },
+    });
+  }
+
+  return NextResponse.json({
+    scanned: stale.length,
+    removed: unclaimedDeleted.length,
+    claimedScanned: staleClaimed.length,
+    claimedRemoved: claimedDeleted.length,
+  });
 }

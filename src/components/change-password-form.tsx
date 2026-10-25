@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { changeOwnPassword } from "@/lib/actions/auth";
 import { Card, Button, Input } from "./ui";
 import { KeyIcon } from "./icons";
 
 export function ChangePasswordForm() {
+  const router = useRouter();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -33,6 +35,9 @@ export function ChangePasswordForm() {
         setCurrent("");
         setNext("");
         setConfirm("");
+        // The password change bumps tokenVersion, which revokes the calendar
+        // link shown on this page. Refresh so the new link is generated.
+        router.refresh();
       }
     });
   }

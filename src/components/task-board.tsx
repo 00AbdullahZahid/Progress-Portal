@@ -36,6 +36,7 @@ type Task = {
   dueDate: string | null;
   assignee: Member | null;
   goal: { id: string; title: string } | null;
+  studyMinutes: number;
   comments: Comment[];
 };
 type Goal = { id: string; title: string; targetDate: string | null };
@@ -125,13 +126,23 @@ export function TaskBoard({
     <div className="flex flex-col gap-6">
       {isAdmin ? (
         <Card className="p-4">
-          <form action={act(createProject, "Project created")} className="flex flex-wrap items-center gap-2">
+          <form
+            action={act(createProject, "Project created")}
+            className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+          >
             <span className="flex items-center gap-1.5 text-sm font-medium">
               <PlusIcon width={16} height={16} className="text-brand" />
               New project
             </span>
-            <Input name="name" placeholder="Project name" className="min-w-40 flex-1" required />
-            <Button type="submit">Add</Button>
+            <Input
+              name="name"
+              placeholder="Project name"
+              className="min-w-0 flex-1 sm:min-w-40"
+              required
+            />
+            <Button type="submit" className="w-full sm:w-auto">
+              Add
+            </Button>
           </form>
         </Card>
       ) : (
@@ -152,11 +163,11 @@ export function TaskBoard({
       {projects.map((project) => (
         <Card key={project.id} className="p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <TasksIcon width={18} height={18} className="text-brand" />
-              {project.name}
+            <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold">
+              <TasksIcon width={18} height={18} className="shrink-0 text-brand" />
+              <span className="break-words">{project.name}</span>
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted">
                 {project.tasks.filter((t) => t.status === "done").length}/
                 {project.tasks.length} done
@@ -247,11 +258,18 @@ export function TaskBoard({
               </div>
             ))}
             {isAdmin ? (
-              <form action={act(createGoal, "Goal added")} className="flex flex-wrap gap-2">
+              <form
+                action={act(createGoal, "Goal added")}
+                className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+              >
                 <input type="hidden" name="projectId" value={project.id} />
-                <Input name="title" placeholder="Add a goal…" className="min-w-40 flex-1" />
-                <Input type="date" name="targetDate" className="w-40" />
-                <Button type="submit" variant="outline">
+                <Input
+                  name="title"
+                  placeholder="Add a goal…"
+                  className="min-w-0 flex-1 sm:min-w-40"
+                />
+                <Input type="date" name="targetDate" className="w-full sm:w-40" />
+                <Button type="submit" variant="outline" className="w-full sm:w-auto">
                   <PlusIcon width={16} height={16} />
                   Goal
                 </Button>
@@ -263,11 +281,16 @@ export function TaskBoard({
           {isAdmin ? (
             <form
               action={act(createTask, "Task created")}
-              className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border p-3"
+              className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-dashed border-border p-3 sm:flex sm:flex-wrap sm:items-center"
             >
               <input type="hidden" name="projectId" value={project.id} />
-              <Input name="title" placeholder="Add a task…" className="min-w-40 flex-1" required />
-              <Select name="goalId" className="w-44">
+              <Input
+                name="title"
+                placeholder="Add a task…"
+                className="col-span-2 min-w-0 flex-1 sm:min-w-40"
+                required
+              />
+              <Select name="goalId" className="col-span-2 w-full sm:w-44">
                 <option value="">(no goal)</option>
                 {project.goals.map((g) => (
                   <option key={g.id} value={g.id}>
@@ -275,7 +298,7 @@ export function TaskBoard({
                   </option>
                 ))}
               </Select>
-              <Select name="assigneeId" className="w-32">
+              <Select name="assigneeId" className="w-full sm:w-32">
                 <option value="">Unassigned</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -283,15 +306,17 @@ export function TaskBoard({
                   </option>
                 ))}
               </Select>
-              <Select name="priority" className="w-24">
+              <Select name="priority" className="w-full sm:w-24">
                 <option value="low">Low</option>
                 <option value="med" defaultValue="med">
                   Med
                 </option>
                 <option value="high">High</option>
               </Select>
-              <Input type="date" name="dueDate" className="w-38" />
-              <Button type="submit">Add</Button>
+              <Input type="date" name="dueDate" className="col-span-2 w-full sm:w-38" />
+              <Button type="submit" className="col-span-2 w-full sm:w-auto">
+                Add
+              </Button>
             </form>
           ) : null}
 
@@ -341,6 +366,17 @@ export function TaskBoard({
                         {task.dueDate ? (
                           <span className="text-[11px] text-muted">
                             due {new Date(task.dueDate).toLocaleDateString()}
+                          </span>
+                        ) : null}
+                        {task.studyMinutes > 0 ? (
+                          <span
+                            className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] text-muted"
+                            title={`${task.studyMinutes} minutes of linked focus time`}
+                          >
+                            {task.studyMinutes >= 60
+                              ? `${Math.round(task.studyMinutes / 6) / 10}h`
+                              : `${task.studyMinutes}m`}{" "}
+                            focus
                           </span>
                         ) : null}
                       </div>
@@ -428,7 +464,7 @@ export function TaskBoard({
                           {task.comments.map((c) => (
                             <div key={c.id} className="flex items-start gap-1.5">
                               <Avatar user={c.author} size="sm" />
-                              <p className="text-xs">
+                              <p className="min-w-0 break-words text-xs">
                                 <span className="font-semibold">{c.author.name}</span>{" "}
                                 {c.body}
                               </p>

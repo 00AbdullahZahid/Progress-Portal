@@ -7,12 +7,14 @@ import {
   createAnswer,
   createQuestion,
   deleteQuestion,
+  saveAnswerAsFlashcard,
+  saveAnswerAsNote,
 } from "@/lib/actions/questions";
 import { Avatar } from "./avatar";
 import { Button, Card, Input, Textarea, Select, EmptyState } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useToast } from "./toast";
-import { QuestionIcon, PlusIcon, XIcon, CheckIcon } from "./icons";
+import { QuestionIcon, PlusIcon, XIcon, CheckIcon, NotesIcon, CardIcon } from "./icons";
 
 export type AnswerRow = {
   id: string;
@@ -37,19 +39,22 @@ export function QuestionsBoard({
   meId,
   isAdmin,
   subjects,
+  initialCreating = false,
 }: {
   questions: QuestionRow[];
   meId: string;
   isAdmin: boolean;
   subjects: string[];
+  initialCreating?: boolean;
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(initialCreating);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<QuestionRow | null>(null);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [savingAccepted, setSavingAccepted] = useState<string | null>(null);
 
   async function submit(fd: FormData) {
     setBusy(true);
@@ -99,6 +104,27 @@ export function QuestionsBoard({
     router.refresh();
   }
 
+  async function saveAccepted(answerId: string, kind: "note" | "flashcard") {
+    const key = `${answerId}:${kind}`;
+    if (savingAccepted) return;
+    setSavingAccepted(key);
+    const fd = new FormData();
+    fd.set("answerId", answerId);
+    try {
+      const res =
+        kind === "note" ? await saveAnswerAsNote(fd) : await saveAnswerAsFlashcard(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast(kind === "note" ? "Saved to notes" : "Flashcard created", "success");
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setSavingAccepted(null);
+    }
+  }
+
   async function confirmDelete() {
     if (!pending) return;
     const id = pending.id;
@@ -122,12 +148,12 @@ export function QuestionsBoard({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="flex flex-wrap items-center gap-3 p-4">
+      <Card className="grid grid-cols-1 gap-2 p-4 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         <Select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Filter by subject"
-          className="w-auto"
+          className="w-full sm:w-auto"
         >
           <option value="">All subjects</option>
           {subjects.map((s) => (
@@ -139,7 +165,7 @@ export function QuestionsBoard({
         <Button
           type="button"
           variant="outline"
-          className="ml-auto"
+          className="w-full sm:ml-auto sm:w-auto"
           onClick={() => setCreating((c) => !c)}
         >
           <PlusIcon width={16} height={16} />
@@ -169,12 +195,21 @@ export function QuestionsBoard({
               <span className="mb-1 block text-xs font-medium text-muted">Details</span>
               <Textarea name="body" rows={4} maxLength={5000} required />
             </label>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={busy} className="px-3 py-1.5 text-sm">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={busy}
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
+              >
                 <PlusIcon width={15} height={15} />
                 {busy ? "Posting…" : "Post question"}
               </Button>
-              <Button type="button" variant="outline" className="px-3 py-1.5 text-sm" onClick={() => setCreating(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
+                onClick={() => setCreating(false)}
+              >
                 Cancel
               </Button>
             </div>
@@ -198,7 +233,7 @@ export function QuestionsBoard({
                   <span className="w-fit rounded-full bg-brand-soft px-2 py-0.5 text-[10px] text-brand">
                     {q.subject}
                   </span>
-                  <h3 className="mt-1 font-semibold">{q.title}</h3>
+                  <h3 className="mt-1 break-words font-semibold">{q.title}</h3>
                 </div>
                 {canDelete ? (
                   <button
@@ -206,7 +241,7 @@ export function QuestionsBoard({
                     onClick={() => setPending(q)}
                     title="Delete question"
                     aria-label="Delete question"
-                    className="text-muted transition-colors hover:text-rose-600"
+                    className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                   >
                     <XIcon width={15} height={15} />
                   </button>
@@ -233,9 +268,33 @@ export function QuestionsBoard({
                         <p className="text-xs text-muted">
                           {a.authorId === meId ? "You" : a.author.name}
                         </p>
+                        {a.accepted ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => saveAccepted(a.id, "note")}
+                              disabled={savingAccepted !== null}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-brand underline disabled:opacity-50"
+                            >
+                              <NotesIcon width={12} height={12} />
+                              {savingAccepted === `${a.id}:note` ? "Saving…" : "Save to notes"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => saveAccepted(a.id, "flashcard")}
+                              disabled={savingAccepted !== null}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-brand underline disabled:opacity-50"
+                            >
+                              <CardIcon width={12} height={12} />
+                              {savingAccepted === `${a.id}:flashcard`
+                                ? "Creating…"
+                                : "Create flashcard"}
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
                       {a.accepted ? (
-                        <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                           <CheckIcon width={12} height={12} />
                           Accepted
                         </span>
@@ -259,11 +318,20 @@ export function QuestionsBoard({
                   className="flex flex-col gap-2 border-t border-border pt-3"
                 >
                   <Textarea name="body" rows={2} maxLength={5000} required placeholder="Your answer…" />
-                  <div className="flex gap-2">
-                    <Button type="submit" disabled={busy} className="px-2.5 py-1.5 text-xs">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full px-2.5 py-1.5 text-xs sm:w-auto"
+                    >
                       {busy ? "Posting…" : "Post answer"}
                     </Button>
-                    <Button type="button" variant="outline" className="px-2.5 py-1.5 text-xs" onClick={() => setReplyTo(null)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full px-2.5 py-1.5 text-xs sm:w-auto"
+                      onClick={() => setReplyTo(null)}
+                    >
                       Cancel
                     </Button>
                   </div>

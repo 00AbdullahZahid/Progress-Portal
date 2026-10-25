@@ -12,7 +12,7 @@ import {
 } from "../validation";
 import { hashPassword, validatePassword } from "../security";
 import { audit } from "../audit";
-import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -81,6 +81,11 @@ export async function adminUpdateUser(formData: FormData): Promise<ActionResult>
     else if (isBlobUrl(value) && value.length <= 500) data.image = value;
     else return { ok: false, error: "That image couldn't be saved." };
   }
+
+  const attachment = await attachmentError(me.id, [
+    [data.image, target.image],
+  ]);
+  if (attachment) return { ok: false, error: attachment };
 
   await db.user.update({ where: { id: userId }, data });
 
@@ -207,45 +212,76 @@ export async function adminDeleteUser(formData: FormData): Promise<ActionResult>
     return { ok: false, error: "You can't delete the last admin." };
   }
 
-  // Gather every blob the deleted user's rows point at (avatar + study
-  // attachments + notes) so storage doesn't keep files nobody references. Also
-  // include any uploads the deleted user owned, even ones an admin attached
-  // elsewhere. Ownership is resolved before the row is removed.
-  const [ownedSessions, ownedNotes, ownedUploads] = await Promise.all([
-    db.studySession.findMany({
-      where: { userId },
-      select: { image: true, fileUrl: true },
-    }),
-    db.note.findMany({
-      where: { authorId: userId },
-      select: { image: true, fileUrl: true },
-    }),
-    db.upload.findMany({
-      where: { ownerId: userId },
-      select: { url: true },
-    }),
-  ]);
-
-  const candidates = [
-    target.image,
-    ...ownedSessions.flatMap((s) => [s.image, s.fileUrl]),
-    ...ownedNotes.flatMap((n) => [n.image, n.fileUrl]),
-    ...ownedUploads.map((u) => u.url),
-  ];
-  // Resolve which of these the target owns and nothing else references, while
-  // their rows still exist. This is a hard delete, so no reference check.
-  const safe = await deletableUrls(db, userId, candidates, {
-    skipReferenceCheck: true,
-    requireOwnerId: true,
+  // Personal rows (sessions, habits, grades) go away with the account. Shared
+  // content is reassigned to the acting admin first so the group doesn't lose
+  // notes, exam questions, resources, chat history or the timetable. Uploads
+  // are transferred too, so files referenced by that reassigned content keep
+  // an owner and are not mistaken for orphans.
+  const personalSessions = await db.studySession.findMany({
+    where: { userId },
+    select: { image: true, fileUrl: true },
   });
 
-  await db.user.delete({ where: { id: userId } });
+  await db.$transaction([
+    db.note.updateMany({ where: { authorId: userId }, data: { authorId: me.id } }),
+    db.resource.updateMany({
+      where: { addedById: userId },
+      data: { addedById: me.id },
+    }),
+    db.exam.updateMany({
+      where: { createdById: userId },
+      data: { createdById: me.id },
+    }),
+    db.flashcard.updateMany({
+      where: { createdById: userId },
+      data: { createdById: me.id },
+    }),
+    db.question.updateMany({
+      where: { authorId: userId },
+      data: { authorId: me.id },
+    }),
+    db.answer.updateMany({ where: { authorId: userId }, data: { authorId: me.id } }),
+    db.taskComment.updateMany({
+      where: { authorId: userId },
+      data: { authorId: me.id },
+    }),
+    db.message.updateMany({
+      where: { authorId: userId },
+      data: { authorId: me.id },
+    }),
+    db.timetableEntry.updateMany({
+      where: { ownerId: userId },
+      data: { ownerId: me.id },
+    }),
+    db.upload.updateMany({
+      where: { ownerId: userId },
+      data: { ownerId: me.id },
+    }),
+    // Delete in the same transaction so a failure can't leave the account's
+    // content reassigned to the admin while the account still exists.
+    db.user.delete({ where: { id: userId } }),
+  ]);
 
-  await deleteBlobs(safe);
+  // Only the deleted account's private files (avatar + study attachments) can
+  // lose their last reference now. The reference check still protects anything
+  // that was also attached to reassigned shared content.
+  const candidates = [
+    target.image,
+    ...personalSessions.flatMap((s) => [s.image, s.fileUrl]),
+  ];
+  const safe = await deletableUrls(db, me.id, candidates, {
+    requireOwnerId: true,
+  });
+  if (safe.length > 0) {
+    await deleteBlobs(safe);
+    await db.upload.deleteMany({
+      where: { ownerId: me.id, url: { in: safe } },
+    });
+  }
 
   await audit(me.id, "user.delete", {
     targetId: userId,
-    detail: `deleted @${target.handle}`,
+    detail: `deleted @${target.handle}; shared content reassigned to @${me.handle}`,
   });
 
   refresh();

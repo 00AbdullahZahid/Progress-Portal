@@ -169,6 +169,47 @@ export async function claimUploads(
 }
 
 /**
+ * Verify that `url` was uploaded by `ownerId`.
+ *
+ * Attachments must be produced by our own upload route. Without this check a
+ * member could paste any Blob URL on the host suffix into their note or profile
+ * and later delete a file they never uploaded. Legacy URLs are handled by the
+ * caller: an unchanged value on an existing row is allowed separately.
+ */
+export async function ownsUpload(
+  ownerId: string,
+  url: string | null | undefined
+): Promise<boolean> {
+  if (!url || !isBlobUrl(url)) return false;
+  const { db } = await import("./db");
+  const row = await db.upload.findFirst({
+    where: { url, ownerId },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+/**
+ * Null when every newly submitted attachment was uploaded by `ownerId`.
+ *
+ * Each pair is [nextValue, currentValue]. A value that hasn't changed is always
+ * allowed, so an admin editing someone else's note can keep the author's file
+ * without re-uploading it.
+ */
+export async function attachmentError(
+  ownerId: string,
+  pairs: [next: string | null | undefined, current: string | null | undefined][]
+): Promise<string | null> {
+  for (const [next, current] of pairs) {
+    if (!next || next === current) continue;
+    if (!(await ownsUpload(ownerId, next))) {
+      return "Attach files with the upload button, not a link copied from somewhere else.";
+    }
+  }
+  return null;
+}
+
+/**
  * Figure out which of `urls` are safe to delete.
  *
  * A URL is deleted when ALL of these hold:

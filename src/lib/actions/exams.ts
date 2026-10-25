@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isValidDateString } from "../validation";
+import { todayStr } from "../dates";
+import { queueWebhookAlert } from "../alerts";
 import type { ActionResult } from "./tasks";
 
 const KINDS = ["exam", "assignment", "quiz", "deadline"] as const;
@@ -33,16 +35,32 @@ export async function createExam(formData: FormData): Promise<ActionResult> {
   if (!isValidDateString(date))
     return { ok: false, error: "Please pick a valid date." };
 
+  const kind = parseKind(formData.get("kind"));
   await db.exam.create({
     data: {
       title: titleRes.value,
       subject: subjectRes.value,
-      kind: parseKind(formData.get("kind")),
+      kind,
       date,
       notes: notesRes.value || null,
       createdById: me.id,
     },
   });
+
+  // Ping the group immediately when a date-only item is added for today or
+  // tomorrow. It is treated as due at the start of that day.
+  const today = todayStr(me.timezone);
+  const days = Math.round(
+    (Date.parse(date + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86_400_000
+  );
+  if (days >= 0 && days <= 1) {
+    queueWebhookAlert(
+      `Urgent ${kind} added\n${titleRes.value} (${subjectRes.value}) is due ${
+        days === 0 ? "today" : "tomorrow"
+      }.`
+    );
+  }
+
   refresh();
   return { ok: true };
 }

@@ -1,14 +1,16 @@
-import { requireUser } from "@/lib/auth";
+import { requireUser, createCalendarToken } from "@/lib/auth";
 import { PageHeader, Card, Button } from "@/components/ui";
 import { ProfileForm } from "@/components/profile-form";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { AdminResetPanel } from "@/components/admin-reset-panel";
 import { PreferencesForm } from "@/components/preferences-form";
+import { CalendarFeed } from "@/components/calendar-feed";
 import { TutorialPreference } from "@/components/tutorial";
 import { signOut } from "@/lib/actions/auth";
 import { db } from "@/lib/db";
 import { supportedTimezones } from "@/lib/validation";
 import { LogoutIcon, ShieldIcon } from "@/components/icons";
+import { headers } from "next/headers";
 import Link from "next/link";
 
 const COMMON_TIMEZONES = [
@@ -49,6 +51,20 @@ export default async function SettingsPage() {
       ).map((u) => ({ handle: u.handle, name: u.name, role: u.role, color: u.color }))
     : [];
 
+  const token = await createCalendarToken(me.id, me.tokenVersion);
+  const requestHeaders = await headers();
+  const host = (requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000")
+    .split(",")[0]
+    .trim();
+  const forwardedProto = (requestHeaders.get("x-forwarded-proto") ?? "").split(",")[0].trim();
+  const proto =
+    forwardedProto === "http" || forwardedProto === "https"
+      ? forwardedProto
+      : host.startsWith("localhost")
+        ? "http"
+        : "https";
+  const calendarUrl = `${proto}://${host}/api/calendar?token=${encodeURIComponent(token)}`;
+
   return (
     <div className="max-w-lg">
       <PageHeader title="Settings" subtitle="Your profile, password, and preferences." />
@@ -68,6 +84,10 @@ export default async function SettingsPage() {
           notifyTasks={me.notifyTasks}
           notifyExams={me.notifyExams}
         />
+      </div>
+
+      <div className="mt-6">
+        <CalendarFeed url={calendarUrl} />
       </div>
 
       <div className="mt-6">

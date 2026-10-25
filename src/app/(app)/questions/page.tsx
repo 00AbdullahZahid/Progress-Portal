@@ -5,8 +5,13 @@ import { QuestionsBoard } from "@/components/questions-board";
 
 export const metadata = { title: "Doubts" };
 
-export default async function QuestionsPage() {
+export default async function QuestionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ new?: string }>;
+}) {
   const me = await requireUser();
+  const sp = await searchParams;
 
   const questions = await db.question.findMany({
     include: {
@@ -47,6 +52,7 @@ export default async function QuestionsPage() {
         meId={me.id}
         isAdmin={me.role === "admin"}
         subjects={subjects}
+        initialCreating={sp?.new === "1"}
       />
     </div>
   );

@@ -60,14 +60,14 @@ export function FileUpload({
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[11px] font-medium text-muted">{label}</span>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <input
           ref={inputRef}
           type="file"
           accept={kind === "image" ? "image/*" : ".pdf,.txt,.doc,.docx,.xls,.xlsx"}
           onChange={pick}
           disabled={uploading}
-          className="text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface2 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
+          className="w-full max-w-full min-w-0 text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface2 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
         />
         {value ? (
           <button

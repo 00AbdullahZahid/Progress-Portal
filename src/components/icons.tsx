@@ -257,6 +257,14 @@ export function AlertIcon(props: P) {
   );
 }
 
+export function MenuIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
 export function InfoIcon(props: P) {
   return (
     <svg {...base(props)}>

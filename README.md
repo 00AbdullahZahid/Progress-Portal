@@ -11,27 +11,28 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Members and auth** — Invite-only. Username + password login (scrypt-hashed). One or more **super admin** accounts.
 - **Super admin** — Admins can add, deactivate, reactivate, and delete users; edit anyone's details (name, username, color, timezone, role); and reset any member's password. Creating and deleting projects, goals, tasks, and chat channels is admin-only, enforced on the server.
 - **Admin dashboard** — A dedicated super-admin page with group stats, a user manager, and recent audit activity.
-- **Tasks and projects** — Projects, goals, and tasks with status badges (todo / doing / done), assignees, priorities, due dates, and progress bars. Assignees (and admins) can move a task's status.
+- **Tasks and projects** — Projects, goals, and tasks with status badges (todo / doing / done), assignees, priorities, due dates, progress bars, and linked focus time. Assignees (and admins) can move a task's status.
 - **Comments** — Comment threads on any task.
 - **Habits and check-ins** — Daily habit grid with streaks that keep counting past the current record.
 - **Study log** — Log sessions (subject, minutes, notes, date) with optional image and file attachments, per-subject progress bars, and inline editing. Sessions you mark as shared are visible to the rest of the group; private ones stay yours.
-- **Focus timer** — A Pomodoro timer (25/5, 50/10, 15/3) that logs a study session automatically when a focus block finishes, so the log stays accurate without manual minute entry.
+- **Focus timer** — A Pomodoro timer (25/5, 50/10, 15/3) that logs a study session automatically when a focus block finishes. Link a block to an active task; if you end early, you can log the minutes you have already focused instead of losing them.
 - **Notes library** — Shared study notes anyone can add to and read. Search and filter by subject; only the author (or an admin) can edit or delete a note.
 - **Deadlines & exams** — A shared countdown of exams, quizzes and assignments, with the soonest shown on the dashboard.
 - **Flashcards** — Shared decks with spaced repetition (Leitner boxes). Reviews are personal to each member.
-- **Doubts / Q&A board** — Ask a question per subject; the group answers and the asker marks one answer as accepted.
+- **Doubts / Q&A board** — Ask a question per subject; the group answers and the asker marks one answer as accepted. Any member can save an accepted answer to notes or turn it into a flashcard.
 - **Resources library** — Past papers, books and links, organised by subject.
 - **Timetable** — A shared weekly class calendar on a time grid. Everyone can view it; only admins add or remove classes.
 - **Grade & GPA tracker** — Private courses with weights and scores; predicts your GPA on a 4.0 scale.
 - **Global search** — Search across notes, tasks, chat messages and resources from the sidebar.
-- **Weekly goals & notifications** — Set a weekly study target (shown as a progress ring on the dashboard) and choose what the daily digest includes. The digest is posted to a Discord or Telegram webhook (or any JSON endpoint).
+- **Weekly goals & notifications** — Set a weekly study target (shown as a progress ring on the dashboard) and choose what the daily digest includes. The digest is posted to a Discord or Telegram webhook (or any JSON endpoint), and new doubts, today/tomorrow deadlines, and chat mentions trigger instant alerts.
 - **Presence & weekly report** — See who is online or studying now, plus a week-in-review breakdown by subject.
-- **Data export** — Download your own study sessions, habits, tasks, notes and grades as JSON. Questions, answers and resources are intentionally not included.
+- **Data export** - Download your own study sessions, habits, tasks, notes, grades, exams and flashcard reviews as JSON or CSV. Questions, answers and resources are intentionally not included.
+- **Calendar feed** — Subscribe once in Settings to a signed, read-only `.ics` feed with group exams, your task deadlines, and the shared timetable. Changing your password revokes the link.
 - **PWA** — Installable. Static assets are cached for speed, private pages are never cached, and caches are cleared on sign out.
 - **Feature guide and tutorial** — An in-app Guide page explains every page and permission, and an optional eight-step tour walks through the app. The tour can be turned off or replayed from Settings. See [`docs/FEATURES.md`](docs/FEATURES.md).
 - **Profile pictures** — Upload a photo from Settings (or the admin page for any member); it shows up next to your name everywhere. Falls back to colored initials when unset.
 - **Group chat** — Real-time-ish chat with polling (no extra infra needed). Messages can be edited by their author and deleted by the author or an admin; edits and deletes sync into other open windows.
-- **Dashboard** — 7-day leaderboard, tasks-completed chart, study-minutes chart, study-by-person breakdown, weekly-goal ring, deadline countdown, presence, and quick links to every section. Charts load lazily so the first paint stays fast.
+- **Dashboard** — Quick actions (start timer, log study, ask a doubt, habits), 7-day leaderboard, tasks-completed chart, study-minutes chart, study-by-person breakdown, weekly-goal ring, deadline countdown, presence, and quick links to every section. Charts load lazily so the first paint stays fast.
 - **Polished flow** — Toast notifications, confirmation dialogs for destructive actions, inline validation, and empty states on every screen.
 - **Collapsible sidebar** — Collapse the nav to icons; it remembers your preference between visits.
 - **Polish** — Dark mode, mobile-first responsive layout, SVG icons throughout.
@@ -100,14 +101,14 @@ Copy `.env.example` to `.env` and set:
 ```
 DATABASE_URL="postgresql://..."        # pooled Postgres connection string
 DIRECT_URL="postgresql://..."          # non-pooled URL, used by Prisma Migrate
-AUTH_SECRET="long-random-hex"          # used to sign session cookies
+AUTH_SECRET="long-random-hex"          # signs session cookies and calendar feeds
 APP_URL="http://localhost:3000"
 ADMIN_HANDLES="admin"                  # usernames to create as super admins
 SEED_MEMBERS="0"                        # "1" only for local dev
 # SEED_ADMIN_PASSWORD=""               # optional; random when unset
 # BLOB_READ_WRITE_TOKEN=""             # Vercel Blob token for uploads
 # CRON_SECRET=""                       # bearer token Vercel Cron sends to the jobs
-# NOTIFY_WEBHOOK_URL=""                # Discord/Telegram/JSON webhook for the digest
+# NOTIFY_WEBHOOK_URL=""                # Discord/Telegram/JSON webhook for digests and alerts
 # NOTIFY_TELEGRAM_CHAT_ID=""           # required when the webhook is Telegram
 ```
 
@@ -127,21 +128,26 @@ If the token is unset, uploads are disabled with a clear message but the rest of
 the app keeps working. Files are capped at 3.5MB (2MB for avatars), limited to
 images and common document types (no SVG or HTML), checked by extension and
 magic bytes (including Office formats), and rate-limited to 20 uploads per hour
-per user. Uploaded files use private, hard-to-guess links — anyone with the link
-can open them, so treat them as shareable rather than secret.
+per user. Uploaded files use public, hard-to-guess links — anyone with the link
+can open them, even without signing in, so treat them as shareable rather than secret.
 
-Every upload is recorded in an `Upload` row that names its owner. A file is only
-deleted when the actor owns it **and** no saved row still references it, so a
-member can't delete a teammate's file. A daily cron (`/api/cleanup`) removes
-uploads that were never attached to a saved form and are more than 24 hours old.
+Every upload is recorded in an `Upload` row that names its owner. New
+attachments must point at one of your own uploads, and a file is only deleted
+when no saved row still references it, so a member can't delete a teammate's
+file by pasting its URL. A daily cron (`/api/cleanup`) removes uploads that were
+never attached to a saved form and are more than 24 hours old, then re-checks a
+rotating batch of older claimed uploads for files orphaned by later edits or
+deletions.
 
 ### Notifications (optional)
 
-Set `NOTIFY_WEBHOOK_URL` to receive a daily digest of upcoming tasks and exams.
-Discord (`content`), Telegram (`chat_id` + `text`, needs
+Set `NOTIFY_WEBHOOK_URL` to receive a daily digest of upcoming tasks and exams,
+plus instant alerts for new doubts, deadlines added for today or tomorrow, and
+chat mentions. Discord (`content`), Telegram (`chat_id` + `text`, needs
 `NOTIFY_TELEGRAM_CHAT_ID`), and generic `{ "text": ... }` endpoints are
 supported. The `/api/notify` route runs on a cron; set `CRON_SECRET` so Vercel
-signs the invocation (a manual run can pass `?key=<CRON_SECRET>`).
+signs the invocation. For a manual run, send `Authorization: Bearer <CRON_SECRET>`
+(the secret is not accepted in the query string).
 
 Generate a secret with:
 

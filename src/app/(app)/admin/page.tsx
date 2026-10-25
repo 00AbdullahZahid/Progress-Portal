@@ -25,7 +25,10 @@ export default async function AdminDashboardPage() {
       db.user.findMany({ orderBy: [{ role: "desc" }, { name: "asc" }] }),
       db.task.findMany({ select: { status: true } }),
       db.studySession.findMany({
-        where: { date: { gte: range[0] } },
+        where: {
+          date: { gte: range[0] },
+          OR: [{ shared: true }, { userId: me.id }],
+        },
         select: { minutes: true },
       }),
       db.habitCheckIn.findMany({ where: { date: today }, select: { id: true } }),
@@ -35,9 +38,17 @@ export default async function AdminDashboardPage() {
         include: { author: true, channel: true },
       }),
       db.studySession.findMany({
+        where: { OR: [{ shared: true }, { userId: me.id }] },
         orderBy: { createdAt: "desc" },
         take: 6,
-        include: { user: true },
+        select: {
+          id: true,
+          subject: true,
+          minutes: true,
+          date: true,
+          createdAt: true,
+          user: { select: { id: true, name: true, color: true, image: true } },
+        },
       }),
     ]);
 

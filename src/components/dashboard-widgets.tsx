@@ -74,7 +74,7 @@ export function DashboardWidgets({
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card className="flex items-center gap-5 p-4">
+      <Card className="flex flex-col items-start gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
         <GoalRing percent={percent} label="of goal" />
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 font-semibold">

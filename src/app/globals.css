@@ -28,6 +28,8 @@
 
 html {
   color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html.dark {
@@ -39,6 +41,22 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   min-height: 100dvh;
+  /* Never let a wide child create a page-level sideways scroll. */
+  overflow-x: clip;
+}
+
+/* Media should always fit its container on small screens. */
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Fixed headers/nav keep their own scrolling; the page scrolls normally. */
+@supports (padding: max(0px)) {
+  .safe-bottom {
+    padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+  }
 }
 
 * {

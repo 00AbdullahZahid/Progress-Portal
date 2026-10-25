@@ -8,8 +8,14 @@ import { StudyNotesPanel } from "@/components/study-notes-panel";
 import { FocusTimer } from "@/components/focus-timer";
 import { TargetIcon, ClockIcon, StudyIcon } from "@/components/icons";
 
-export default async function StudyPage() {
+export default async function StudyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ timer?: string }>;
+}) {
   const me = await requireUser();
+  const sp = await searchParams;
+  const autoStart = sp?.timer === "start";
   const today = todayStr(me.timezone);
   const last30 = lastNDays(me.timezone, 30);
 
@@ -19,7 +25,10 @@ export default async function StudyPage() {
       date: { gte: last30[0] },
       OR: [{ userId: me.id }, { shared: true }],
     },
-    include: { user: true },
+    include: {
+      user: true,
+      task: { select: { id: true, title: true } },
+    },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 50,
   });
@@ -28,9 +37,13 @@ export default async function StudyPage() {
   // aggregates over the FULL window so a busy group can't undercount them.
   const window = { date: { gte: last30[0] } };
 
-  const [groupAgg, myAgg, myBySubject, recentNotes] = await Promise.all([
-    // Group total across ALL members (minutes only; no notes/attachments).
-    db.studySession.aggregate({ where: window, _sum: { minutes: true } }),
+  const [groupAgg, myAgg, myBySubject, recentNotes, activeTasks] = await Promise.all([
+    // Group total: everyone's shared sessions plus your own private ones.
+    // Private sessions never contribute to another member's view.
+    db.studySession.aggregate({
+      where: { ...window, OR: [{ shared: true }, { userId: me.id }] },
+      _sum: { minutes: true },
+    }),
     // Your own total, independent of the list cap or other people's sessions.
     db.studySession.aggregate({
       where: { ...window, userId: me.id },
@@ -46,6 +59,13 @@ export default async function StudyPage() {
       include: { author: { select: { id: true, name: true, color: true, image: true } } },
       orderBy: { createdAt: "desc" },
       take: 6,
+    }),
+    // Open tasks the signed-in member can link a focus block to.
+    db.task.findMany({
+      where: { assigneeId: me.id, status: { not: "done" } },
+      select: { id: true, title: true, project: { select: { name: true } } },
+      orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+      take: 50,
     }),
   ]);
 
@@ -65,8 +85,17 @@ export default async function StudyPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-1">
-          <FocusTimer />
-          <StudyForm today={today} />
+          <FocusTimer
+            tasks={activeTasks.map((t) => ({
+              id: t.id,
+              title: t.title,
+              projectName: t.project.name,
+            }))}
+            autoStart={autoStart}
+          />
+          <div id="log-session" className="scroll-mt-24">
+            <StudyForm today={today} />
+          </div>
           <StudyNotesPanel
             meId={me.id}
             notes={recentNotes.map((n) => ({
@@ -135,6 +164,7 @@ export default async function StudyPage() {
                   fileUrl: s.fileUrl,
                   fileName: s.fileName,
                   shared: s.shared,
+                  task: s.task,
                 }))}
                 meId={me.id}
                 today={today}

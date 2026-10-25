@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { db } from "../db";
 import {
   createSession,
@@ -16,6 +17,14 @@ import {
 import { rateLimit, resetRateLimit, sweepRateLimits } from "../rate-limit";
 import { audit } from "../audit";
 
+/**
+ * A real scrypt hash for a throwaway password. Unknown usernames run a dummy
+ * verify against this so a missing account and a wrong password take about the
+ * same time, which stops the login form from confirming which handles exist.
+ */
+const DUMMY_PASSWORD_HASH =
+  "7c8a5d9be6fa507058875c724e116991:28381788feaa973fece48c7d9d6882c7899aa783f0379c18c6cb54961f8597df1f533ae0b0bfaba49779a308e6d0e11b3fe133acbfbbcbc28462a2619fe7876b";
+
 export async function signIn(formData: FormData) {
   "use server";
   const handle = String(formData.get("handle") ?? "").trim().toLowerCase();
@@ -27,6 +36,22 @@ export async function signIn(formData: FormData) {
   }
 
   sweepRateLimits();
+
+  // Per-network limit: the per-username bucket alone would let an attacker
+  // spray many different usernames from the same machine.
+  const requestHeaders = await headers();
+  const forwarded = requestHeaders.get("x-forwarded-for") ?? "";
+  const ip =
+    forwarded.split(",")[0]?.trim() ||
+    requestHeaders.get("x-real-ip") ||
+    "unknown";
+  const ipLimit = rateLimit(`login-ip:${ip}`, 30, 60_000);
+  if (!ipLimit.ok) {
+    return {
+      error: `Too many attempts from this network. Please wait ${ipLimit.retryAfterSeconds}s and try again.`,
+    };
+  }
+
   const limit = rateLimit(`login:${handle}`, 10, 60_000);
   if (!limit.ok) {
     return {
@@ -35,7 +60,14 @@ export async function signIn(formData: FormData) {
   }
 
   const user = await db.user.findUnique({ where: { handle } });
-  if (!user || !user.isActive || !(await verifyPassword(password, user.passwordHash))) {
+
+  // Always run one scrypt verify, even for an unknown handle, so response time
+  // doesn't disclose whether the username exists.
+  const passwordOk = await verifyPassword(
+    password,
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH
+  );
+  if (!user || !user.isActive || !passwordOk) {
     return { error: "Invalid username or password." };
   }
 

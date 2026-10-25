@@ -23,7 +23,7 @@ function getSecret(): Uint8Array {
 }
 
 export async function createSession(userId: string, tokenVersion: number) {
-  const token = await new SignJWT({ userId, v: tokenVersion })
+  const token = await new SignJWT({ userId, v: tokenVersion, purpose: "session" })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
@@ -44,6 +44,38 @@ export async function destroySession() {
   store.delete(COOKIE);
 }
 
+/**
+ * Create a long-lived, read-only token for a member's calendar feed. The token
+ * is separate from the session cookie and is revoked by the same tokenVersion
+ * bump used for password resets and deactivation.
+ */
+export async function createCalendarToken(
+  userId: string,
+  tokenVersion: number
+): Promise<string> {
+  return new SignJWT({ userId, v: tokenVersion, purpose: "calendar" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("365d")
+    .sign(getSecret());
+}
+
+export async function verifyCalendarToken(
+  token: string
+): Promise<{ userId: string; v: number } | null> {
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, getSecret());
+    if (payload.purpose !== "calendar") return null;
+    const userId = payload.userId as string | undefined;
+    const v = typeof payload.v === "number" ? payload.v : 0;
+    if (!userId) return null;
+    return { userId, v };
+  } catch {
+    return null;
+  }
+}
+
 type SessionPayload = { userId: string; v: number };
 
 async function readSession(): Promise<SessionPayload | null> {
@@ -52,6 +84,9 @@ async function readSession(): Promise<SessionPayload | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret());
+    // Calendar tokens are signed with the same secret but must never be
+    // accepted as a browser session. Legacy session cookies have no purpose.
+    if (payload.purpose && payload.purpose !== "session") return null;
     const userId = payload.userId as string | undefined;
     const v = typeof payload.v === "number" ? payload.v : 0;
     if (!userId) return null;

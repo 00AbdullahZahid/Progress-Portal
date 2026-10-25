@@ -41,15 +41,15 @@ const FEATURES: Feature[] = [
     href: "/dashboard",
     title: "Dashboard",
     Icon: DashboardIcon,
-    what: "Your home page. Shows the group's activity snapshot, your streaks, upcoming deadlines, weekly study goal progress, and recent chat.",
+    what: "Your home page. Shows quick actions for starting a focus block, logging study, asking a doubt, and opening habits, plus the group's activity snapshot, your streaks, upcoming deadlines, weekly study goal progress, and recent chat.",
     who: "Everyone. Data shown is yours plus group-wide totals.",
   },
   {
     href: "/tasks",
     title: "Tasks & Goals",
     Icon: TasksIcon,
-    what: "Plan projects, break them into goals, create tasks with a status (todo, doing, done), priority, assignee, and due date. Comment on tasks to keep context together.",
-    who: "Everyone can create and edit tasks. Admins can also remove anything.",
+    what: "Plan projects, break them into goals, create tasks with a status (todo, doing, done), priority, assignee, and due date. Comment on tasks to keep context together, and see focus time linked from the study timer.",
+    who: "Admins create projects, goals, and tasks. Members can move tasks assigned to them and comment on any task; admins can remove anything.",
   },
   {
     href: "/habits",
@@ -62,7 +62,7 @@ const FEATURES: Feature[] = [
     href: "/study",
     title: "Study log",
     Icon: StudyIcon,
-    what: "Record study sessions with subject, minutes, date, and optional notes or attachments. The page totals your time and compares it with your weekly goal.",
+    what: "Record study sessions with subject, minutes, date, and optional notes or attachments. The focus timer can link a block to a task and log the minutes you have already focused if you end early.",
     who: "Everyone. Sessions can be shared with the group or kept private.",
   },
   {
@@ -90,8 +90,8 @@ const FEATURES: Feature[] = [
     href: "/questions",
     title: "Doubts",
     Icon: QuestionIcon,
-    what: "Ask a question under a subject and let teammates answer. One answer can be marked as accepted so the best explanation stays on top.",
-    who: "Everyone can ask and answer. The asker or an admin can mark accepted and delete.",
+    what: "Ask a question under a subject and let teammates answer. One answer can be marked as accepted, then saved to notes or turned into a flashcard so the best explanation becomes revision material.",
+    who: "Everyone can ask and answer. The asker marks one accepted answer; the asker or an admin can delete.",
   },
   {
     href: "/resources",
@@ -112,7 +112,7 @@ const FEATURES: Feature[] = [
     title: "Grades",
     Icon: TrophyIcon,
     what: "Track courses, assessment weights, and marks, then predict your GPA. Nothing here is visible to other members.",
-    who: "Private: only you and a super admin can see your grades.",
+    who: "Private: only you can see your grades.",
   },
   {
     href: "/search",
@@ -125,7 +125,7 @@ const FEATURES: Feature[] = [
     href: "/chat",
     title: "Chat",
     Icon: ChatIcon,
-    what: "Group channels for conversation and quick updates. Messages refresh automatically and support image or file attachments.",
+    what: "Group channels for conversation and quick updates. Messages refresh automatically, and authors can edit or delete their own messages.",
     who: "Everyone. Admins can remove messages and manage channels.",
   },
   {
@@ -139,7 +139,7 @@ const FEATURES: Feature[] = [
     href: "/settings",
     title: "Settings",
     Icon: SettingsIcon,
-    what: "Change your name, profile colour, photo, timezone, password, weekly study goal, and notification preferences. You can also replay the tutorial from here.",
+    what: "Change your name, profile colour, photo, timezone, password, weekly study goal, and notification preferences. Subscribe to the calendar feed, export your data, and replay the tutorial from here.",
     who: "Everyone edits their own profile. A super admin can reset any password.",
   },
   {
@@ -155,7 +155,7 @@ const EXTRAS = [
   {
     Icon: TimerIcon,
     title: "Focus timer",
-    body: "A Pomodoro-style timer on the dashboard. Start a focus block, take a break, and keep the session count for the day. It keeps running while you move between pages.",
+    body: "A Pomodoro-style timer on the Study page. Link a focus block to an active task, take a break, and log the minutes you have focused if you end early. Completed blocks are saved as study sessions automatically.",
   },
   {
     Icon: TargetIcon,
@@ -165,12 +165,17 @@ const EXTRAS = [
   {
     Icon: BellIcon,
     title: "Notifications",
-    body: "Opt in to a daily digest of upcoming tasks and exams. It is delivered to the group's Discord, Telegram, or custom webhook, depending on how the deployment is configured.",
+    body: "Opt in to a daily digest of upcoming tasks and exams, and get instant webhook alerts for new doubts, deadlines added for today or tomorrow, and chat mentions. Alerts go to the group's Discord, Telegram, or custom webhook.",
+  },
+  {
+    Icon: CalendarIcon,
+    title: "Calendar feed",
+    body: "Subscribe once in Settings to a read-only calendar with group exams, your task deadlines, and the shared timetable. It works in Google Calendar, Apple Calendar, and Outlook; changing your password revokes the link.",
   },
   {
     Icon: DownloadIcon,
     title: "Export",
-    body: "Download your own data as a file from the dashboard or settings. The export covers your tasks, habits, study sessions, grades, and notes; questions, answers, and resources are not included.",
+    body: "Download your own data from Settings as JSON or CSV. The export covers your tasks, habits, study sessions, grades, notes, exams, and flashcard reviews; questions, answers, and resources are not included.",
   },
   {
     Icon: InfoIcon,
@@ -226,7 +231,7 @@ export default async function GuidePage() {
           The portal is a shared workspace for the study group. Most pages are visible to every
           member: tasks, habits, study sessions, notes, deadlines, flashcards, doubts, resources,
           the timetable, and chat. A few places are deliberately private: grades are only visible
-          to you (and a super admin), and only the author or an admin can edit or delete shared
+          to you, and only the author or an admin can edit or delete shared
           content you created.
         </p>
         <p className="mt-2 text-sm text-muted">
@@ -274,8 +279,9 @@ export default async function GuidePage() {
         <ul className="mt-3 space-y-2 text-sm text-muted">
           <li>
             <span className="font-medium text-ink">Everyone</span> can read all shared content,
-            create tasks, notes, deadlines, flashcards, doubts, resources, and chat messages, and
-            view the timetable.
+            add notes, deadlines, flashcards, doubts, resources, and chat messages, and view the
+            timetable. Projects, goals, tasks, and channels are created by admins; members move
+            tasks assigned to them and comment on tasks.
           </li>
           <li>
             <span className="font-medium text-ink">Authors</span> can edit or delete what they

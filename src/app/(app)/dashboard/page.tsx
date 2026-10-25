@@ -6,6 +6,7 @@ import { Avatar } from "@/components/avatar";
 import { StatCard } from "@/components/stat-card";
 import { ProgressCharts } from "@/components/charts";
 import { QuickLinks } from "@/components/quick-links";
+import { QuickActions } from "@/components/quick-actions";
 import { DashboardWidgets } from "@/components/dashboard-widgets";
 import { PresenceHeartbeat } from "@/components/presence-heartbeat";
 import { TasksIcon, CheckIcon, StudyIcon, FlameIcon, TrophyIcon, ChatIcon } from "@/components/icons";
@@ -39,8 +40,13 @@ export default async function DashboardPage() {
       select: { completedAt: true, assigneeId: true },
     }),
     db.task.count({ where: { status: { not: "done" } } }),
+    // Everyone's shared sessions plus your own private ones, so a member's
+    // private study time never shows up in another member's numbers.
     db.studySession.findMany({
-      where: { date: { gte: chartStart } },
+      where: {
+        date: { gte: chartStart },
+        OR: [{ shared: true }, { userId: me.id }],
+      },
       select: { userId: true, minutes: true, date: true },
     }),
     db.habitCheckIn.findMany({
@@ -63,9 +69,10 @@ export default async function DashboardPage() {
       select: { id: true, title: true, subject: true, kind: true, date: true },
       take: 6,
     }),
-    // Which members have logged study today, for the presence widget.
+    // Which members have logged study today, for the presence widget. Private
+    // sessions stay private, so only shared sessions mark someone as studying.
     db.studySession.findMany({
-      where: { date: today },
+      where: { date: today, shared: true },
       select: { userId: true },
       distinct: ["userId"],
     }),
@@ -179,6 +186,8 @@ export default async function DashboardPage() {
         subtitle={`Here's how the group is doing as of ${prettyDate(today)}.`}
       />
 
+      <QuickActions />
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Open tasks"
@@ -238,19 +247,25 @@ export default async function DashboardPage() {
               .map((row, i) => (
                 <li
                   key={row.user.id}
-                  className="flex items-center gap-3 rounded-xl px-2 py-1.5"
+                  className="flex items-center gap-2 rounded-xl px-1 py-1.5 sm:gap-3 sm:px-2"
                 >
-                  <span className="w-5 text-center text-sm font-bold text-muted">
+                  <span className="w-4 shrink-0 text-center text-sm font-bold text-muted sm:w-5">
                     {i + 1}
                   </span>
                   <Avatar user={row.user} size="sm" />
-                  <span className="flex-1 text-sm font-medium">
-                    {row.user.name}
-                    {row.user.id === me.id ? (
-                      <span className="ml-1 text-xs text-muted">(you)</span>
-                    ) : null}
-                  </span>
-                  <span className="text-xs text-muted">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {row.user.name}
+                      {row.user.id === me.id ? (
+                        <span className="ml-1 text-xs text-muted">(you)</span>
+                      ) : null}
+                    </p>
+                    <p className="truncate text-[11px] text-muted sm:hidden">
+                      {row.done} tasks · {row.checkins} check-ins ·{" "}
+                      {Math.round(row.studyMin / 6) / 10}h
+                    </p>
+                  </div>
+                  <span className="hidden shrink-0 text-xs text-muted sm:block">
                     {row.done} tasks · {row.checkins} check-ins ·{" "}
                     {Math.round(row.studyMin / 6) / 10}h
                   </span>

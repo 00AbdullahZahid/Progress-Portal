@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logStudy } from "@/lib/actions/study";
-import { Button, Card, Input } from "./ui";
+import { Button, Card, Input, Select } from "./ui";
 import { TimerIcon, CheckIcon } from "./icons";
 import { useToast } from "./toast";
 
 type Phase = "idle" | "focus" | "break";
+
+type TimerTask = {
+  id: string;
+  title: string;
+  projectName: string;
+};
 
 const PRESETS = [
   { label: "25 / 5", focus: 25, rest: 5 },
@@ -23,87 +29,136 @@ function mmss(seconds: number): string {
 
 /**
  * A Pomodoro timer that logs a study session automatically when a focus block
- * finishes, so the study log stays accurate without manual minute entry.
+ * finishes. Members can link the block to an active task and log the elapsed
+ * minutes early instead of losing a partially completed session.
  */
-export function FocusTimer({ subject }: { subject?: string }) {
+export function FocusTimer({
+  subject,
+  tasks = [],
+  autoStart = false,
+}: {
+  subject?: string;
+  tasks?: TimerTask[];
+  autoStart?: boolean;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [presetIndex, setPresetIndex] = useState(0);
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<Phase>(autoStart ? "focus" : "idle");
   const [remaining, setRemaining] = useState(PRESETS[0].focus * 60);
   const [topic, setTopic] = useState(subject ?? "");
+  const [taskId, setTaskId] = useState("");
 
-  // Refs mirror the state a running interval needs. Synced in an effect so we
+  // Refs mirror the values a running interval needs. Synced in an effect so we
   // never touch refs during render.
   const phaseRef = useRef<Phase>(phase);
   const presetRef = useRef(PRESETS[presetIndex]);
   const topicRef = useRef(topic);
+  const taskIdRef = useRef(taskId);
+  const remainingRef = useRef(PRESETS[0].focus * 60);
   useEffect(() => {
     phaseRef.current = phase;
     presetRef.current = PRESETS[presetIndex];
     topicRef.current = topic;
-  }, [phase, presetIndex, topic]);
+    taskIdRef.current = taskId;
+  }, [phase, presetIndex, topic, taskId]);
 
+  // Keep the latest save routine in a ref so the one-second interval does not
+  // need to be torn down on every render.
+  const saveFocusRef = useRef<(minutes: number) => void>(() => {});
+  useEffect(() => {
+    saveFocusRef.current = (minutes: number) => {
+      const fd = new FormData();
+      fd.set("subject", topicRef.current.trim() || "Focus session");
+      fd.set("minutes", String(minutes));
+      if (taskIdRef.current) fd.set("taskId", taskIdRef.current);
+      void (async () => {
+        try {
+          let res = await logStudy(fd);
+          // The linked task may have been completed or deleted while the timer
+          // was running. Keep the study time and retry without the link.
+          if (!res.ok && fd.get("taskId")) {
+            fd.delete("taskId");
+            res = await logStudy(fd);
+          }
+          if (res.ok) {
+            toast(`Logged ${minutes} min of focus`, "success");
+            router.refresh();
+          } else {
+            toast(res.error, "error");
+          }
+        } catch {
+          toast("Could not log the session automatically.", "error");
+        }
+      })();
+    };
+  }, [router, toast]);
+
+  const updateRemaining = useCallback((seconds: number) => {
+    remainingRef.current = seconds;
+    setRemaining(seconds);
+  }, []);
   // Count down once per second while a phase is running.
   useEffect(() => {
     if (phase === "idle") return;
     const id = setInterval(() => {
-      setRemaining((r) => {
-        if (r > 1) return r - 1;
-        // Reached zero: advance the phase and (for focus) log the session.
-        const preset = presetRef.current;
-        if (phaseRef.current === "focus") {
-          const minutes = preset.focus;
-          void (async () => {
-            const fd = new FormData();
-            fd.set("subject", topicRef.current.trim() || "Focus session");
-            fd.set("minutes", String(minutes));
-            try {
-              const res = await logStudy(fd);
-              if (res.ok) {
-                toast(`Logged ${minutes} min of focus`, "success");
-                router.refresh();
-              } else {
-                toast(res.error, "error");
-              }
-            } catch {
-              toast("Could not log the session automatically.", "error");
-            }
-          })();
-          setPhase("break");
-          return preset.rest * 60;
-        }
-        setPhase("idle");
-        toast("Break over", "success");
-        return preset.focus * 60;
-      });
+      const next = remainingRef.current - 1;
+      if (next > 0) {
+        updateRemaining(next);
+        return;
+      }
+
+      const preset = presetRef.current;
+      if (phaseRef.current === "focus") {
+        saveFocusRef.current(preset.focus);
+        phaseRef.current = "break";
+        setPhase("break");
+        updateRemaining(preset.rest * 60);
+        return;
+      }
+
+      phaseRef.current = "idle";
+      setPhase("idle");
+      updateRemaining(preset.focus * 60);
+      toast("Break over", "success");
     }, 1000);
     return () => clearInterval(id);
-  }, [phase, router, toast]);
+  }, [phase, toast, updateRemaining]);
 
   function start() {
-    setRemaining(PRESETS[presetIndex].focus * 60);
+    updateRemaining(PRESETS[presetIndex].focus * 60);
     setPhase("focus");
   }
 
   function stop() {
     setPhase("idle");
-    setRemaining(PRESETS[presetIndex].focus * 60);
+    updateRemaining(PRESETS[presetIndex].focus * 60);
   }
 
   function pickPreset(i: number) {
     setPresetIndex(i);
     setPhase("idle");
-    setRemaining(PRESETS[i].focus * 60);
+    updateRemaining(PRESETS[i].focus * 60);
   }
 
   const preset = PRESETS[presetIndex];
+  const elapsedSeconds = phase === "focus" ? preset.focus * 60 - remaining : 0;
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
   const pct =
     phase === "focus"
       ? (1 - remaining / (preset.focus * 60)) * 100
       : phase === "break"
         ? (1 - remaining / (preset.rest * 60)) * 100
         : 0;
+
+  function logEarly() {
+    if (elapsedMinutes < 1) {
+      toast("Focus for at least a minute before logging.", "info");
+      return;
+    }
+    saveFocusRef.current(elapsedMinutes);
+    stop();
+  }
 
   return (
     <Card className="flex flex-col gap-3 p-4">
@@ -118,7 +173,9 @@ export function FocusTimer({ subject }: { subject?: string }) {
             key={p.label}
             type="button"
             onClick={() => pickPreset(i)}
-            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+            disabled={phase !== "idle"}
+            aria-pressed={i === presetIndex}
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               i === presetIndex ? "bg-brand text-white" : "bg-surface2 text-muted hover:text-ink"
             }`}
           >
@@ -147,9 +204,7 @@ export function FocusTimer({ subject }: { subject?: string }) {
       </div>
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-muted">
-          Subject (logged on completion)
-        </span>
+        <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
         <Input
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
@@ -159,19 +214,55 @@ export function FocusTimer({ subject }: { subject?: string }) {
         />
       </label>
 
+      {tasks.length > 0 ? (
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">
+            Task (optional)
+          </span>
+          <Select
+            value={taskId}
+            onChange={(e) => setTaskId(e.target.value)}
+            disabled={phase !== "idle"}
+            className="w-full"
+          >
+            <option value="">No task link</option>
+            {tasks.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title} · {t.projectName}
+              </option>
+            ))}
+          </Select>
+        </label>
+      ) : (
+        <p className="text-xs text-muted">
+          Assign yourself a task on the Tasks page to link focus time to it.
+        </p>
+      )}
+
       {phase === "idle" ? (
         <Button type="button" onClick={start}>
           <TimerIcon width={15} height={15} />
           Start focus
         </Button>
+      ) : phase === "focus" ? (
+        <div className="flex flex-col gap-2">
+          <Button type="button" onClick={logEarly} disabled={elapsedMinutes < 1}>
+            <CheckIcon width={15} height={15} />
+            Log {elapsedMinutes > 0 ? `${elapsedMinutes} min` : "elapsed"} &amp; end
+          </Button>
+          <Button type="button" variant="outline" onClick={stop}>
+            End without logging
+          </Button>
+        </div>
       ) : (
         <Button type="button" variant="outline" onClick={stop}>
           <CheckIcon width={15} height={15} />
-          {phase === "break" ? "Skip break" : "Stop"}
+          Skip break
         </Button>
       )}
       <p className="text-xs text-muted">
-        A finished focus block is logged automatically with the minutes above.
+        A finished focus block is logged automatically. Use Log elapsed &amp; end
+        to keep the minutes you have already focused.
       </p>
     </Card>
   );

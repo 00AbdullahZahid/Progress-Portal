@@ -16,6 +16,7 @@ export default async function TasksPage() {
             assignee: true,
             goal: true,
             comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
+            studySessions: { select: { minutes: true } },
           },
         },
       },
@@ -48,6 +49,7 @@ export default async function TasksPage() {
               ? { id: t.assignee.id, name: t.assignee.name, color: t.assignee.color }
               : null,
             goal: t.goal ? { id: t.goal.id, title: t.goal.title } : null,
+            studyMinutes: t.studySessions.reduce((sum, s) => sum + s.minutes, 0),
             comments: t.comments.map((c) => ({
               id: c.id,
               body: c.body,

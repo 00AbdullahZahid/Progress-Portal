@@ -89,6 +89,9 @@ export function TimetableBoard({
   const { toast } = useToast();
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Mobile shows a day-by-day agenda instead of squeezing a 7-column grid into
+  // a phone. Default to the first day that actually has classes.
+  const [day, setDay] = useState(() => (entries.length > 0 ? entries[0].weekday : 1));
 
   async function submit(fd: FormData) {
     setBusy(true);
@@ -133,6 +136,10 @@ export function TimetableBoard({
   const hours: number[] = [];
   for (let h = startHour; h <= endHour; h += 1) hours.push(h);
   const bodyHeight = (endHour - startHour) * HOUR_PX;
+
+  const dayEntries = entries
+    .filter((e) => e.weekday === day)
+    .sort((a, b) => a.startMin - b.startMin);
 
   return (
     <div className="flex flex-col gap-4">
@@ -215,7 +222,81 @@ export function TimetableBoard({
         ) : null}
       </Card>
 
-      <Card className="p-0">
+      {/* Mobile day-by-day agenda */}
+      <Card padded={false} className="md:hidden">
+        <div className="flex gap-1 overflow-x-auto border-b border-border p-2">
+          {DAYS.map((d, i) => {
+            const hasClasses = entries.some((e) => e.weekday === i);
+            const active = day === i;
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDay(i)}
+                aria-pressed={active}
+                aria-label={`Show ${d}`}
+                className={`flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center rounded-lg px-1 py-1 text-xs font-semibold transition-colors ${
+                  active ? "bg-brand text-white" : "text-muted hover:bg-surface2 hover:text-ink"
+                }`}
+              >
+                {d}
+                <span
+                  className={`mt-1 h-1 w-1 rounded-full ${
+                    hasClasses ? (active ? "bg-white" : "bg-brand") : "bg-transparent"
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="p-3">
+          {dayEntries.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted">
+              No classes on {DAYS[day]}.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {dayEntries.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex items-start gap-3 rounded-xl border border-border p-3"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="w-1 self-stretch rounded-full"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm font-semibold">{entry.title}</p>
+                    <p className="text-xs tabular-nums text-muted">
+                      {fmt(entry.startMin)}–{fmt(entry.endMin)}
+                      {entry.location ? ` · ${entry.location}` : ""}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      Added by {entry.ownerName}
+                    </p>
+                  </div>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => remove(entry.id)}
+                      title="Remove class"
+                      aria-label={`Remove ${entry.title}`}
+                      className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
+                    >
+                      <XIcon width={14} height={14} />
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Card>
+
+      {/* Desktop time grid */}
+      <Card padded={false} className="hidden md:block">
         <div className="overflow-x-auto">
           <div className="min-w-[720px]">
             {/* Day headings */}
@@ -304,7 +385,7 @@ export function TimetableBoard({
                                 onClick={() => remove(entry.id)}
                                 title="Remove class"
                                 aria-label={`Remove ${entry.title}`}
-                                className="shrink-0 text-muted opacity-0 transition-opacity hover:text-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
+                                className="shrink-0 p-1 text-muted transition-opacity hover:text-rose-600 focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                               >
                                 <XIcon width={12} height={12} />
                               </button>

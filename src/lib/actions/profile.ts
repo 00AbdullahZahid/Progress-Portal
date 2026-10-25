@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl, isHexColor, isValidTimezone } from "../validation";
-import { deleteBlobs, deletableUrls, claimUploads } from "../blob";
+import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
 import type { ActionResult } from "./tasks";
 
 export async function updateProfile(formData: FormData): Promise<ActionResult> {
@@ -38,6 +38,11 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
     where: { id: me.id },
     select: { image: true },
   });
+
+  const attachment = await attachmentError(me.id, [
+    [imageData, before?.image ?? null],
+  ]);
+  if (attachment) return { ok: false, error: attachment };
 
   await db.user.update({
     where: { id: me.id },

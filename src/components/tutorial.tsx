@@ -184,7 +184,7 @@ export function Tutorial() {
       aria-modal="true"
       aria-labelledby="tutorial-title"
     >
-      <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-5 shadow-xl">
+      <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-surface p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted">
             <InfoIcon width={14} height={14} className="text-brand" />

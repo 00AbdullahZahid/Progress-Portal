@@ -219,15 +219,19 @@ export function NotesBoard({
                 onChange={(v) => setDraft((d) => ({ ...d, fileUrl: v }))}
               />
             </div>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={busy} className="px-3 py-1.5 text-sm">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={busy}
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
+              >
                 <CheckIcon width={15} height={15} />
                 {busy ? "Saving…" : "Add note"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="px-3 py-1.5 text-sm"
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
                 onClick={() => {
                   setCreating(false);
                   setDraft(EMPTY);
@@ -250,7 +254,7 @@ export function NotesBoard({
       </Card>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[12rem]">
+        <div className="relative min-w-0 flex-1 sm:min-w-[12rem]">
           <SearchIcon
             width={16}
             height={16}
@@ -268,7 +272,7 @@ export function NotesBoard({
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           aria-label="Filter by subject"
-          className="w-auto"
+          className="w-full sm:w-auto"
         >
           <option value="">All subjects</option>
           {subjects.map((s) => (
@@ -329,11 +333,11 @@ export function NotesBoard({
                       onChange={(v) => setEditDraft((d) => ({ ...d, fileUrl: v }))}
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       type="button"
                       disabled={busy}
-                      className="px-2.5 py-1.5 text-xs"
+                      className="w-full px-2.5 py-1.5 text-xs sm:w-auto"
                       onClick={saveEdit}
                     >
                       <CheckIcon width={14} height={14} />
@@ -342,7 +346,7 @@ export function NotesBoard({
                     <Button
                       type="button"
                       variant="outline"
-                      className="px-2.5 py-1.5 text-xs"
+                      className="w-full px-2.5 py-1.5 text-xs sm:w-auto"
                       onClick={() => setEditingId(null)}
                     >
                       Cancel
@@ -354,7 +358,9 @@ export function NotesBoard({
             return (
               <Card key={n.id} className="flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold leading-snug">{n.title}</h3>
+                  <h3 className="min-w-0 break-words font-semibold leading-snug">
+                    {n.title}
+                  </h3>
                   <div className="flex shrink-0 items-center gap-1">
                     {(mine || isAdmin) && (
                       <button
@@ -362,7 +368,7 @@ export function NotesBoard({
                         onClick={() => setPending(n)}
                         title="Delete note"
                         aria-label="Delete note"
-                        className="text-muted transition-colors hover:text-rose-600"
+                        className="rounded-lg p-1 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                       >
                         <XIcon width={15} height={15} />
                       </button>
@@ -373,7 +379,7 @@ export function NotesBoard({
                         onClick={() => startEdit(n)}
                         title="Edit note"
                         aria-label="Edit note"
-                        className="text-muted transition-colors hover:text-ink"
+                        className="rounded-lg p-1 text-muted transition-colors hover:bg-surface2 hover:text-ink"
                       >
                         <EditIcon width={15} height={15} />
                       </button>

@@ -147,7 +147,7 @@ export function StudyForm({ today }: { today: string }) {
             accept="image/*"
             onChange={onImageChange}
             disabled={uploading}
-            className="text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-surface2 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
+            className="w-full max-w-full text-xs text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-surface2 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50 sm:text-sm"
           />
           {image ? (
             <div className="mt-2 flex items-center gap-2">
@@ -170,11 +170,11 @@ export function StudyForm({ today }: { today: string }) {
             accept=".pdf,.txt,.doc,.docx,.xls,.xlsx"
             onChange={onFileChange}
             disabled={uploading}
-            className="text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-surface2 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
+            className="w-full max-w-full text-xs text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-surface2 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50 sm:text-sm"
           />
           {file ? (
             <div className="mt-2 flex items-center gap-2 text-xs">
-              <span className="truncate text-muted">{file.name}</span>
+              <span className="min-w-0 flex-1 truncate text-muted">{file.name}</span>
               <button
                 type="button"
                 onClick={() => setFile(null)}
@@ -195,7 +195,7 @@ export function StudyForm({ today }: { today: string }) {
           Share this session with the group
         </label>
         <p className="text-xs text-muted">
-          Uploaded files are stored with a private, hard-to-guess link. Anyone who
+          Uploaded files are stored with a public, hard-to-guess link. Anyone who
           has the link can open it, even after you unshare, so don&apos;t upload
           anything you wouldn&apos;t want copied.
         </p>

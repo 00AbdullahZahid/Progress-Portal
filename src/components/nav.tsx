@@ -26,18 +26,23 @@ import {
   TrophyIcon,
   SearchIcon,
   InfoIcon,
+  MenuIcon,
+  XIcon,
 } from "./icons";
 import { LogoutButton } from "./logout-button";
-import { SIDEBAR_EVENT, readCollapsed } from "./shell";
-import type { User } from "@prisma/client";
+import { SIDEBAR_EVENT, readCollapsed, type ShellUser } from "./shell";
+import { useBodyLock } from "./toast";
 
 const STORAGE_KEY = "sidebar-collapsed";
 
-export function Nav({ user }: { user: User }) {
+export function Nav({ user }: { user: ShellUser }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const isAdmin = user.role === "admin";
+
+  useBodyLock(menuOpen);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
@@ -46,6 +51,25 @@ export function Nav({ user }: { user: User }) {
     });
     return () => cancelAnimationFrame(raf);
   }, []);
+
+  // Close the mobile menu with Escape, or when the viewport grows to desktop
+  // (otherwise its body-scroll lock would linger behind the desktop sidebar).
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const onChange = () => {
+      if (desktop.matches) setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    desktop.addEventListener("change", onChange);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      desktop.removeEventListener("change", onChange);
+    };
+  }, [menuOpen]);
 
   function toggle() {
     setCollapsed((c) => {
@@ -56,6 +80,10 @@ export function Nav({ user }: { user: User }) {
       window.dispatchEvent(new CustomEvent(SIDEBAR_EVENT, { detail: next }));
       return next;
     });
+  }
+
+  function closeMenu() {
+    setMenuOpen(false);
   }
 
   const links = [
@@ -71,7 +99,7 @@ export function Nav({ user }: { user: User }) {
     { href: "/resources", label: "Resources", Icon: BookIcon, mobile: false },
     { href: "/timetable", label: "Timetable", Icon: ClassroomIcon, mobile: false },
     { href: "/grades", label: "Grades", Icon: TrophyIcon, mobile: false },
-    { href: "/search", label: "Search", Icon: SearchIcon, mobile: true },
+    { href: "/search", label: "Search", Icon: SearchIcon, mobile: false },
     { href: "/chat", label: "Chat", Icon: ChatIcon, mobile: true },
     { href: "/people", label: "People", Icon: PeopleIcon, mobile: false },
     { href: "/guide", label: "Guide", Icon: InfoIcon, mobile: false },
@@ -178,28 +206,35 @@ export function Nav({ user }: { user: User }) {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-surface/90 px-4 py-3 backdrop-blur md:hidden">
-        <span className="font-bold">Group Portal</span>
-        <SearchBox className="max-w-[10rem] flex-1" />
-        <div className="flex items-center gap-1">
-          {isAdmin ? (
-            <Link
-              href="/admin"
-              aria-label="Admin dashboard"
-              className="rounded-xl p-2 text-muted transition-colors hover:bg-surface2 hover:text-ink"
-            >
-              <ShieldIcon />
-            </Link>
-          ) : null}
-          <ThemeToggle />
-          <Link href="/settings">
-            <Avatar user={user} size="sm" />
-          </Link>
-        </div>
+      <header className="sticky top-0 z-40 flex items-center gap-2 border-b border-border bg-surface/90 px-3 py-2.5 backdrop-blur md:hidden">
+        <Link
+          href="/dashboard"
+          aria-label="Dashboard"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white"
+        >
+          <BarChartIcon width={18} height={18} />
+        </Link>
+        <SearchBox className="min-w-0 flex-1" />
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className="shrink-0 rounded-xl p-1.5 transition-colors hover:bg-surface2"
+        >
+          <Avatar user={user} size="sm" />
+        </Link>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open all pages"
+          aria-expanded={menuOpen}
+          className="shrink-0 rounded-xl p-2 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+        >
+          <MenuIcon width={20} height={20} />
+        </button>
       </header>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-border bg-surface/95 py-1.5 backdrop-blur md:hidden">
+      {/* Mobile bottom nav: five main pages plus a link to everything else. */}
+      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface/95 pt-1.5 backdrop-blur md:hidden">
         {links
           .filter((l) => l.mobile)
           .map(({ href, label, Icon }) => {
@@ -208,16 +243,109 @@ export function Nav({ user }: { user: User }) {
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-medium ${
+                aria-current={active ? "page" : undefined}
+                className={`flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium ${
                   active ? "text-brand" : "text-muted"
                 }`}
               >
                 <Icon width={20} height={20} />
-                {label}
+                <span className="max-w-full truncate">{label}</span>
               </Link>
             );
           })}
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open all pages"
+          aria-expanded={menuOpen}
+          className="flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium text-muted"
+        >
+          <MenuIcon width={20} height={20} />
+          <span>More</span>
+        </button>
       </nav>
+
+      {/* Mobile menu sheet */}
+      {menuOpen ? (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={closeMenu}
+            className="absolute inset-0 h-full w-full bg-black/40"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="All pages"
+            className="absolute inset-y-0 right-0 flex w-[86%] max-w-sm flex-col border-l border-border bg-surface shadow-xl"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+                  <BarChartIcon width={18} height={18} />
+                </span>
+                <span className="truncate font-bold">Group Portal</span>
+              </div>
+              <button
+                type="button"
+                onClick={closeMenu}
+                aria-label="Close menu"
+                className="rounded-xl p-2 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+              >
+                <XIcon width={18} height={18} />
+              </button>
+            </div>
+
+            <div className="safe-bottom flex-1 overflow-y-auto p-3">
+              <SearchBox />
+
+              <nav className="mt-3 grid grid-cols-2 gap-1">
+                {links.map(({ href, label, Icon }) => {
+                  const active = pathname.startsWith(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={closeMenu}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex min-h-11 items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors ${
+                        active
+                          ? "bg-brand-soft text-brand"
+                          : "text-muted hover:bg-surface2 hover:text-ink"
+                      }`}
+                    >
+                      <Icon width={18} height={18} className="shrink-0" />
+                      <span className="truncate">{label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-4 flex flex-col gap-1 border-t border-border pt-3">
+                <Link
+                  href="/settings"
+                  onClick={closeMenu}
+                  className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface2"
+                >
+                  <Avatar user={user} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{user.name}</p>
+                    <p className="truncate text-xs text-muted">
+                      {isAdmin ? "Super Admin" : "Settings"}
+                    </p>
+                  </div>
+                </Link>
+                <div className="flex items-center justify-between px-2 py-1.5">
+                  <span className="text-sm font-medium text-muted">Theme</span>
+                  <ThemeToggle />
+                </div>
+                <LogoutButton />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

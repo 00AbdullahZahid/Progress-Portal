@@ -53,7 +53,7 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-xl"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-border bg-surface p-4 shadow-xl sm:p-5"
       >
         <div className="flex items-start gap-3">
           <span
@@ -71,13 +71,19 @@ export function ConfirmDialog({
             {children}
           </div>
         </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={onCancel}
+          >
             {cancelLabel}
           </Button>
           <Button
             type="button"
             variant={destructive ? "danger" : "primary"}
+            className="w-full sm:w-auto"
             onClick={onConfirm}
           >
             {confirmLabel}

@@ -126,7 +126,7 @@ export function FlashcardsBoard({
       );
     }
     return (
-      <Card className="mx-auto flex max-w-xl flex-col items-center gap-4 p-8 text-center">
+      <Card className="mx-auto flex max-w-xl flex-col items-center gap-4 p-5 text-center sm:p-8">
         <p className="text-xs text-muted">
           {index + 1} / {reviewDeck.length} · {card.deck}
         </p>
@@ -178,10 +178,11 @@ export function FlashcardsBoard({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="flex flex-wrap items-center gap-3 p-4">
+      <Card className="grid grid-cols-1 gap-2 p-4 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         <Button
           type="button"
           disabled={reviewDeck.length === 0}
+          className="w-full sm:w-auto"
           onClick={() => {
             setReviewing(true);
             setIndex(0);
@@ -195,7 +196,7 @@ export function FlashcardsBoard({
           value={deck}
           onChange={(e) => setDeck(e.target.value)}
           aria-label="Filter deck"
-          className="w-auto"
+          className="w-full sm:w-auto"
         >
           <option value="">All decks</option>
           {decks.map((d) => (
@@ -207,7 +208,7 @@ export function FlashcardsBoard({
         <Button
           type="button"
           variant="outline"
-          className="ml-auto"
+          className="w-full sm:ml-auto sm:w-auto"
           onClick={() => setCreating((c) => !c)}
         >
           <PlusIcon width={16} height={16} />
@@ -237,15 +238,19 @@ export function FlashcardsBoard({
                 <Textarea name="back" rows={2} maxLength={1000} required />
               </label>
             </div>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={busy} className="px-3 py-1.5 text-sm">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={busy}
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
+              >
                 <PlusIcon width={15} height={15} />
                 {busy ? "Saving…" : "Add card"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="px-3 py-1.5 text-sm"
+                className="w-full px-3 py-1.5 text-sm sm:w-auto"
                 onClick={() => setCreating(false)}
               >
                 Cancel
@@ -288,7 +293,7 @@ export function FlashcardsBoard({
                       onClick={() => setPending(c)}
                       title="Delete card"
                       aria-label="Delete card"
-                      className="text-muted transition-colors hover:text-rose-600"
+                      className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                     >
                       <XIcon width={15} height={15} />
                     </button>

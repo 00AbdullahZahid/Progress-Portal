@@ -23,6 +23,7 @@ type Row = {
   fileUrl?: string | null;
   fileName?: string | null;
   shared?: boolean;
+  task?: { id: string; title: string } | null;
 };
 
 export function SessionList({
@@ -206,13 +207,13 @@ export function SessionList({
                       <span className="mb-1 block text-[11px] font-medium text-muted">
                         Image (optional)
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <input
                           type="file"
                           accept="image/*"
                           onChange={onEditImage}
                           disabled={uploading}
-                          className="text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface2 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
+                          className="w-full max-w-full text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface2 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
                         />
                         {editImage ? (
                           <>
@@ -237,13 +238,13 @@ export function SessionList({
                       <span className="mb-1 block text-[11px] font-medium text-muted">
                         Attachment
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <input
                           type="file"
                           accept=".pdf,.txt,.doc,.docx,.xls,.xlsx"
                           onChange={onEditFile}
                           disabled={uploading}
-                          className="text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface2 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
+                          className="w-full max-w-full text-xs text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface2 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink hover:file:bg-surface disabled:opacity-50"
                         />
                         {editFile ? (
                           <button
@@ -288,10 +289,10 @@ export function SessionList({
             );
           }
           return (
-            <li key={s.id} className="flex items-center gap-3 py-2.5">
+            <li key={s.id} className="flex items-center gap-2 py-2.5 sm:gap-3">
               <Avatar user={s.user} size="sm" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">
+                <p className="break-words text-sm font-medium">
                   {s.subject}
                   {mine ? null : (
                     <span className="ml-1 text-xs text-muted">by {s.user.name}</span>
@@ -303,6 +304,11 @@ export function SessionList({
                   ) : null}
                 </p>
                 {s.notes ? <p className="truncate text-xs text-muted">{s.notes}</p> : null}
+                {s.task ? (
+                  <p className="truncate text-[11px] text-brand">
+                    Task: {s.task.title}
+                  </p>
+                ) : null}
                 {(s.image || s.fileUrl) && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     {s.image ? (
@@ -322,8 +328,8 @@ export function SessionList({
                   </div>
                 )}
               </div>
-              <span className="hidden text-xs text-muted sm:inline">{prettyDate(s.date)}</span>
-              <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand">
+              <span className="hidden shrink-0 text-xs text-muted sm:inline">{prettyDate(s.date)}</span>
+              <span className="shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand">
                 {Math.round(s.minutes / 6) / 10}h
               </span>
               {mine ? (
@@ -333,7 +339,7 @@ export function SessionList({
                     onClick={() => startEdit(s)}
                     title="Edit session"
                     aria-label="Edit session"
-                    className="text-xs text-muted transition-colors hover:text-ink"
+                    className="shrink-0 rounded-lg p-1 text-xs text-muted transition-colors hover:bg-surface2 hover:text-ink"
                   >
                     <EditIcon width={16} height={16} />
                   </button>
@@ -342,7 +348,7 @@ export function SessionList({
                     onClick={() => setPending(s)}
                     title="Delete session"
                     aria-label="Delete session"
-                    className="text-xs text-muted transition-colors hover:text-rose-600"
+                    className="shrink-0 rounded-lg p-1 text-xs text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
                   >
                     <XIcon width={16} height={16} />
                   </button>

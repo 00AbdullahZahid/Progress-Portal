@@ -14,6 +14,8 @@ const STATUSES = ["todo", "doing", "done"] as const;
 function refresh() {
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  // Task titles and deletions appear in linked study sessions.
+  revalidatePath("/study");
 }
 
 function parseDate(value: unknown): Date | null | "invalid" {
@@ -142,7 +144,10 @@ export async function setTaskStatus(formData: FormData): Promise<ActionResult> {
     where: { id: taskId },
     data: {
       status: status as (typeof STATUSES)[number],
-      completedAt: status === "done" ? new Date() : null,
+      // Keep the original completion time when the task was already done;
+      // re-saving "done" should not move the point on the chart.
+      completedAt:
+        status === "done" ? (task.completedAt ?? new Date()) : null,
     },
   });
   refresh();
