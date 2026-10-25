@@ -1,27 +1,37 @@
 import { NextResponse } from "next/server";
 import { buildDigest, sendDigest } from "@/lib/notify";
+import { buildDueNotifications } from "@/lib/notifications";
 import { cronAuthorized } from "@/lib/cron";
 
 export const runtime = "nodejs";
 
 /**
- * Daily notification digest. Vercel Cron hits this with
+ * Daily notification job. Vercel Cron hits this with
  * `Authorization: Bearer <CRON_SECRET>`; the secret is never accepted from the
- * query string. When NOTIFY_WEBHOOK_URL is unset the digest is simply not sent.
+ * query string.
+ *
+ * The webhook digest is optional. In-app due/overdue reminders are generated
+ * even when no group webhook is configured.
  */
 export async function GET(request: Request) {
   if (!cronAuthorized(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { text, items } = await buildDigest();
-  if (!process.env.NOTIFY_WEBHOOK_URL) {
-    return NextResponse.json({ skipped: "notifications not configured", members: items.length });
+  let digest: { sent: boolean; error?: string; members?: number; skipped?: string } = {
+    sent: false,
+    skipped: "notifications not configured",
+  };
+
+  if (process.env.NOTIFY_WEBHOOK_URL) {
+    const { text, items } = await buildDigest();
+    const result = await sendDigest(text);
+    digest = { sent: result.ok, error: result.error, members: items.length };
   }
 
-  const result = await sendDigest(text);
-  return NextResponse.json(
-    { sent: result.ok, error: result.error, members: items.length },
-    { status: result.ok ? 200 : 502 }
-  );
+  const due = await buildDueNotifications();
+  // A failed optional webhook should surface to Cron without discarding the
+  // in-app reminders that were just generated.
+  const status = process.env.NOTIFY_WEBHOOK_URL && !digest.sent ? 502 : 200;
+  return NextResponse.json({ digest, due, status }, { status });
 }

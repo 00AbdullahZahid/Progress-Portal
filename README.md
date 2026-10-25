@@ -20,22 +20,23 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Deadlines & exams** — A shared countdown of exams, quizzes and assignments, with the soonest shown on the dashboard.
 - **Flashcards** — Shared decks with spaced repetition (Leitner boxes). Reviews are personal to each member.
 - **Doubts / Q&A board** — Ask a question per subject; the group answers and the asker marks one answer as accepted. Any member can save an accepted answer to notes or turn it into a flashcard.
-- **Resources library** — Past papers, books and links, organised by subject.
+- **Resources library** — Past papers, books, videos and links, organised by subject. Search, filter by type or subject, sort, and limit the shelf to your own additions. Pin important items, mark them useful, track read progress, collapse subject groups, and see rich metadata (year, semester, exam type, domain, file type and size). The add modal can fetch a link's title/favicon, warns about duplicates, and every new resource gets a toast with a jump link. Removal is owner/admin-only with confirmation.
 - **Timetable** — A shared weekly class calendar on a time grid. Everyone can view it; only admins add or remove classes.
 - **Grade & GPA tracker** — Private courses with weights and scores; predicts your GPA on a 4.0 scale.
 - **Global search** — Search across notes, tasks, chat messages and resources from the sidebar.
-- **Weekly goals & notifications** — Set a weekly study target (shown as a progress ring on the dashboard) and choose what the daily digest includes. The digest is posted to a Discord or Telegram webhook (or any JSON endpoint), and new doubts, today/tomorrow deadlines, and chat mentions trigger instant alerts.
+- **Weekly goals & notification centre** — Set a weekly study target (shown as a progress ring on the dashboard). The bell shows an unread count and collects task assignments, task comments and mentions, task status changes, due-today/overdue reminders, and new projects. Every event can be switched on or off per member, and any item or the whole list can be marked read. An optional daily digest still posts to Discord, Telegram, or any JSON webhook.
+- **Browser push** — Opt-in Web Push on top of the in-app bell. Generate VAPID keys, save each device's subscription, and receive the same events while the portal is closed. Push can be turned off again per device. iPhone/iPad users must add the portal to their Home Screen first because Safari only supports web push for installed apps.
 - **Presence & weekly report** — See who is online or studying now, plus a week-in-review breakdown by subject.
 - **Data export** - Download your own study sessions, habits, tasks, notes, grades, exams and flashcard reviews as JSON or CSV. Questions, answers and resources are intentionally not included.
 - **Calendar feed** — Subscribe once in Settings to a signed, read-only `.ics` feed with group exams, your task deadlines, and the shared timetable. Changing your password revokes the link.
-- **PWA** — Installable. Static assets are cached for speed, private pages are never cached, and caches are cleared on sign out.
+- **PWA** — Installable. Static assets are cached for speed, private pages are never cached, caches are cleared on sign out, and the service worker receives push notifications and opens the relevant task or project.
 - **Feature guide and tutorial** — An in-app Guide page explains every page and permission, and an optional eight-step tour walks through the app. The tour can be turned off or replayed from Settings. See [`docs/FEATURES.md`](docs/FEATURES.md).
 - **Profile pictures** — Upload a photo from Settings (or the admin page for any member); it shows up next to your name everywhere. Falls back to colored initials when unset.
 - **Group chat** — Real-time-ish chat with polling (no extra infra needed). Messages can be edited by their author and deleted by the author or an admin; edits and deletes sync into other open windows.
 - **Dashboard** — Quick actions (start timer, log study, ask a doubt, habits), 7-day leaderboard, tasks-completed chart, study-minutes chart, study-by-person breakdown, weekly-goal ring, deadline countdown, presence, and quick links to every section. Charts load lazily so the first paint stays fast.
 - **Polished flow** — Toast notifications, confirmation dialogs for destructive actions, inline validation, and empty states on every screen.
-- **Collapsible sidebar** — Collapse the nav to icons; it remembers your preference between visits.
-- **Polish** — Dark mode, mobile-first responsive layout, SVG icons throughout.
+- **Grouped, collapsible sidebar** — Plan, Study, Track and Group sections, with Admin, Settings and Guide pinned to the footer and profile/sign-out in a profile menu. Collapse the nav to icons with tooltips; it remembers your preference between visits.
+- **Polish** — Light, Dark, and System themes (including a compact cycle control when the sidebar is collapsed), mobile-first responsive layout, SVG icons throughout, visible focus states, and 44px mobile tap targets on primary controls.
 
 ## Accounts
 
@@ -108,6 +109,9 @@ SEED_MEMBERS="0"                        # "1" only for local dev
 # SEED_ADMIN_PASSWORD=""               # optional; random when unset
 # BLOB_READ_WRITE_TOKEN=""             # Vercel Blob token for uploads
 # CRON_SECRET=""                       # bearer token Vercel Cron sends to the jobs
+# NEXT_PUBLIC_VAPID_PUBLIC_KEY=""      # Web Push public key (build-time)
+# VAPID_PRIVATE_KEY=""                 # Web Push private key (server-only)
+# VAPID_SUBJECT="mailto:you@example.com"
 # NOTIFY_WEBHOOK_URL=""                # Discord/Telegram/JSON webhook for digests and alerts
 # NOTIFY_TELEGRAM_CHAT_ID=""           # required when the webhook is Telegram
 ```
@@ -139,17 +143,49 @@ never attached to a saved form and are more than 24 hours old, then re-checks a
 rotating batch of older claimed uploads for files orphaned by later edits or
 deletions.
 
-### Notifications (optional)
+### Notifications and browser push
 
-Set `NOTIFY_WEBHOOK_URL` to receive a daily digest of upcoming tasks and exams,
-plus instant alerts for new doubts, deadlines added for today or tomorrow, and
-chat mentions. Discord (`content`), Telegram (`chat_id` + `text`, needs
+The **in-app notification centre** needs no extra configuration. The bell in the
+sidebar/mobile header collects task assignments, task comments and @mentions,
+task status changes, due-today/overdue reminders, and new projects. Each member
+chooses those events in **Settings > Notifications**, can mark items or the whole
+list read, and follows a link straight to the task or project. The daily
+`/api/notify` cron creates the due/overdue reminders for each member's timezone.
+
+**Browser push** is opt-in per device and uses Web Push with VAPID:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Add the generated values to the environment:
+
+```bash
+NEXT_PUBLIC_VAPID_PUBLIC_KEY="..."
+VAPID_PRIVATE_KEY="..."
+VAPID_SUBJECT="mailto:you@example.com"
+```
+
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY` is exposed to the browser and is read at build
+time, so set it before deploying. Keep `VAPID_PRIVATE_KEY` server-side only.
+Members enable push from **Settings > Notifications**; each enabled device gets
+its own subscription, and stale subscriptions are removed automatically when a
+push service reports them gone. Changing the VAPID key pair invalidates existing
+subscriptions; members can simply enable push again. On iPhone and iPad, Safari
+only allows web push after the portal is added to the **Home Screen**, so the UI
+shows that note in Settings.
+
+The **optional webhook digest** is separate from the bell and push. Set
+`NOTIFY_WEBHOOK_URL` to receive a daily digest of upcoming tasks and exams, plus
+instant alerts for new doubts, deadlines added for today or tomorrow, and chat
+mentions. Discord (`content`), Telegram (`chat_id` + `text`, needs
 `NOTIFY_TELEGRAM_CHAT_ID`), and generic `{ "text": ... }` endpoints are
-supported. The `/api/notify` route runs on a cron; set `CRON_SECRET` so Vercel
-signs the invocation. For a manual run, send `Authorization: Bearer <CRON_SECRET>`
-(the secret is not accepted in the query string).
+supported. The same `/api/notify` cron also creates the in-app due/overdue
+reminders, so leave the webhook unset if you only want in-app notifications.
 
-Generate a secret with:
+Set `CRON_SECRET` so Vercel signs cron invocations. For a manual run, send
+`Authorization: Bearer <CRON_SECRET>` (the secret is not accepted in the query
+string). Generate a secret with:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -172,7 +208,7 @@ This app uses **Postgres** so it can run both locally and on Vercel (SQLite does
 
 ### Deploying to Vercel
 
-1. In the Vercel project, add environment variables: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `APP_URL`, `ADMIN_HANDLES`, and `BLOB_READ_WRITE_TOKEN` (leave `SEED_ADMIN_PASSWORD` unset unless you want a known password).
+1. In the Vercel project, add environment variables: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `APP_URL`, `ADMIN_HANDLES`, `BLOB_READ_WRITE_TOKEN`, and the three VAPID values if you want browser push (leave `SEED_ADMIN_PASSWORD` unset unless you want a known password). Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` before the build; the other keys can be added at the same time.
 2. Deploy. The `postinstall` script runs `prisma generate` automatically.
 3. Run the schema and seed against the production database (locally, with the prod URLs in `.env`):
    ```bash
@@ -185,7 +221,7 @@ This app uses **Postgres** so it can run both locally and on Vercel (SQLite does
 
 ```
 prisma/
-  schema.prisma          # Data model (User, Project, Goal, Task, Habit, StudySession, Note, Exam, Flashcard, Question, Resource, Course, TimetableEntry, Upload, Channel, Message, AuditLog)
+  schema.prisma          # Data model (User, Project, Goal, Task, Habit, StudySession, Note, Exam, Flashcard, Question, Resource, ResourceFavorite/Useful/Read, Notification, PushSubscription, Course, TimetableEntry, Upload, Channel, Message, AuditLog)
   migrations/            # Prisma migrations
   seed.ts                # Seeds admin(s) + default chat channel (no real names, no sample data)
 src/
@@ -194,7 +230,9 @@ src/
     api/chat/            # Chat polling endpoint
     api/upload/          # File upload endpoint (Vercel Blob)
     api/cleanup/         # Daily cron: sweep orphaned uploads
-    api/notify/          # Daily cron: notification digest
+    api/notify/          # Daily cron: in-app due reminders + optional webhook digest
+    api/link-preview/    # Auth + SSRF-guarded Open Graph metadata for resources
+    api/push/            # Save/remove browser push subscriptions
     login/               # Login page
     error.tsx            # Route error boundary
     not-found.tsx        # 404 page
@@ -205,6 +243,8 @@ src/
     blob.ts              # Blob deletion with ownership + reference checks
     upload-rules.ts      # Shared upload size/type/signature rules
     notify.ts            # Digest builder + webhook sender
+    notifications.ts     # In-app events, notification preferences, due reminders
+    push.ts              # Web Push delivery + stale subscription cleanup
     db.ts                # Prisma client
     dates.ts             # Timezone-aware date + streak helpers
     security.ts          # Password hashing (scrypt)
@@ -215,7 +255,7 @@ src/
   middleware.ts          # Cookie-presence auth gate for app routes
 public/
   manifest.webmanifest   # PWA manifest
-  sw.js                  # Service worker (offline reading)
+  sw.js                  # Service worker (offline reading + push)
 vercel.json              # Cron schedule
 ```
 
@@ -228,7 +268,9 @@ vercel.json              # Cron schedule
 - Admin mutations are recorded in an `AuditLog` and visible on the Admin page.
 - Habit and study actions are scoped to the current user — you can only edit or delete your own sessions, and only `shared` sessions are visible to others.
 - Uploads are validated by size, MIME type, extension, and magic bytes in `/api/upload`, require a signed-in session, are rate-limited per user, and use randomized blob paths. Each upload is owned by its uploader; deletion requires ownership and that no saved row still references the file.
-- Notes, exams, flashcards, doubts, resources and timetable actions are scoped on the server: everyone can read, but only the author (or an admin) can delete shared items. Grades are private to their owner.
+- Notes, exams, flashcards, doubts, resources and timetable actions are scoped on the server: everyone can read, but only the author (or an admin) can delete shared items. Grades are private to their owner. Resource pins, useful marks and read checklists are scoped to the signed-in member.
+- Link previews require a session, are rate-limited, only accept public http(s) URLs, resolve and block private/link-local addresses, cap redirects and response size, and parse HTML metadata without storing the page.
+- Browser push subscriptions are scoped to the signed-in member, require HTTPS endpoints on known browser push services, and are deleted when the push service reports them gone. Push failures never block the action that created the notification.
 - Security headers and a Content-Security-Policy are set in `next.config.ts`.
 
 ## Tech choices (and why)

@@ -42,7 +42,7 @@ type Step = {
 const STEPS: Step[] = [
   {
     title: "Welcome to the Group Portal",
-    body: "This is the shared workspace for your study group: tasks, habits, study time, notes, deadlines, resources, a timetable, and chat all live here. This short tour shows what each area is for. You can skip it and replay it any time from Settings or the feature guide.",
+    body: "This is the shared workspace for your study group: tasks, habits, study time, notes, deadlines, resources, a timetable, and chat all live here. The bell in the header collects updates for you. This short tour shows what each area is for; you can skip it and replay it any time from Settings or the feature guide.",
   },
   {
     title: "Dashboard",
@@ -70,7 +70,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Resources and timetable",
-    body: "Resources is the shared library of papers, books, videos, and links by subject. The timetable is the group's weekly class calendar on a real time grid: everyone can view it, but only admins can add or remove classes.",
+    body: "Resources is the shared library of papers, books, videos, and links. Search it, filter by type or subject, sort it, or switch to just your additions. You can pin, mark useful, and mark items read; subject groups collapse to keep the page short. The add form can fetch a link's title and icon and warns about duplicates. The timetable is the group's weekly class calendar on a real time grid: everyone can view it, but only admins can add or remove classes.",
     href: "/resources",
     linkLabel: "Open resources",
   },
@@ -82,7 +82,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Settings and the guide",
-    body: "Settings is where you change your name, colour, photo, timezone, password, weekly goal, and notification preferences. The feature guide explains every page and every permission. You can replay this tour from either place whenever you like.",
+    body: "Settings is where you change your name, colour, photo, timezone, password, and weekly goal. Turn individual notification events on or off, and enable browser push on each device for alerts even when the portal is closed. On iPhone and iPad, add the portal to your Home Screen first. The feature guide explains every page and permission; replay this tour from either place whenever you like.",
     href: "/guide",
     linkLabel: "Open feature guide",
   },
@@ -194,7 +194,7 @@ export function Tutorial() {
             type="button"
             onClick={close}
             aria-label="Close tutorial"
-            className="-mr-1 -mt-1 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+            className="-mr-1 -mt-1 flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface2 hover:text-ink"
           >
             <XIcon width={16} height={16} />
           </button>
@@ -209,7 +209,7 @@ export function Tutorial() {
           <Link
             href={current.href}
             onClick={close}
-            className="mt-3 inline-block text-sm font-medium text-brand hover:underline"
+            className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-brand hover:underline"
           >
             {current.linkLabel ?? "Open page"}
           </Link>
@@ -244,7 +244,7 @@ export function Tutorial() {
           <button
             type="button"
             onClick={hideForever}
-            className="text-xs text-muted underline-offset-2 hover:text-ink hover:underline"
+            className="inline-flex min-h-11 items-center text-xs text-muted underline-offset-2 hover:text-ink hover:underline"
           >
             Don&apos;t show this again
           </button>
@@ -254,7 +254,7 @@ export function Tutorial() {
           <button
             type="button"
             onClick={close}
-            className="mt-3 text-xs text-muted underline-offset-2 hover:text-ink hover:underline"
+            className="mt-2 inline-flex min-h-11 items-center text-xs text-muted underline-offset-2 hover:text-ink hover:underline"
           >
             Skip the tour
           </button>

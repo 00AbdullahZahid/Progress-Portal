@@ -4,6 +4,7 @@ import { ProfileForm } from "@/components/profile-form";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { AdminResetPanel } from "@/components/admin-reset-panel";
 import { PreferencesForm } from "@/components/preferences-form";
+import { NotificationSettings } from "@/components/notification-settings";
 import { CalendarFeed } from "@/components/calendar-feed";
 import { TutorialPreference } from "@/components/tutorial";
 import { signOut } from "@/lib/actions/auth";
@@ -66,7 +67,7 @@ export default async function SettingsPage() {
   const calendarUrl = `${proto}://${host}/api/calendar?token=${encodeURIComponent(token)}`;
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-2xl">
       <PageHeader title="Settings" subtitle="Your profile, password, and preferences." />
 
       <ProfileForm
@@ -83,6 +84,20 @@ export default async function SettingsPage() {
           weeklyGoalMinutes={me.weeklyGoalMinutes}
           notifyTasks={me.notifyTasks}
           notifyExams={me.notifyExams}
+        />
+      </div>
+
+      <div className="mt-6">
+        <NotificationSettings
+          initial={{
+            notifyTaskAssigned: me.notifyTaskAssigned,
+            notifyTaskComments: me.notifyTaskComments,
+            notifyTaskStatus: me.notifyTaskStatus,
+            notifyTaskDue: me.notifyTaskDue,
+            notifyNewProjects: me.notifyNewProjects,
+            notifyPush: me.notifyPush,
+          }}
+          pushPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
         />
       </div>
 

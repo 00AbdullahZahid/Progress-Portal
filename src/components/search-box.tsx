@@ -28,7 +28,7 @@ export function SearchBox({ className = "" }: { className?: string }) {
         onChange={(e) => setValue(e.target.value)}
         placeholder="Search…"
         aria-label="Search"
-        className="min-h-9 w-full rounded-xl border border-border bg-surface2 py-1.5 pl-8 pr-2 text-base text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-sm"
+        className="min-h-11 w-full rounded-xl border border-border bg-surface2 py-1.5 pl-8 pr-2 text-base text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand sm:min-h-9 sm:text-sm"
       />
     </form>
   );

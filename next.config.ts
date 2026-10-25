@@ -14,8 +14,9 @@ const CSP = [
   // Inline is needed for Next's hydration bootstrap and the theme script.
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  // User uploads are served from Vercel Blob.
-  "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
+  // User uploads are served from Vercel Blob; link previews show the remote
+  // site's favicon, which can live on any https host.
+  "img-src 'self' data: blob: https: https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
   "connect-src 'self'",
   "object-src 'none'",

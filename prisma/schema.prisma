@@ -46,6 +46,15 @@ enum ExamKind {
   deadline
 }
 
+enum NotificationKind {
+  task_assigned
+  task_comment
+  task_mention
+  task_status
+  task_due
+  project_new
+}
+
 model User {
   id           String   @id @default(cuid())
   handle       String   @unique
@@ -61,31 +70,44 @@ model User {
   createdAt    DateTime @default(now())
 
   // Weekly study target in minutes (0 = no goal set).
-  weeklyGoalMinutes Int       @default(0)
+  weeklyGoalMinutes  Int       @default(0)
   // Optional per-day rest allowance so one missed day doesn't kill a streak.
-  streakFreezesFree Int       @default(1)
+  streakFreezesFree  Int       @default(1)
   // Notification preferences.
-  notifyTasks       Boolean   @default(true)
-  notifyExams       Boolean   @default(true)
+  notifyTasks        Boolean   @default(true)
+  notifyExams        Boolean   @default(true)
+  // In-app notification event preferences.
+  notifyTaskAssigned Boolean   @default(true)
+  notifyTaskComments Boolean   @default(true)
+  notifyTaskStatus   Boolean   @default(true)
+  notifyTaskDue      Boolean   @default(true)
+  notifyNewProjects  Boolean   @default(true)
+  // Browser push is opt-in and requires an active push subscription.
+  notifyPush         Boolean   @default(false)
   // Presence: the last time this user opened the app.
-  lastSeenAt        DateTime?
+  lastSeenAt         DateTime?
 
-  taskAssignments TaskAssignee[]
-  comments        TaskComment[]
-  habits          Habit[]
-  sessions        StudySession[]
-  messages        Message[]
-  auditLogs       AuditLog[]
-  uploads         Upload[]
-  notes           Note[]
-  resources       Resource[]
-  exams           Exam[]
-  flashcards      Flashcard[]
-  reviews         FlashcardReview[]
-  questions       Question[]
-  answers         Answer[]
-  courses         Course[]
-  timetable       TimetableEntry[]
+  taskAssignments   TaskAssignee[]
+  comments          TaskComment[]
+  habits            Habit[]
+  sessions          StudySession[]
+  messages          Message[]
+  auditLogs         AuditLog[]
+  uploads           Upload[]
+  notes             Note[]
+  resources         Resource[]
+  exams             Exam[]
+  flashcards        Flashcard[]
+  reviews           FlashcardReview[]
+  questions         Question[]
+  answers           Answer[]
+  courses           Course[]
+  timetable         TimetableEntry[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  resourceFavorites ResourceFavorite[]
+  resourceUseful    ResourceUseful[]
+  resourceReads     ResourceRead[]
 
   @@index([role])
 }
@@ -133,12 +155,88 @@ model Resource {
   subject   String
   url       String?
   note      String?
+  // Metadata for uploaded files.
+  fileName  String?
+  fileSize  Int?
+  mime      String?
+  // Past-paper details.
+  year      Int?
+  semester  String?
+  examType  String?
   addedById String
   addedBy   User         @relation(fields: [addedById], references: [id], onDelete: Cascade)
   createdAt DateTime     @default(now())
 
+  favorites ResourceFavorite[]
+  useful    ResourceUseful[]
+  reads     ResourceRead[]
+
   @@index([subject])
   @@index([kind])
+  @@index([year])
+}
+
+model ResourceFavorite {
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([resourceId, userId])
+  @@index([userId])
+}
+
+model ResourceUseful {
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([resourceId, userId])
+  @@index([userId])
+}
+
+model ResourceRead {
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([resourceId, userId])
+  @@index([userId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      NotificationKind
+  title     String
+  body      String?
+  href      String?
+  // Optional per-user/day key so scheduled reminders are not duplicated.
+  dedupeKey String?          @unique
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Exam {

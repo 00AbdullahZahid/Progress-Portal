@@ -5,7 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import type { ActionResult } from "./tasks";
 
-/** Update the signed-in user's notification preferences. */
+/** Update the signed-in user's digest preferences. */
 export async function setNotificationPrefs(formData: FormData): Promise<ActionResult> {
   const me = await requireUser();
   await db.user.update({
@@ -16,5 +16,55 @@ export async function setNotificationPrefs(formData: FormData): Promise<ActionRe
     },
   });
   revalidatePath("/settings");
+  return { ok: true };
+}
+
+/** Update which events create an in-app notification and a push. */
+export async function setNotificationEventPrefs(
+  formData: FormData
+): Promise<ActionResult> {
+  const me = await requireUser();
+  await db.user.update({
+    where: { id: me.id },
+    data: {
+      notifyTaskAssigned: formData.get("notifyTaskAssigned") === "on",
+      notifyTaskComments: formData.get("notifyTaskComments") === "on",
+      notifyTaskStatus: formData.get("notifyTaskStatus") === "on",
+      notifyTaskDue: formData.get("notifyTaskDue") === "on",
+      notifyNewProjects: formData.get("notifyNewProjects") === "on",
+    },
+  });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/** Turn browser push delivery on or off for the signed-in member. */
+export async function setPushPreference(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  await db.user.update({
+    where: { id: me.id },
+    data: { notifyPush: formData.get("enabled") === "on" },
+  });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function markNotificationRead(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const id = String(formData.get("notificationId") ?? "");
+  if (!id) return { ok: false, error: "Notification not found." };
+  await db.notification.updateMany({
+    where: { id, userId: me.id, readAt: null },
+    data: { readAt: new Date() },
+  });
+  return { ok: true };
+}
+
+export async function markAllNotificationsRead(): Promise<ActionResult> {
+  const me = await requireUser();
+  await db.notification.updateMany({
+    where: { userId: me.id, readAt: null },
+    data: { readAt: new Date() },
+  });
   return { ok: true };
 }

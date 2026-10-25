@@ -34,6 +34,55 @@ self.addEventListener("message", (event) => {
   }
 });
 
+// Browser push notifications. The payload is produced by src/lib/push.ts.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+
+  const title = typeof data.title === "string" ? data.title : "Group Portal";
+  const body = typeof data.body === "string" ? data.body : "";
+  const href = typeof data.href === "string" ? data.href : "/dashboard";
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icon.svg",
+      badge: "/icon.svg",
+      tag: typeof data.tag === "string" ? data.tag : "portal",
+      data: { href },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const requested =
+    event.notification.data && typeof event.notification.data.href === "string"
+      ? event.notification.data.href
+      : "/dashboard";
+
+  let url;
+  try {
+    const resolved = new URL(requested, self.location.origin);
+    url = resolved.origin === self.location.origin ? resolved.href : self.location.origin + "/dashboard";
+  } catch {
+    url = self.location.origin + "/dashboard";
+  }
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url === url && "focus" in client) return client.focus();
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;

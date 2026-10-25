@@ -80,7 +80,7 @@ export function Button({
       value={value}
       formAction={formAction}
       onClick={onClick}
-      className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand ${styles[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand sm:min-h-10 ${styles[variant]} ${className}`}
     >
       {children}
     </button>
@@ -92,7 +92,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...rest}
-      className={`min-h-10 w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-sm ${className}`}
+      className={`min-h-11 w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand sm:min-h-10 sm:text-sm ${className}`}
     />
   );
 }
@@ -114,7 +114,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...rest}
-      className={`min-h-10 w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-sm ${className}`}
+      className={`min-h-11 w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand sm:min-h-10 sm:text-sm ${className}`}
     />
   );
 }
@@ -148,10 +148,12 @@ export function EmptyState({
   icon,
   title,
   hint,
+  action,
 }: {
   icon?: ReactNode;
   title: string;
   hint?: string;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-6 text-center sm:p-10">
@@ -160,6 +162,7 @@ export function EmptyState({
       ) : null}
       <p className="mt-3 font-medium">{title}</p>
       {hint ? <p className="mt-1 max-w-sm text-sm text-muted">{hint}</p> : null}
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }

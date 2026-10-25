@@ -10,6 +10,10 @@ import type { ActionResult } from "./tasks";
 const KINDS = ["paper", "notes", "book", "video", "link", "other"] as const;
 type Kind = (typeof KINDS)[number];
 
+export type ResourceActionResult =
+  | { ok: true; id?: string }
+  | { ok: false; error: string };
+
 function refresh() {
   revalidatePath("/resources");
 }
@@ -35,7 +39,14 @@ function parseUrl(value: unknown): { ok: true; url: string | null } | { ok: fals
   return { ok: false, error: "Enter a valid link or upload a file." };
 }
 
-export async function createResource(formData: FormData): Promise<ActionResult> {
+function optionalNumber(value: unknown, min: number, max: number): number | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= min && n <= max ? n : null;
+}
+
+export async function createResource(formData: FormData): Promise<ResourceActionResult> {
   const me = await requireUser();
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
@@ -46,28 +57,54 @@ export async function createResource(formData: FormData): Promise<ActionResult> 
 
   const urlRes = parseUrl(formData.get("url"));
   if (!urlRes.ok) return urlRes;
-  if (!urlRes.url)
-    return { ok: false, error: "Add a link or upload a file first." };
+  if (!urlRes.url) return { ok: false, error: "Add a link or upload a file first." };
 
   if (isBlobUrl(urlRes.url)) {
     const attachment = await attachmentError(me.id, [[urlRes.url, null]]);
     if (attachment) return { ok: false, error: attachment };
   }
 
-  await db.resource.create({
+  const kind = parseKind(formData.get("kind"));
+  const fileNameRes = cleanText(formData.get("fileName"), 200, { required: false });
+  if (!fileNameRes.ok) return fileNameRes;
+  const mimeRes = cleanText(formData.get("mime"), 120, { required: false });
+  if (!mimeRes.ok) return mimeRes;
+  const semesterRes = cleanText(formData.get("semester"), 30, { required: false });
+  if (!semesterRes.ok) return semesterRes;
+  const examTypeRes = cleanText(formData.get("examType"), 40, { required: false });
+  if (!examTypeRes.ok) return examTypeRes;
+
+  // Reuse the existing spelling of a subject so "Islamic Studies" and
+  // "Islamic studies" do not become two groups.
+  const existingSubjects = await db.resource.findMany({
+    select: { subject: true },
+    distinct: ["subject"],
+  });
+  const canonicalSubject =
+    existingSubjects.find(
+      (row) => row.subject.trim().toLowerCase() === subjectRes.value.toLowerCase()
+    )?.subject ?? subjectRes.value;
+
+  const resource = await db.resource.create({
     data: {
       title: titleRes.value,
-      subject: subjectRes.value,
-      kind: parseKind(formData.get("kind")),
+      subject: canonicalSubject,
+      kind,
       note: noteRes.value || null,
       url: urlRes.url,
+      fileName: fileNameRes.value || null,
+      fileSize: optionalNumber(formData.get("fileSize"), 0, 3_500_000),
+      mime: mimeRes.value || null,
+      year: kind === "paper" ? optionalNumber(formData.get("year"), 1900, 2100) : null,
+      semester: kind === "paper" ? semesterRes.value || null : null,
+      examType: kind === "paper" ? examTypeRes.value || null : null,
       addedById: me.id,
     },
   });
   // Only uploaded files need claiming; external links are ignored by cleanup.
   if (isBlobUrl(urlRes.url)) await claimUploads(me.id, [urlRes.url]);
   refresh();
-  return { ok: true };
+  return { ok: true, id: resource.id };
 }
 
 export async function deleteResource(formData: FormData): Promise<ActionResult> {
@@ -86,6 +123,70 @@ export async function deleteResource(formData: FormData): Promise<ActionResult> 
   // links are skipped by the blob URL check.
   const safe = await deletableUrls(db, null, [res.url], { requireOwnerId: false });
   await deleteBlobs(safe);
+  refresh();
+  return { ok: true };
+}
+
+async function toggleJoin(
+  table: "favorite" | "useful" | "read",
+  resourceId: string,
+  userId: string
+): Promise<void> {
+  if (table === "favorite") {
+    const existing = await db.resourceFavorite.findUnique({
+      where: { resourceId_userId: { resourceId, userId } },
+    });
+    if (existing)
+      await db.resourceFavorite.delete({
+        where: { resourceId_userId: { resourceId, userId } },
+      });
+    else await db.resourceFavorite.create({ data: { resourceId, userId } });
+    return;
+  }
+  if (table === "useful") {
+    const existing = await db.resourceUseful.findUnique({
+      where: { resourceId_userId: { resourceId, userId } },
+    });
+    if (existing)
+      await db.resourceUseful.delete({
+        where: { resourceId_userId: { resourceId, userId } },
+      });
+    else await db.resourceUseful.create({ data: { resourceId, userId } });
+    return;
+  }
+  const existing = await db.resourceRead.findUnique({
+    where: { resourceId_userId: { resourceId, userId } },
+  });
+  if (existing)
+    await db.resourceRead.delete({
+      where: { resourceId_userId: { resourceId, userId } },
+    });
+  else await db.resourceRead.create({ data: { resourceId, userId } });
+}
+
+export async function toggleResourceFavorite(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const resourceId = String(formData.get("resourceId") ?? "");
+  if (!resourceId) return { ok: false, error: "Resource not found." };
+  await toggleJoin("favorite", resourceId, me.id);
+  refresh();
+  return { ok: true };
+}
+
+export async function toggleResourceUseful(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const resourceId = String(formData.get("resourceId") ?? "");
+  if (!resourceId) return { ok: false, error: "Resource not found." };
+  await toggleJoin("useful", resourceId, me.id);
+  refresh();
+  return { ok: true };
+}
+
+export async function toggleResourceRead(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const resourceId = String(formData.get("resourceId") ?? "");
+  if (!resourceId) return { ok: false, error: "Resource not found." };
+  await toggleJoin("read", resourceId, me.id);
   refresh();
   return { ok: true };
 }

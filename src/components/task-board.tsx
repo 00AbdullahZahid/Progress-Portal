@@ -441,7 +441,8 @@ export function TaskBoard({
               return (
                 <div
                   key={task.id}
-                  className="rounded-xl border border-border bg-surface2/50 p-3"
+                  id={`task-${task.id}`}
+                  className="scroll-mt-24 rounded-xl border border-border bg-surface2/50 p-3"
                 >
                   <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">

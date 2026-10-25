@@ -16,13 +16,13 @@ canonical version users see; keep the two in sync when adding a feature.
 | Deadlines & exams | Shared countdown of exams, quizzes and assignments. | Everyone can add; the author or an admin can remove. |
 | Flashcards | Shared decks reviewed with spaced repetition (Leitner boxes). | Decks are shared; review schedules are personal. |
 | Doubts | Subject-based questions with answers and one accepted answer that can be saved to notes or turned into a flashcard. | Everyone can ask and answer; the asker marks one accepted answer; the asker or an admin can delete. |
-| Resources | Shared papers, books, videos and links by subject, uploaded or linked. | Everyone can add; uploader or admin can remove. |
+| Resources | Shared papers, books, videos and links by subject. Search, type tabs, subject chips, sort, a Mine toggle, collapsible subject groups, and a Recently added strip keep the shelf usable. Each row can be pinned, marked useful, and marked read; add links get a title/favicon preview and a duplicate warning. Rich rows show year, semester, exam type, domain, file type and size. | Everyone can add; the uploader or an admin can remove. Pins, useful marks, and read checklists are personal. |
 | Timetable | The group's weekly class calendar on a time grid. | Everyone views; only admins add or remove classes. |
 | Grades | Courses, assessment weights, marks and GPA prediction. | Private to each member. |
 | Search | One search across notes, tasks, resources and chat messages. | Everyone; results respect access rules. |
 | Chat | Group channels with polling refresh; authors edit or delete their own messages. | Everyone; admins moderate. |
 | People | Member directory with study totals and streaks. | Everyone. |
-| Settings | Profile, colour, photo, timezone, password, weekly goal, notifications, calendar feed, data export, tutorial. | Your own account. |
+| Settings | Profile, colour, photo, timezone, password, weekly goal, per-event notifications, browser push, calendar feed, data export, tutorial. | Your own account. |
 | Admin | Create, edit, deactivate and delete members; reset passwords; audit log. | Super admins only. |
 
 ## Cross-cutting features
@@ -32,9 +32,26 @@ canonical version users see; keep the two in sync when adding a feature.
   and unfinished blocks can log their elapsed minutes before ending.
 - **Weekly goal** — A target number of study minutes per week, shown as progress
   on the dashboard, study page and people page.
-- **Notifications** — An optional daily digest of upcoming tasks and exams, plus
-  instant webhook alerts for new doubts, deadlines added for today or tomorrow,
-  and chat mentions. Sent to the group's Discord, Telegram or custom webhook.
+- **Navigation and theme** — The sidebar groups pages into Plan, Study, Track and
+  Group, pins Admin, Settings and Guide to the footer, and keeps profile details
+  and sign-out in the profile menu. Members can collapse it to icons with
+  tooltips and choose Light, Dark or System; the collapsed theme button cycles
+  through the same three modes.
+- **Notification centre** — The bell in the sidebar (and mobile header) shows an
+  unread count and a panel with recent events. Members choose which events create
+  a notification: task assignments, task comments and @mentions, task status
+  changes, due-today/overdue reminders, and new projects. Mark one item or
+  everything as read; notifications link straight to the task or project.
+- **Browser push** — An opt-in delivery channel on top of the in-app bell. After
+  permission is granted, the device is saved as a push subscription and receives
+  the same events even when the portal is closed. Push is disabled on a device
+  by default and can be turned off again from Settings. On iPhone and iPad,
+  Safari only allows web push after the portal is added to the Home Screen.
+- **Daily digest webhook (optional)** — A separate group digest of upcoming tasks
+  and exams, plus instant webhook alerts for new doubts, deadlines added for
+  today or tomorrow, and chat mentions. Sent to Discord, Telegram or a custom
+  webhook when configured; the in-app bell and push do not need it. The daily
+  cron also creates the due/overdue notifications.
 - **Calendar feed** — A signed, read-only `.ics` URL for Google Calendar, Apple
   Calendar or Outlook with group exams, your task deadlines, and the shared
   timetable. Changing your password revokes the link.
@@ -45,7 +62,8 @@ canonical version users see; keep the two in sync when adding a feature.
   switched off in Settings, and can be replayed from Settings or the Guide page.
 - **Offline support** — Installable PWA. Only static assets are cached; private
   pages (Grades, Settings, Admin, Chat) are never cached and caches are cleared
-  on sign out.
+  on sign out. The service worker also receives browser push and opens the
+  relevant task or project when a notification is clicked.
 - **Timezone** — The group default is `Asia/Karachi`; each member's own timezone
   controls how dates are displayed to them.
 
@@ -54,6 +72,8 @@ canonical version users see; keep the two in sync when adding a feature.
 - Everyone can read all shared content and add notes, deadlines, flashcards,
   doubts, resources and chat messages. Only admins create projects, goals, tasks
   and channels; members move tasks assigned to them and comment on tasks.
+- Resource pins, useful marks and read checklists are per member. Removing a
+  resource is limited to its uploader or an admin.
 - Authors can edit or delete what they created.
 - Super admins can manage members, reset passwords, manage the timetable, and
   delete any shared content.

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   createContext,
   useCallback,
@@ -11,10 +12,16 @@ import {
 import { CheckIcon, AlertIcon, XIcon } from "./icons";
 
 type ToastKind = "success" | "error" | "info";
-type Toast = { id: number; kind: ToastKind; message: string };
+type ToastAction = { label: string; href: string };
+type Toast = {
+  id: number;
+  kind: ToastKind;
+  message: string;
+  action?: ToastAction;
+};
 
 type ToastContextValue = {
-  toast: (message: string, kind?: ToastKind) => void;
+  toast: (message: string, kind?: ToastKind, action?: ToastAction) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -24,11 +31,14 @@ let nextId = 1;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const toast = useCallback((message: string, kind: ToastKind = "success") => {
-    const id = nextId++;
-    setToasts((t) => [...t, { id, kind, message }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
-  }, []);
+  const toast = useCallback(
+    (message: string, kind: ToastKind = "success", action?: ToastAction) => {
+      const id = nextId++;
+      setToasts((t) => [...t, { id, kind, message, action }]);
+      setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 5000);
+    },
+    []
+  );
 
   return (
     <ToastContext.Provider value={{ toast }}>
@@ -54,6 +64,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               ) : null}
             </span>
             <span className="flex-1">{t.message}</span>
+            {t.action ? (
+              <Link
+                href={t.action.href}
+                onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}
+                className="shrink-0 rounded-md px-1 py-0.5 text-xs font-semibold underline underline-offset-2 hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                {t.action.label}
+              </Link>
+            ) : null}
             <button
               aria-label="Dismiss"
               onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}

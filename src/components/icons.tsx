@@ -370,3 +370,102 @@ export function DownloadIcon(props: P) {
   );
 }
 
+export function ChevronDownIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+export function ExternalLinkIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M14 3h7v7" />
+      <path d="m10 14 11-11" />
+      <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+    </svg>
+  );
+}
+
+export function FolderIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2h8A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z" />
+    </svg>
+  );
+}
+
+export function StarIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z" />
+    </svg>
+  );
+}
+
+export function MoreIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function ThumbsUpIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z" />
+      <path d="M7 10l4-7a2 2 0 0 1 2 2v4h5.4a2 2 0 0 1 2 2.4l-1.2 6A2 2 0 0 1 17.2 21H7" />
+    </svg>
+  );
+}
+
+export function MonitorIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
+    </svg>
+  );
+}
+
+export function FileIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16l4 4v12.5A1.5 1.5 0 0 1 18.5 21h-13A1.5 1.5 0 0 1 4 19.5z" />
+      <path d="M15 3v5h5" />
+    </svg>
+  );
+}
+
+export function PaperIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 3h9l4 4v14H6z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h4" />
+    </svg>
+  );
+}
+
+export function LinkIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2" />
+      <path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2" />
+    </svg>
+  );
+}
+
+export function VideoIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="13" height="14" rx="2" />
+      <path d="m16 10 5-3v10l-5-3z" />
+    </svg>
+  );
+}
+

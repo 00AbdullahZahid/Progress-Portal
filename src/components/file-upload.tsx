@@ -4,7 +4,13 @@ import { useRef, useState } from "react";
 import { uploadFile } from "@/lib/upload-client";
 import { useToast } from "./toast";
 
-export type Attached = { url: string; name: string; isImage: boolean };
+export type Attached = {
+  url: string;
+  name: string;
+  isImage: boolean;
+  size?: number;
+  mime?: string;
+};
 
 const IMAGE_MAX = 2 * 1024 * 1024;
 const FILE_MAX = 3.5 * 1024 * 1024;
@@ -49,7 +55,13 @@ export function FileUpload({
       e.target.value = "";
       return;
     }
-    onChange({ url: res.url, name: res.name, isImage: res.isImage });
+    onChange({
+      url: res.url,
+      name: res.name,
+      isImage: res.isImage,
+      size: res.size,
+      mime: res.mime,
+    });
   }
 
   function clear() {

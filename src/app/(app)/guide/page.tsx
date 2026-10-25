@@ -97,8 +97,8 @@ const FEATURES: Feature[] = [
     href: "/resources",
     title: "Resources",
     Icon: BookIcon,
-    what: "A shared library of past papers, books, videos, and links, organised by subject. Upload a file or paste an external link.",
-    who: "Everyone can add resources. The uploader or an admin can remove them.",
+    what: "A shared library of past papers, books, videos, and links, organised by subject. Search and filter by type or subject, sort the shelf, or limit it to your own additions. Rows can be pinned, marked useful, and marked read, and subject groups collapse to keep the page short. Add a file or paste a link: the add form can fetch the page title and icon, warns about duplicates, and records paper year, semester, and exam type.",
+    who: "Everyone can add resources. Pins, useful marks, and read checklists are personal; the uploader or an admin can remove a resource.",
   },
   {
     href: "/timetable",
@@ -139,7 +139,7 @@ const FEATURES: Feature[] = [
     href: "/settings",
     title: "Settings",
     Icon: SettingsIcon,
-    what: "Change your name, profile colour, photo, timezone, password, weekly study goal, and notification preferences. Subscribe to the calendar feed, export your data, and replay the tutorial from here.",
+    what: "Change your name, profile colour, photo, timezone, password, and weekly study goal. Choose which events create notifications, enable browser push on each device, subscribe to the calendar feed, export your data, and replay the tutorial from here.",
     who: "Everyone edits their own profile. A super admin can reset any password.",
   },
   {
@@ -164,8 +164,8 @@ const EXTRAS = [
   },
   {
     Icon: BellIcon,
-    title: "Notifications",
-    body: "Opt in to a daily digest of upcoming tasks and exams, and get instant webhook alerts for new doubts, deadlines added for today or tomorrow, and chat mentions. Alerts go to the group's Discord, Telegram, or custom webhook.",
+    title: "Notification centre and push",
+    body: "The bell in the sidebar or mobile header collects task assignments, comments and @mentions, task status changes, due-today and overdue reminders, and new projects. It shows an unread count and lets you mark one item or everything as read. In Settings you can choose which events create a notification and enable browser push on each device, so alerts arrive even when the portal is closed. On iPhone and iPad, add the portal to your Home Screen first; Safari only allows web push for installed apps. A separate optional group digest can still go to Discord, Telegram, or a custom webhook.",
   },
   {
     Icon: CalendarIcon,
@@ -179,8 +179,13 @@ const EXTRAS = [
   },
   {
     Icon: InfoIcon,
+    title: "Appearance and navigation",
+    body: "The sidebar is grouped into Plan, Study, Track, and Group. Admin, Settings, and Guide stay pinned at the bottom, and profile details plus sign-out live in the profile menu. Choose Light, Dark, or System; when the sidebar is collapsed, the theme button cycles through the same three modes.",
+  },
+  {
+    Icon: InfoIcon,
     title: "Offline support",
-    body: "The portal can be installed like an app. Static files are cached for speed, but private pages (Grades, Settings, Admin, Chat) are never cached and the cache is cleared when you sign out.",
+    body: "The portal can be installed like an app. Static files are cached for speed, but private pages (Grades, Settings, Admin, Chat) are never cached and the cache is cleared when you sign out. The service worker also receives browser push and opens the relevant task or project when you tap a notification.",
   },
   {
     Icon: InfoIcon,

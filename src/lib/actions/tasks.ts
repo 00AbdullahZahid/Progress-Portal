@@ -5,6 +5,8 @@ import { db } from "../db";
 import { requireUser, requireAdmin } from "../auth";
 import { cleanText } from "../validation";
 import { audit } from "../audit";
+import { notifyUsers } from "../notifications";
+import { mentionedHandles } from "../mentions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -39,6 +41,14 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
   await audit(me.id, "project.create", {
     targetId: project.id,
     detail: project.name,
+  });
+  await notifyUsers({
+    audience: "all",
+    kind: "project_new",
+    title: "New project",
+    body: project.name,
+    href: "/tasks",
+    excludeUserId: me.id,
   });
 
   refresh();
@@ -131,6 +141,14 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
     },
   });
   await audit(me.id, "task.create", { targetId: task.id, detail: task.title });
+  await notifyUsers({
+    audience: assigneeIds,
+    kind: "task_assigned",
+    title: "Task assigned to you",
+    body: task.title,
+    href: `/tasks#task-${task.id}`,
+    excludeUserId: me.id,
+  });
 
   refresh();
   return { ok: true };
@@ -153,6 +171,8 @@ export async function setTaskStatus(formData: FormData): Promise<ActionResult> {
     where: { id: taskId },
     select: {
       id: true,
+      title: true,
+      status: true,
       completedAt: true,
       assignees: { select: { userId: true } },
     },
@@ -167,6 +187,8 @@ export async function setTaskStatus(formData: FormData): Promise<ActionResult> {
     };
   }
 
+  if (task.status === status) return { ok: true };
+
   await db.task.update({
     where: { id: taskId },
     data: {
@@ -176,6 +198,16 @@ export async function setTaskStatus(formData: FormData): Promise<ActionResult> {
       completedAt:
         status === "done" ? (task.completedAt ?? new Date()) : null,
     },
+  });
+  const label =
+    status === "todo" ? "To do" : status === "doing" ? "In progress" : "Done";
+  await notifyUsers({
+    audience: task.assignees.map((assignee) => assignee.userId),
+    kind: "task_status",
+    title: `Task moved to ${label}`,
+    body: task.title,
+    href: `/tasks#task-${task.id}`,
+    excludeUserId: me.id,
   });
   refresh();
   return { ok: true };
@@ -234,12 +266,48 @@ export async function addComment(formData: FormData): Promise<ActionResult> {
   const bodyRes = cleanText(formData.get("body"), 2000);
   if (!bodyRes.ok) return bodyRes;
 
-  const task = await db.task.findUnique({ where: { id: taskId } });
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: {
+      id: true,
+      title: true,
+      assignees: { select: { userId: true } },
+    },
+  });
   if (!task) return { ok: false, error: "Task not found." };
 
   await db.taskComment.create({
     data: { taskId, authorId: me.id, body: bodyRes.value },
   });
+
+  const handles = mentionedHandles(bodyRes.value, me.handle);
+  const mentioned = handles.length
+    ? await db.user.findMany({
+        where: { handle: { in: handles }, isActive: true },
+        select: { id: true },
+      })
+    : [];
+  const mentionedIds = mentioned.map((user) => user.id);
+  const assigneeIds = task.assignees.map((assignee) => assignee.userId);
+  const excerpt = bodyRes.value.replace(/\s+/g, " ").slice(0, 160);
+
+  await notifyUsers({
+    audience: mentionedIds,
+    kind: "task_mention",
+    title: `${me.name} mentioned you`,
+    body: `${task.title}: ${excerpt}`,
+    href: `/tasks#task-${task.id}`,
+    excludeUserId: me.id,
+  });
+  await notifyUsers({
+    audience: assigneeIds.filter((id) => !mentionedIds.includes(id)),
+    kind: "task_comment",
+    title: `New comment on ${task.title}`,
+    body: `${me.name}: ${excerpt}`,
+    href: `/tasks#task-${task.id}`,
+    excludeUserId: me.id,
+  });
+
   refresh();
   return { ok: true };
 }
