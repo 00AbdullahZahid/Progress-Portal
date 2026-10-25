@@ -73,7 +73,7 @@ export function DashboardWidgets({
     goalTargetMinutes > 0 ? (myWeekMinutes / goalTargetMinutes) * 100 : 0;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card className="flex flex-col items-start gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
         <GoalRing percent={percent} label="of goal" />
         <div className="min-w-0">

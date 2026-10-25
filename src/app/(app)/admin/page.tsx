@@ -117,7 +117,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Recent activity */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 flex items-center gap-2 font-semibold">
             <ChatIcon width={18} height={18} className="text-brand" />

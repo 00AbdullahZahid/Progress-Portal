@@ -13,7 +13,7 @@ type UserPoint = { name: string; color: string; minutes: number };
 const Charts = dynamic(() => import("./charts-inner"), {
   ssr: false,
   loading: () => (
-    <div className="grid gap-6 lg:grid-cols-3" aria-hidden="true">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" aria-hidden="true">
       <Card className="lg:col-span-2">
         <div className="h-48 animate-pulse rounded-xl bg-surface2" />
       </Card>

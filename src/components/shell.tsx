@@ -46,7 +46,7 @@ export function Shell({ user, children }: { user: ShellUser; children: React.Rea
     <div className="min-h-dvh">
       <Nav user={user} />
       <main
-        className={`w-full min-w-0 px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 transition-[margin] duration-200 sm:px-6 sm:pt-6 md:px-8 md:pb-10 ${
+        className={`min-w-0 px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 transition-[margin] duration-200 sm:px-6 sm:pt-6 md:px-8 md:pb-10 ${
           isCollapsed ? "md:ml-[76px]" : "md:ml-60"
         }`}
       >

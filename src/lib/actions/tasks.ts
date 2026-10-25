@@ -87,10 +87,21 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
       return { ok: false, error: "That goal doesn't belong to this project." };
   }
 
-  const assigneeId = String(formData.get("assigneeId") ?? "") || null;
-  if (assigneeId) {
-    const assignee = await db.user.findUnique({ where: { id: assigneeId } });
-    if (!assignee) return { ok: false, error: "Assignee not found." };
+  const assigneeIds = Array.from(
+    new Set(
+      formData
+        .getAll("assigneeIds")
+        .map((value) => String(value).trim())
+        .filter(Boolean)
+    )
+  );
+  if (assigneeIds.length > 0) {
+    const found = await db.user.findMany({
+      where: { id: { in: assigneeIds } },
+      select: { id: true },
+    });
+    if (found.length !== assigneeIds.length)
+      return { ok: false, error: "One or more assignees were not found." };
   }
 
   const priority = String(formData.get("priority") ?? "med");
@@ -106,9 +117,11 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
       projectId,
       title: titleRes.value,
       goalId,
-      assigneeId,
       priority: priority as (typeof PRIORITIES)[number],
       dueDate: due,
+      assignees: {
+        create: assigneeIds.map((userId) => ({ userId })),
+      },
     },
   });
   await audit(me.id, "task.create", { targetId: task.id, detail: task.title });
@@ -130,10 +143,18 @@ export async function setTaskStatus(formData: FormData): Promise<ActionResult> {
   if (!STATUSES.includes(status as (typeof STATUSES)[number]))
     return { ok: false, error: "Invalid status." };
 
-  const task = await db.task.findUnique({ where: { id: taskId } });
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: {
+      id: true,
+      completedAt: true,
+      assignees: { select: { userId: true } },
+    },
+  });
   if (!task) return { ok: false, error: "Task not found." };
 
-  if (me.role !== "admin" && task.assigneeId !== me.id) {
+  const isAssignedToMe = task.assignees.some((a) => a.userId === me.id);
+  if (me.role !== "admin" && !isAssignedToMe) {
     return {
       ok: false,
       error: "You can only update tasks assigned to you.",

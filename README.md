@@ -11,7 +11,7 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Members and auth** — Invite-only. Username + password login (scrypt-hashed). One or more **super admin** accounts.
 - **Super admin** — Admins can add, deactivate, reactivate, and delete users; edit anyone's details (name, username, color, timezone, role); and reset any member's password. Creating and deleting projects, goals, tasks, and chat channels is admin-only, enforced on the server.
 - **Admin dashboard** — A dedicated super-admin page with group stats, a user manager, and recent audit activity.
-- **Tasks and projects** — Projects, goals, and tasks with status badges (todo / doing / done), assignees, priorities, due dates, progress bars, and linked focus time. Assignees (and admins) can move a task's status.
+- **Tasks and projects** — Projects, goals, and a dedicated **New task** panel for creating tasks from any project with one or more assignees, priorities, due dates, progress bars, and linked focus time. Every assignee (and admins) can move a task's status.
 - **Comments** — Comment threads on any task.
 - **Habits and check-ins** — Daily habit grid with streaks that keep counting past the current record.
 - **Study log** — Log sessions (subject, minutes, notes, date) with optional image and file attachments, per-subject progress bars, and inline editing. Sessions you mark as shared are visible to the rest of the group; private ones stay yours.

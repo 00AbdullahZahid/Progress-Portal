@@ -31,7 +31,7 @@ async function loadMyData(userId: string) {
       select: { date: true, habit: { select: { name: true } } },
     }),
     db.task.findMany({
-      where: { assigneeId: userId },
+      where: { assignees: { some: { userId } } },
       select: {
         title: true,
         status: true,
@@ -39,6 +39,9 @@ async function loadMyData(userId: string) {
         dueDate: true,
         createdAt: true,
         project: { select: { name: true } },
+        assignees: {
+          select: { user: { select: { name: true } } },
+        },
       },
     }),
     db.note.findMany({
@@ -153,7 +156,9 @@ export async function exportMyDataCsv(): Promise<
       "",
       "",
       "",
-      `priority: ${t.priority}; created: ${isoDay(t.createdAt)}`,
+      `priority: ${t.priority}; assignees: ${
+        t.assignees.map((a) => a.user.name).join(", ") || "none"
+      }; created: ${isoDay(t.createdAt)}`,
     ]);
   }
 

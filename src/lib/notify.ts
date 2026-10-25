@@ -25,7 +25,7 @@ export async function buildDigest(): Promise<{ text: string; items: DigestItem[]
     if (u.notifyTasks) {
       const tasks = await db.task.findMany({
         where: {
-          assigneeId: u.id,
+          assignees: { some: { userId: u.id } },
           status: { not: "done" },
           dueDate: { not: null, lte: soon },
         },

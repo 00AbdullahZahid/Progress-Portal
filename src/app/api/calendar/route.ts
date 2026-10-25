@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     }),
     db.task.findMany({
       where: {
-        assigneeId: user.id,
+        assignees: { some: { userId: user.id } },
         status: { not: "done" },
         dueDate: { not: null },
       },

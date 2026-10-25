@@ -39,7 +39,7 @@ export default function ChartsInner({
   studyByUser: UserPoint[];
 }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
         <h2 className="mb-1 font-semibold">Tasks completed</h2>
         <p className="mb-3 text-xs text-muted">Last 14 days, whole group</p>

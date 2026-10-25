@@ -11,7 +11,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-border bg-surface shadow-sm ${
+      className={`min-w-0 rounded-2xl border border-border bg-surface shadow-sm ${
         padded ? "p-4 sm:p-5" : ""
       } ${className}`}
     >

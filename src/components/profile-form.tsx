@@ -79,15 +79,15 @@ export function ProfileForm({
           <label className="mb-1.5 block text-sm font-medium">
             Profile picture
           </label>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <Avatar user={{ name: user.name, color: user.color, image }} size="lg" />
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
               <input
                 type="file"
                 accept="image/*"
                 onChange={onFileChange}
                 disabled={uploading}
-                className="text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-brand/90 disabled:opacity-50"
+                className="w-full max-w-full min-w-0 text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-brand/90 disabled:opacity-50"
               />
               <span className="text-xs text-muted">
                 {uploading ? "Uploading…" : "Max 2MB"}

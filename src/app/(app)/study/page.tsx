@@ -62,7 +62,10 @@ export default async function StudyPage({
     }),
     // Open tasks the signed-in member can link a focus block to.
     db.task.findMany({
-      where: { assigneeId: me.id, status: { not: "done" } },
+      where: {
+        assignees: { some: { userId: me.id } },
+        status: { not: "done" },
+      },
       select: { id: true, title: true, project: { select: { name: true } } },
       orderBy: [{ status: "asc" }, { createdAt: "asc" }],
       take: 50,
@@ -83,8 +86,8 @@ export default async function StudyPage({
         subtitle={`You: ${Math.round(myTotal / 6) / 10}h · Group: ${Math.round(groupTotal / 6) / 10}h in the last 30 days.`}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-1">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-6 lg:col-span-1">
           <FocusTimer
             tasks={activeTasks.map((t) => ({
               id: t.id,
@@ -108,7 +111,7 @@ export default async function StudyPage({
           />
         </div>
 
-        <div className="flex flex-col gap-6 lg:col-span-2">
+        <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
           <Card>
             <h2 className="mb-3 flex items-center gap-2 font-semibold">
               <TargetIcon width={18} height={18} className="text-brand" />

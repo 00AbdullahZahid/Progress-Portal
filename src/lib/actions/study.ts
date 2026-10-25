@@ -51,10 +51,10 @@ async function parseTaskId(
 
   const task = await db.task.findUnique({
     where: { id: raw },
-    select: { id: true, assigneeId: true },
+    select: { id: true, assignees: { select: { userId: true } } },
   });
   if (!task) return { ok: false, error: "Task not found." };
-  if (me.role !== "admin" && task.assigneeId !== me.id)
+  if (me.role !== "admin" && !task.assignees.some((a) => a.userId === me.id))
     return { ok: false, error: "You can only link study time to your own tasks." };
 
   return { ok: true, taskId: task.id };

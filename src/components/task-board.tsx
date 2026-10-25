@@ -26,7 +26,7 @@ import {
   TrashIcon,
 } from "./icons";
 
-type Member = { id: string; name: string; color: string };
+type Member = { id: string; name: string; color: string; image?: string | null };
 type Comment = { id: string; body: string; author: Member; createdAt: string };
 type Task = {
   id: string;
@@ -34,7 +34,7 @@ type Task = {
   status: string;
   priority: string;
   dueDate: string | null;
-  assignee: Member | null;
+  assignees: Member[];
   goal: { id: string; title: string } | null;
   studyMinutes: number;
   comments: Comment[];
@@ -61,6 +61,8 @@ export function TaskBoard({
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskProjectId, setTaskProjectId] = useState(projects[0]?.id ?? "");
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState<{
     title: string;
@@ -122,6 +124,9 @@ export function TaskBoard({
     }
   }
 
+  const selectedTaskProject =
+    projects.find((project) => project.id === taskProjectId) ?? projects[0];
+
   return (
     <div className="flex flex-col gap-6">
       {isAdmin ? (
@@ -151,6 +156,131 @@ export function TaskBoard({
           their own tasks; everyone can comment.
         </p>
       )}
+
+      {isAdmin ? (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="flex items-center gap-1.5 font-semibold">
+                <TasksIcon width={18} height={18} className="text-brand" />
+                New task
+              </h2>
+              <p className="mt-0.5 text-sm text-muted">
+                Add a task to any project and assign it to one or more members.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant={showTaskForm ? "outline" : "primary"}
+              className="w-full sm:w-auto"
+              onClick={() => setShowTaskForm((open) => !open)}
+            >
+              <PlusIcon width={16} height={16} />
+              {showTaskForm ? "Close" : "Add task"}
+            </Button>
+          </div>
+
+          {showTaskForm ? (
+            projects.length === 0 ? (
+              <p className="mt-4 rounded-xl border border-dashed border-border p-3 text-sm text-muted">
+                Create a project first, then add tasks here.
+              </p>
+            ) : (
+              <form
+                action={act(createTask, "Task created")}
+                className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+              >
+                <label className="block sm:col-span-2 lg:col-span-4">
+                  <span className="mb-1 block text-xs font-medium text-muted">Task title</span>
+                  <Input name="title" placeholder="What needs to be done?" maxLength={160} required />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Project</span>
+                  <Select
+                    name="projectId"
+                    value={selectedTaskProject?.id ?? ""}
+                    onChange={(e) => setTaskProjectId(e.target.value)}
+                    required
+                  >
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Goal</span>
+                  <Select
+                    key={selectedTaskProject?.id ?? "no-project"}
+                    name="goalId"
+                    defaultValue=""
+                  >
+                    <option value="">(no goal)</option>
+                    {selectedTaskProject?.goals.map((goal) => (
+                      <option key={goal.id} value={goal.id}>
+                        {goal.title}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Priority</span>
+                  <Select name="priority" defaultValue="med">
+                    <option value="low">Low</option>
+                    <option value="med">Medium</option>
+                    <option value="high">High</option>
+                  </Select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Due date</span>
+                  <Input type="date" name="dueDate" />
+                </label>
+
+                <fieldset className="min-w-0 sm:col-span-2 lg:col-span-4">
+                  <legend className="mb-1 text-xs font-medium text-muted">Assign to</legend>
+                  {members.length === 0 ? (
+                    <p className="text-sm text-muted">No members yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {members.map((member) => (
+                        <label
+                          key={member.id}
+                          className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-2.5 py-2 text-sm transition-colors hover:border-brand/40 hover:bg-brand-soft/50"
+                        >
+                          <input
+                            type="checkbox"
+                            name="assigneeIds"
+                            value={member.id}
+                            className="shrink-0 rounded border-border"
+                          />
+                          <Avatar user={member} size="sm" />
+                          <span className="truncate">{member.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-1 text-xs text-muted">
+                    Choose as many people as you need, or leave everyone unchecked for an
+                    unassigned task.
+                  </p>
+                </fieldset>
+
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <Button type="submit" className="w-full sm:w-auto">
+                    <PlusIcon width={16} height={16} />
+                    Add task
+                  </Button>
+                </div>
+              </form>
+            )
+          ) : null}
+        </Card>
+      ) : null}
 
       {projects.length === 0 ? (
         <EmptyState
@@ -277,49 +407,6 @@ export function TaskBoard({
             ) : null}
           </div>
 
-          {/* New task (admin only) */}
-          {isAdmin ? (
-            <form
-              action={act(createTask, "Task created")}
-              className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-dashed border-border p-3 sm:flex sm:flex-wrap sm:items-center"
-            >
-              <input type="hidden" name="projectId" value={project.id} />
-              <Input
-                name="title"
-                placeholder="Add a task…"
-                className="col-span-2 min-w-0 flex-1 sm:min-w-40"
-                required
-              />
-              <Select name="goalId" className="col-span-2 w-full sm:w-44">
-                <option value="">(no goal)</option>
-                {project.goals.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.title.slice(0, 24)}
-                  </option>
-                ))}
-              </Select>
-              <Select name="assigneeId" className="w-full sm:w-32">
-                <option value="">Unassigned</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </Select>
-              <Select name="priority" className="w-full sm:w-24">
-                <option value="low">Low</option>
-                <option value="med" defaultValue="med">
-                  Med
-                </option>
-                <option value="high">High</option>
-              </Select>
-              <Input type="date" name="dueDate" className="col-span-2 w-full sm:w-38" />
-              <Button type="submit" className="col-span-2 w-full sm:w-auto">
-                Add
-              </Button>
-            </form>
-          ) : null}
-
           {/* Flat task list (no status columns) */}
           <div className="flex flex-col gap-2">
             {project.tasks.length === 0 ? (
@@ -329,7 +416,7 @@ export function TaskBoard({
             ) : null}
             {project.tasks.map((task) => {
               const canMove =
-                isAdmin || (task.assignee !== null && task.assignee.id === meId);
+                isAdmin || task.assignees.some((assignee) => assignee.id === meId);
               return (
                 <div
                   key={task.id}
@@ -395,7 +482,7 @@ export function TaskBoard({
                               title={
                                 canMove
                                   ? `Mark as ${statusMeta[s].label}`
-                                  : "Only the assignee or an admin can change this"
+                                  : "Only an assignee or an admin can change this"
                               }
                               className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
                                 task.status === s
@@ -411,10 +498,29 @@ export function TaskBoard({
                         ))}
                       </div>
 
-                      <div className="mt-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {task.assignee ? (
-                            <Avatar user={task.assignee} size="sm" />
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {task.assignees.length > 0 ? (
+                            <>
+                              <div className="flex shrink-0 -space-x-1.5">
+                                {task.assignees.slice(0, 4).map((assignee) => (
+                                  <span
+                                    key={assignee.id}
+                                    className="rounded-full ring-2 ring-surface"
+                                  >
+                                    <Avatar user={assignee} size="sm" />
+                                  </span>
+                                ))}
+                                {task.assignees.length > 4 ? (
+                                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-surface2 text-[10px] font-semibold text-muted ring-2 ring-surface">
+                                    +{task.assignees.length - 4}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <span className="min-w-0 truncate text-[11px] text-muted">
+                                {task.assignees.map((assignee) => assignee.name).join(", ")}
+                              </span>
+                            </>
                           ) : (
                             <span className="text-[11px] text-muted">unassigned</span>
                           )}

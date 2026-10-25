@@ -13,7 +13,11 @@ export default async function TasksPage() {
         tasks: {
           orderBy: [{ status: "asc" }, { createdAt: "asc" }],
           include: {
-            assignee: true,
+            assignees: {
+              include: {
+                user: { select: { id: true, name: true, color: true, image: true } },
+              },
+            },
             goal: true,
             comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
             studySessions: { select: { minutes: true } },
@@ -28,7 +32,7 @@ export default async function TasksPage() {
     <div>
       <PageHeader
         title="Tasks & Goals"
-        subtitle="Plan projects, set goals, assign work, and comment along the way."
+        subtitle="Plan projects, set goals, assign work to one or more members, and comment along the way."
       />
       <TaskBoard
         projects={projects.map((p) => ({
@@ -45,9 +49,12 @@ export default async function TasksPage() {
             status: t.status,
             priority: t.priority,
             dueDate: t.dueDate?.toISOString() ?? null,
-            assignee: t.assignee
-              ? { id: t.assignee.id, name: t.assignee.name, color: t.assignee.color }
-              : null,
+            assignees: t.assignees.map((a) => ({
+              id: a.user.id,
+              name: a.user.name,
+              color: a.user.color,
+              image: a.user.image,
+            })),
             goal: t.goal ? { id: t.goal.id, title: t.goal.title } : null,
             studyMinutes: t.studySessions.reduce((sum, s) => sum + s.minutes, 0),
             comments: t.comments.map((c) => ({
@@ -58,7 +65,12 @@ export default async function TasksPage() {
             })),
           })),
         }))}
-        members={members.map((u) => ({ id: u.id, name: u.name, color: u.color }))}
+        members={members.map((u) => ({
+          id: u.id,
+          name: u.name,
+          color: u.color,
+          image: u.image,
+        }))}
         isAdmin={me.role === "admin"}
         meId={me.id}
       />

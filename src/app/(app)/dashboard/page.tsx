@@ -37,7 +37,10 @@ export default async function DashboardPage() {
     db.user.findMany({ orderBy: { name: "asc" } }),
     db.task.findMany({
       where: { status: "done", completedAt: { not: null } },
-      select: { completedAt: true, assigneeId: true },
+      select: {
+        completedAt: true,
+        assignees: { select: { userId: true } },
+      },
     }),
     db.task.count({ where: { status: { not: "done" } } }),
     // Everyone's shared sessions plus your own private ones, so a member's
@@ -121,8 +124,10 @@ export default async function DashboardPage() {
   // Leaderboard covers the last 7 days (matches its label).
   const doneThisWeekByUser = new Map<string, number>();
   for (const t of tasksDoneThisWeek) {
-    if (!t.assigneeId) continue;
-    doneThisWeekByUser.set(t.assigneeId, (doneThisWeekByUser.get(t.assigneeId) ?? 0) + 1);
+    // A shared task counts for every member assigned to it.
+    for (const a of t.assignees) {
+      doneThisWeekByUser.set(a.userId, (doneThisWeekByUser.get(a.userId) ?? 0) + 1);
+    }
   }
   const weekStudy = studyRows.filter((s) => s.date >= weekStart);
   const weekCheckins = checkinRows.filter((c) => c.date >= weekStart);
@@ -235,7 +240,7 @@ export default async function DashboardPage() {
         <QuickLinks />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 flex items-center gap-2 font-semibold">
             <TrophyIcon width={18} height={18} className="text-amber-500" />

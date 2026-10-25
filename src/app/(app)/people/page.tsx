@@ -14,7 +14,10 @@ export default async function PeoplePage() {
     db.user.findMany({ orderBy: [{ role: "desc" }, { name: "asc" }] }),
     db.task.findMany({
       where: { status: "done", completedAt: { not: null } },
-      select: { assigneeId: true, completedAt: true },
+      select: {
+        completedAt: true,
+        assignees: { select: { userId: true } },
+      },
     }),
     // Only shared sessions count for other members; your own private ones are
     // included so your card stays accurate.
@@ -34,9 +37,12 @@ export default async function PeoplePage() {
   // Count completions that landed within the 30-day window in the viewer's tz.
   const doneByUser = new Map<string, number>();
   for (const t of doneTasks) {
-    if (!t.assigneeId || !t.completedAt) continue;
+    if (!t.completedAt) continue;
     if (dateInTz(t.completedAt, me.timezone) < range[0]) continue;
-    doneByUser.set(t.assigneeId, (doneByUser.get(t.assigneeId) ?? 0) + 1);
+    // A shared task counts for every member assigned to it.
+    for (const a of t.assignees) {
+      doneByUser.set(a.userId, (doneByUser.get(a.userId) ?? 0) + 1);
+    }
   }
 
   const rows = users.map((u) => {
@@ -53,7 +59,7 @@ export default async function PeoplePage() {
     <div>
       <PageHeader title="People" subtitle="The crew and their progress over the last 30 days." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((r) => (
           <Card key={r.user.id} className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
