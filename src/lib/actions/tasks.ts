@@ -72,16 +72,22 @@ export async function createGoal(formData: FormData): Promise<ActionResult> {
 export async function createTask(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireAdmin();
-  const projectId = String(formData.get("projectId") ?? "");
+  const rawProjectId = String(formData.get("projectId") ?? "").trim();
+  const projectId = rawProjectId || null;
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
 
-  const project = await db.project.findUnique({ where: { id: projectId } });
-  if (!project) return { ok: false, error: "Project not found." };
+  if (projectId) {
+    const project = await db.project.findUnique({ where: { id: projectId } });
+    if (!project) return { ok: false, error: "Project not found." };
+  }
 
-  // The goal, if given, must belong to the same project.
+  // The goal, if given, must belong to the same project. Standalone tasks
+  // cannot have a goal because goals only exist inside projects.
   const goalId = String(formData.get("goalId") ?? "") || null;
   if (goalId) {
+    if (!projectId)
+      return { ok: false, error: "Choose a project before selecting a goal." };
     const goal = await db.goal.findUnique({ where: { id: goalId } });
     if (!goal || goal.projectId !== projectId)
       return { ok: false, error: "That goal doesn't belong to this project." };

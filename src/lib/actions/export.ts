@@ -150,7 +150,7 @@ export async function exportMyDataCsv(): Promise<
     rows.push([
       "task",
       t.title,
-      t.project.name,
+      t.project?.name ?? "",
       isoDay(t.dueDate),
       t.status,
       "",

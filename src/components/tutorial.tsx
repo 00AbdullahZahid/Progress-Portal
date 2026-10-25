@@ -52,7 +52,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Tasks and habits",
-    body: "Tasks are organised by project and goal, and a separate New task panel lets you add one to any project and assign it to one or more people. Give each task a status, priority, and due date, then comment as work moves along. Habits are personal: create a daily habit and check in with one tap to build a streak.",
+    body: "Tasks are organised by project and goal, and a separate New task panel lets you add one to any project or as a standalone task with no project. Assign each task to one or more people, give it a status, priority, and due date, then comment as work moves along. Habits are personal: create a daily habit and check in with one tap to build a streak.",
     href: "/tasks",
     linkLabel: "Open tasks",
   },

@@ -285,8 +285,8 @@ model Task {
   priority    TaskPriority @default(med)
   dueDate     DateTime?
   completedAt DateTime?
-  projectId   String
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   goalId      String?
   goal        Goal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now())

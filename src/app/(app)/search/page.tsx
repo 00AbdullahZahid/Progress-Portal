@@ -113,7 +113,7 @@ export default async function SearchPage({
                       {t.title}
                     </Link>
                     <p className="text-xs text-muted">
-                      {t.project.name} · {t.status}
+                      {t.project?.name ?? "No project"} · {t.status}
                     </p>
                   </li>
                 ))}

@@ -92,7 +92,7 @@ export default async function StudyPage({
             tasks={activeTasks.map((t) => ({
               id: t.id,
               title: t.title,
-              projectName: t.project.name,
+              projectName: t.project?.name ?? "No project",
             }))}
             autoStart={autoStart}
           />

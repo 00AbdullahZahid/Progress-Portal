@@ -41,6 +41,7 @@ type Task = {
 };
 type Goal = { id: string; title: string; targetDate: string | null };
 type Project = { id: string; name: string; goals: Goal[]; tasks: Task[] };
+type TaskGroup = Project & { standalone?: boolean };
 
 const statusMeta: Record<string, { label: string; dot: string }> = {
   todo: { label: "To do", dot: "bg-muted" },
@@ -50,11 +51,13 @@ const statusMeta: Record<string, { label: string; dot: string }> = {
 
 export function TaskBoard({
   projects,
+  standaloneTasks,
   members,
   isAdmin,
   meId,
 }: {
   projects: Project[];
+  standaloneTasks: Task[];
   members: Member[];
   isAdmin: boolean;
   meId: string;
@@ -124,8 +127,24 @@ export function TaskBoard({
     }
   }
 
-  const selectedTaskProject =
-    projects.find((project) => project.id === taskProjectId) ?? projects[0];
+  const selectedTaskProject = taskProjectId
+    ? projects.find((project) => project.id === taskProjectId) ?? null
+    : null;
+
+  const taskGroups: TaskGroup[] = [
+    ...projects,
+    ...(standaloneTasks.length > 0
+      ? [
+          {
+            id: "__standalone__",
+            name: "Standalone tasks",
+            goals: [],
+            tasks: standaloneTasks,
+            standalone: true,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -166,7 +185,8 @@ export function TaskBoard({
                 New task
               </h2>
               <p className="mt-0.5 text-sm text-muted">
-                Add a task to any project and assign it to one or more members.
+                Add a task to any project, or leave it standalone, and assign it to one or
+                more members.
               </p>
             </div>
             <Button
@@ -181,15 +201,10 @@ export function TaskBoard({
           </div>
 
           {showTaskForm ? (
-            projects.length === 0 ? (
-              <p className="mt-4 rounded-xl border border-dashed border-border p-3 text-sm text-muted">
-                Create a project first, then add tasks here.
-              </p>
-            ) : (
-              <form
-                action={act(createTask, "Task created")}
-                className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-              >
+            <form
+              action={act(createTask, "Task created")}
+              className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            >
                 <label className="block sm:col-span-2 lg:col-span-4">
                   <span className="mb-1 block text-xs font-medium text-muted">Task title</span>
                   <Input name="title" placeholder="What needs to be done?" maxLength={160} required />
@@ -201,8 +216,8 @@ export function TaskBoard({
                     name="projectId"
                     value={selectedTaskProject?.id ?? ""}
                     onChange={(e) => setTaskProjectId(e.target.value)}
-                    required
                   >
+                    <option value="">No project (standalone)</option>
                     {projects.map((project) => (
                       <option key={project.id} value={project.id}>
                         {project.name}
@@ -217,8 +232,11 @@ export function TaskBoard({
                     key={selectedTaskProject?.id ?? "no-project"}
                     name="goalId"
                     defaultValue=""
+                    disabled={!selectedTaskProject}
                   >
-                    <option value="">(no goal)</option>
+                    <option value="">
+                      {selectedTaskProject ? "(no goal)" : "(choose a project first)"}
+                    </option>
                     {selectedTaskProject?.goals.map((goal) => (
                       <option key={goal.id} value={goal.id}>
                         {goal.title}
@@ -276,21 +294,24 @@ export function TaskBoard({
                     Add task
                   </Button>
                 </div>
-              </form>
-            )
+            </form>
           ) : null}
         </Card>
       ) : null}
 
-      {projects.length === 0 ? (
+      {projects.length === 0 && standaloneTasks.length === 0 ? (
         <EmptyState
           icon={<TasksIcon />}
-          title="No projects yet"
-          hint={isAdmin ? "Create your first project above to start tracking tasks." : undefined}
+          title="No tasks yet"
+          hint={
+            isAdmin
+              ? "Create a project or a standalone task above to get started."
+              : undefined
+          }
         />
       ) : null}
 
-      {projects.map((project) => (
+      {taskGroups.map((project) => (
         <Card key={project.id} className="p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex min-w-0 items-center gap-2 text-lg font-semibold">
@@ -316,7 +337,7 @@ export function TaskBoard({
                   }}
                 />
               </div>
-              {isAdmin ? (
+              {isAdmin && !project.standalone ? (
                 <form
                   onSubmit={askDelete({
                     title: `Delete project "${project.name}"?`,
@@ -345,8 +366,8 @@ export function TaskBoard({
             </div>
           </div>
 
-          {/* Goals */}
-          <div className="mb-4 flex flex-col gap-2">
+          {/* Goals (projects only) */}
+          <div className={project.standalone ? "hidden" : "mb-4 flex flex-col gap-2"}>
             {project.goals.map((g) => (
               <div
                 key={g.id}
@@ -387,7 +408,7 @@ export function TaskBoard({
                 ) : null}
               </div>
             ))}
-            {isAdmin ? (
+            {isAdmin && !project.standalone ? (
               <form
                 action={act(createGoal, "Goal added")}
                 className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"

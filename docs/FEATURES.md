@@ -9,7 +9,7 @@ canonical version users see; keep the two in sync when adding a feature.
 | Page | What it does | Who can change it |
 | --- | --- | --- |
 | Dashboard | Group activity snapshot, one-click actions, streaks, upcoming deadlines, weekly goal ring, recent chat. | Everyone sees their own data plus group-wide totals. |
-| Tasks & Goals | Projects, goals, a separate **New task** panel, tasks with status, priority, one or more assignees, due date, linked focus time, plus comments. | Admins create projects, goals and tasks; members move tasks assigned to them and comment. |
+| Tasks & Goals | Projects, goals, a separate **New task** panel, tasks with or without a project, status, priority, one or more assignees, due date, linked focus time, plus comments. | Admins create projects, goals and tasks; members move tasks assigned to them and comment. |
 | Habits | Daily habits with one-tap check-ins and streaks. | Personal to each member. |
 | Study log | Sessions with subject, minutes, date, notes, and optional attachments; a focus timer can link a block to a task and log elapsed minutes early. | Personal log; sessions marked shared are visible to the group. |
 | Notes | Shared notes by subject with search and image/file attachments. | Everyone reads; only the author or an admin edits or deletes. |

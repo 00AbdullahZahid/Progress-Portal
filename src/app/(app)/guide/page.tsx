@@ -48,7 +48,7 @@ const FEATURES: Feature[] = [
     href: "/tasks",
     title: "Tasks & Goals",
     Icon: TasksIcon,
-    what: "Plan projects and goals. Use the separate New task panel to create a task in any project, assign it to one or more members, and set its status (todo, doing, done), priority, and due date. Comment on tasks to keep context together, and see focus time linked from the study timer.",
+    what: "Plan projects and goals. Use the separate New task panel to create a task in any project or as a standalone task with no project, assign it to one or more members, and set its status (todo, doing, done), priority, and due date. Comment on tasks to keep context together, and see focus time linked from the study timer.",
     who: "Admins create projects, goals, and tasks. Members can move tasks assigned to them and comment on any task; admins can remove anything.",
   },
   {

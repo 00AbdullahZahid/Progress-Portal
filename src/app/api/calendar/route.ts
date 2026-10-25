@@ -76,7 +76,7 @@ export async function GET(request: Request) {
       id: task.id,
       title: task.title,
       dueDate: task.dueDate ? dateInTz(task.dueDate, user.timezone) : "",
-      projectName: task.project.name,
+      projectName: task.project?.name ?? "No project",
     }))
     .filter((task) => task.dueDate && task.dueDate >= today);
 
