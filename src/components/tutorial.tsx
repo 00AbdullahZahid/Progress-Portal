@@ -42,11 +42,11 @@ type Step = {
 const STEPS: Step[] = [
   {
     title: "Welcome to the Group Portal",
-    body: "This is the shared workspace for your study group: tasks, habits, study time, notes, deadlines, resources, a timetable, and chat all live here. The bell in the header collects updates for you. This short tour shows what each area is for; you can skip it and replay it any time from Settings or the feature guide.",
+    body: "This is the shared workspace for your study group: tasks, habits, study time, notes, deadlines, resources, a timetable, and chat all live here. The top bar holds search, refresh, your profile menu, and the bell that collects updates for you. This short tour shows what each area is for; you can skip it and replay it any time from Settings or the feature guide.",
   },
   {
     title: "Dashboard",
-    body: "Your starting point. It shows how the group is doing, your habits and streaks, deadlines coming up, progress toward your weekly study goal, and the latest chat messages. The focus timer also lives here and keeps running while you browse other pages.",
+    body: "Your starting point. A greeting and the Up next strip show your next class, nearest deadline, and assigned tasks; context-rich stat cards link to the matching page. Quick actions open the focus timer, study logger, doubts, and habits. Charts switch between Me and Group over 7, 14, or 30 days, and the dashboard also shows your streak, weekly goal ring, and latest chat.",
     href: "/dashboard",
     linkLabel: "Open dashboard",
   },

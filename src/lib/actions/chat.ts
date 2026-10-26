@@ -10,6 +10,19 @@ import { queueWebhookAlert } from "../alerts";
 import { mentionedHandles } from "../mentions";
 import type { ActionResult } from "./tasks";
 
+/**
+ * Called when the chat page opens. It only moves the member's own read marker,
+ * which clears the bottom-nav badge without touching other people's state.
+ */
+export async function markChatRead(): Promise<void> {
+  "use server";
+  const me = await requireUser();
+  await db.user.update({
+    where: { id: me.id },
+    data: { chatReadAt: new Date() },
+  });
+}
+
 export async function postMessage(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();

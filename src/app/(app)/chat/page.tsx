@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { ChatWindow } from "@/components/chat-window";
+import { ChatReadMarker } from "@/components/chat-read-marker";
 
 export default async function ChatPage({
   searchParams,
@@ -42,6 +43,7 @@ export default async function ChatPage({
 
   return (
     <div>
+      <ChatReadMarker />
       <PageHeader title="Chat" subtitle="Group conversation, updates, and hype." />
       <ChatWindow
         channels={channels.map((c) => ({ id: c.id, name: c.name, kind: c.kind }))}

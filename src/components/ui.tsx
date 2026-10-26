@@ -11,7 +11,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`min-w-0 rounded-2xl border border-border bg-surface shadow-sm ${
+      className={`min-w-0 rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-none ${
         padded ? "p-4 sm:p-5" : ""
       } ${className}`}
     >
@@ -65,7 +65,7 @@ export function Button({
 }) {
   const styles: Record<string, string> = {
     primary:
-      "bg-brand text-white hover:opacity-90 disabled:opacity-50 shadow-sm",
+      "bg-brand text-white hover:bg-blue-700 disabled:opacity-50 shadow-[0_1px_2px_rgba(0,0,0,0.08)] dark:bg-blue-400 dark:text-slate-950 dark:hover:bg-blue-300",
     ghost: "bg-transparent hover:bg-surface2 text-ink",
     outline:
       "border border-border bg-surface hover:bg-surface2 text-ink",
@@ -92,7 +92,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...rest}
-      className={`min-h-11 w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink placeholder:text-muted outline-none focus-visible:ring-2 focus-visible:ring-brand sm:min-h-10 sm:text-sm ${className}`}
+      className={`min-h-11 w-full rounded-xl border border-border bg-surface px-3 py-2 text-base text-ink placeholder:text-muted outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30 sm:min-h-10 sm:text-sm ${className}`}
     />
   );
 }

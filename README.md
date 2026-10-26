@@ -8,7 +8,7 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 
 ## Features
 
-- **Members and auth** — Invite-only. Username + password login (scrypt-hashed). One or more **super admin** accounts.
+- **Members and auth** — Invite-only. Username + password login (scrypt-hashed), generic invalid-credential errors, rate limiting, show/hide password, Caps Lock warning, and a one-tap admin contact for resets. Sessions last 30 days and expired sessions explain themselves instead of silently bouncing.
 - **Super admin** — Admins can add, deactivate, reactivate, and delete users; edit anyone's details (name, username, color, timezone, role); and reset any member's password. Creating and deleting projects, goals, tasks, and chat channels is admin-only, enforced on the server.
 - **Admin dashboard** — A dedicated super-admin page with group stats, a user manager, and recent audit activity.
 - **Tasks and projects** — Projects, goals, standalone tasks, and a dedicated **New task** panel for creating tasks with or without a project. Tasks support one or more assignees, priorities, due dates, progress bars, and linked focus time. Every assignee (and admins) can move a task's status.
@@ -23,8 +23,8 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Resources library** — Past papers, books, videos and links, organised by subject. Search, filter by type or subject, sort, and limit the shelf to your own additions. Pin important items, mark them useful, track read progress, collapse subject groups, and see rich metadata (year, semester, exam type, domain, file type and size). The add modal can fetch a link's title/favicon, warns about duplicates, and every new resource gets a toast with a jump link. Removal is owner/admin-only with confirmation.
 - **Timetable** — A shared weekly class calendar on a time grid. Everyone can view it; only admins add or remove classes.
 - **Grade & GPA tracker** — Private courses with weights and scores; predicts your GPA on a 4.0 scale.
-- **Global search** — Search across notes, tasks, chat messages and resources from the sidebar.
-- **Weekly goals & notification centre** — Set a weekly study target (shown as a progress ring on the dashboard). The bell shows an unread count and collects task assignments, task comments and mentions, task status changes, due-today/overdue reminders, and new projects. Every event can be switched on or off per member, and any item or the whole list can be marked read. An optional daily digest still posts to Discord, Telegram, or any JSON webhook.
+- **Global search** — Search across notes, tasks, chat messages and resources from the top bar.
+- **Weekly goals & notification centre** — Set a weekly study target (shown as a progress ring on the dashboard). The top-bar bell shows an unread count and collects task assignments, task comments and mentions, task status changes, due-today/overdue reminders, and new projects. Every event can be switched on or off per member, and any item or the whole list can be marked read. An optional daily digest still posts to Discord, Telegram, or any JSON webhook.
 - **Browser push** — Opt-in Web Push on top of the in-app bell. Generate VAPID keys, save each device's subscription, and receive the same events while the portal is closed. Push can be turned off again per device. iPhone/iPad users must add the portal to their Home Screen first because Safari only supports web push for installed apps.
 - **Presence & weekly report** — See who is online or studying now, plus a week-in-review breakdown by subject.
 - **Data export** - Download your own study sessions, habits, tasks, notes, grades, exams and flashcard reviews as JSON or CSV. Questions, answers and resources are intentionally not included.
@@ -33,9 +33,9 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Feature guide and tutorial** — An in-app Guide page explains every page and permission, and an optional eight-step tour walks through the app. The tour can be turned off or replayed from Settings. See [`docs/FEATURES.md`](docs/FEATURES.md).
 - **Profile pictures** — Upload a photo from Settings (or the admin page for any member); it shows up next to your name everywhere. Falls back to colored initials when unset.
 - **Group chat** — Real-time-ish chat with polling (no extra infra needed). Messages can be edited by their author and deleted by the author or an admin; edits and deletes sync into other open windows.
-- **Dashboard** — Quick actions (start timer, log study, ask a doubt, habits), 7-day leaderboard, tasks-completed chart, study-minutes chart, study-by-person breakdown, weekly-goal ring, deadline countdown, presence, and quick links to every section. Charts load lazily so the first paint stays fast.
+- **Dashboard** — A time-aware greeting, an **Up next** strip (next class, nearest deadline, assigned tasks), context-rich stat cards, quick actions, and 7/14/30-day **Me / Group** bar charts for tasks and study minutes. Study time is minute-aware and shows daily-goal progress when configured; charts load lazily so the first paint stays fast.
 - **Polished flow** — Toast notifications, confirmation dialogs for destructive actions, inline validation, and empty states on every screen.
-- **Grouped, collapsible sidebar** — Plan, Study, Track and Group sections, with Admin, Settings and Guide pinned to the footer and profile/sign-out in a profile menu. Collapse the nav to icons with tooltips; it remembers your preference between visits.
+- **Navigation** — A grouped, collapsible desktop sidebar (Plan, Study, Track, Group) with only the role-gated Admin link pinned to its footer. The top bar holds expandable search, refresh, the notification bell, and the profile menu (Settings, Guide, Theme, Sign out). On mobile, a safe-area-aware bottom bar offers Home, Tasks, Study, Chat, and a **More** sheet with every other page and action; Chat and Tasks show unread/due badges.
 - **Polish** — Light, Dark, and System themes (including a compact cycle control when the sidebar is collapsed), mobile-first responsive layout, SVG icons throughout, visible focus states, and 44px mobile tap targets on primary controls.
 
 ## Accounts
@@ -104,6 +104,7 @@ DATABASE_URL="postgresql://..."        # pooled Postgres connection string
 DIRECT_URL="postgresql://..."          # non-pooled URL, used by Prisma Migrate
 AUTH_SECRET="long-random-hex"          # signs session cookies and calendar feeds
 APP_URL="http://localhost:3000"
+# ADMIN_CONTACT=""                     # optional login-page reset contact (email, phone, or URL)
 ADMIN_HANDLES="admin"                  # usernames to create as super admins
 SEED_MEMBERS="0"                        # "1" only for local dev
 # SEED_ADMIN_PASSWORD=""               # optional; random when unset
@@ -208,7 +209,7 @@ This app uses **Postgres** so it can run both locally and on Vercel (SQLite does
 
 ### Deploying to Vercel
 
-1. In the Vercel project, add environment variables: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `APP_URL`, `ADMIN_HANDLES`, `BLOB_READ_WRITE_TOKEN`, and the three VAPID values if you want browser push (leave `SEED_ADMIN_PASSWORD` unset unless you want a known password). Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` before the build; the other keys can be added at the same time.
+1. In the Vercel project, add environment variables: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `APP_URL`, `ADMIN_HANDLES`, `BLOB_READ_WRITE_TOKEN`, and the three VAPID values if you want browser push (leave `SEED_ADMIN_PASSWORD` unset unless you want a known password). Optionally set `ADMIN_CONTACT` so the login page shows a real reset contact. Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` before the build; the other keys can be added at the same time.
 2. Deploy. The `postinstall` script runs `prisma generate` automatically.
 3. Run the schema and seed against the production database (locally, with the prod URLs in `.env`):
    ```bash

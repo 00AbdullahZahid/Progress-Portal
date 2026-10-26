@@ -5,16 +5,15 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "./avatar";
 import { LogoutButton } from "./logout-button";
-import { ChevronRightIcon, SettingsIcon } from "./icons";
+import { ThemeControl } from "./theme-control";
+import { InfoIcon, SettingsIcon } from "./icons";
 import type { ShellUser } from "./shell";
 
-export function ProfileMenu({
-  user,
-  collapsed = false,
-}: {
-  user: ShellUser;
-  collapsed?: boolean;
-}) {
+/**
+ * The profile avatar in the page top bar. Settings, the guide, theme, and sign
+ * out live here so the sidebar footer can stay short.
+ */
+export function ProfileMenu({ user }: { user: ShellUser }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -40,30 +39,17 @@ export function ProfileMenu({
   }, [open]);
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div ref={wrapRef} className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`${user.name} profile menu`}
-        title={collapsed ? user.name : undefined}
-        className={`flex w-full items-center rounded-xl transition-colors hover:bg-surface2 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
-          collapsed ? "justify-center p-1.5" : "gap-2.5 p-2"
-        }`}
+        title={`${user.name} — profile menu`}
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors hover:bg-surface2 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
       >
-        <Avatar user={user} size={collapsed ? "md" : "sm"} />
-        {!collapsed ? (
-          <>
-            <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-sm font-semibold">{user.name}</span>
-              <span className="block truncate text-[11px] text-muted">
-                {user.role === "admin" ? "Super Admin" : "Member"}
-              </span>
-            </span>
-            <ChevronRightIcon width={15} height={15} className="text-muted" />
-          </>
-        ) : null}
+        <Avatar user={user} size="sm" />
       </button>
 
       {open ? (
@@ -78,21 +64,43 @@ export function ProfileMenu({
           <div
             role="menu"
             aria-label="Profile"
-            className={`absolute bottom-full z-50 mb-2 w-52 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-xl ${
-              collapsed ? "left-0" : "left-0 right-0 w-auto"
-            }`}
+            className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-border bg-surface shadow-xl"
           >
-            <Link
-              href="/settings"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="flex min-h-10 items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface2 focus-visible:bg-surface2 focus-visible:outline-none"
-            >
-              <SettingsIcon width={16} height={16} className="text-muted" />
-              Settings
-            </Link>
-            <div className="my-1 border-t border-border" />
-            <LogoutButton />
+            <div className="flex items-center gap-3 border-b border-border px-3 py-3">
+              <Avatar user={user} size="md" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{user.name}</p>
+                <p className="truncate text-xs text-muted">
+                  {user.role === "admin" ? "Super Admin" : "Member"}
+                </p>
+              </div>
+            </div>
+            <div className="p-1">
+              <Link
+                href="/settings"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex min-h-10 items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface2 focus-visible:bg-surface2 focus-visible:outline-none"
+              >
+                <SettingsIcon width={16} height={16} className="text-muted" />
+                Settings
+              </Link>
+              <Link
+                href="/guide"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex min-h-10 items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface2 focus-visible:bg-surface2 focus-visible:outline-none"
+              >
+                <InfoIcon width={16} height={16} className="text-muted" />
+                Guide
+              </Link>
+              <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+                <span className="text-sm">Theme</span>
+                <ThemeControl />
+              </div>
+              <div className="my-1 border-t border-border" />
+              <LogoutButton />
+            </div>
           </div>
         </>
       ) : null}

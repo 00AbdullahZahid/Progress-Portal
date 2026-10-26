@@ -3,10 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { NotificationBell } from "./notification-bell";
-import { ProfileMenu } from "./profile-menu";
-import { SearchBox } from "./search-box";
-import { ThemeControl, ThemeCycle } from "./theme-control";
+import { LogoutButton } from "./logout-button";
+import { ThemeControl } from "./theme-control";
 import {
   DashboardIcon,
   TasksIcon,
@@ -28,10 +26,11 @@ import {
   SearchIcon,
   SettingsIcon,
   InfoIcon,
-  MenuIcon,
+  ChevronDownIcon,
+  GridIcon,
   XIcon,
 } from "./icons";
-import { SIDEBAR_EVENT, readCollapsed, type ShellUser } from "./shell";
+import { SIDEBAR_EVENT, readCollapsed, type ShellCounts, type ShellUser } from "./shell";
 import { useBodyLock } from "./toast";
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -40,15 +39,14 @@ type NavLink = {
   href: string;
   label: string;
   Icon: typeof DashboardIcon;
-  mobile?: boolean;
 };
 
 const SECTIONS: Array<{ label: string; links: NavLink[] }> = [
   {
     label: "Plan",
     links: [
-      { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon, mobile: true },
-      { href: "/tasks", label: "Tasks", Icon: TasksIcon, mobile: true },
+      { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
+      { href: "/tasks", label: "Tasks", Icon: TasksIcon },
       { href: "/exams", label: "Deadlines", Icon: CalendarIcon },
       { href: "/timetable", label: "Timetable", Icon: ClassroomIcon },
     ],
@@ -56,8 +54,8 @@ const SECTIONS: Array<{ label: string; links: NavLink[] }> = [
   {
     label: "Study",
     links: [
-      { href: "/study", label: "Study", Icon: StudyIcon, mobile: true },
-      { href: "/notes", label: "Notes", Icon: NotesIcon, mobile: true },
+      { href: "/study", label: "Study", Icon: StudyIcon },
+      { href: "/notes", label: "Notes", Icon: NotesIcon },
       { href: "/flashcards", label: "Flashcards", Icon: CardIcon },
       { href: "/questions", label: "Doubts", Icon: QuestionIcon },
       { href: "/resources", label: "Resources", Icon: BookIcon },
@@ -73,22 +71,44 @@ const SECTIONS: Array<{ label: string; links: NavLink[] }> = [
   {
     label: "Group",
     links: [
-      { href: "/chat", label: "Chat", Icon: ChatIcon, mobile: true },
+      { href: "/chat", label: "Chat", Icon: ChatIcon },
       { href: "/people", label: "People", Icon: PeopleIcon },
       { href: "/search", label: "Search", Icon: SearchIcon },
     ],
   },
 ];
 
-const MOBILE_LINKS = SECTIONS.flatMap((section) => section.links).filter(
-  (link) => link.mobile
-);
+const BOTTOM_LINKS: NavLink[] = [
+  { href: "/dashboard", label: "Home", Icon: DashboardIcon },
+  { href: "/tasks", label: "Tasks", Icon: TasksIcon },
+  { href: "/study", label: "Study", Icon: StudyIcon },
+  { href: "/chat", label: "Chat", Icon: ChatIcon },
+];
 
-export function Nav({ user }: { user: ShellUser }) {
+function Badge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute -right-2 -top-1.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold leading-none text-white ring-2 ring-surface"
+    >
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
+export function Nav({
+  user,
+  counts,
+}: {
+  user: ShellUser;
+  counts: ShellCounts;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [closedSections, setClosedSections] = useState<string[]>([]);
   const isAdmin = user.role === "admin";
 
   useBodyLock(menuOpen);
@@ -101,8 +121,20 @@ export function Nav({ user }: { user: ShellUser }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Close the mobile menu with Escape, or when the viewport grows to desktop
-  // (otherwise its body-scroll lock would linger behind the desktop sidebar).
+  // Keep the current section open so collapsing never hides the page you are on.
+  useEffect(() => {
+    const active = SECTIONS.find((section) =>
+      section.links.some((link) => pathname.startsWith(link.href))
+    );
+    if (!active) return;
+    setClosedSections((current) =>
+      current.includes(active.label)
+        ? current.filter((label) => label !== active.label)
+        : current
+    );
+  }, [pathname]);
+
+  // Close the sheet with Escape, or when the viewport grows to desktop.
   useEffect(() => {
     if (!menuOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -121,8 +153,8 @@ export function Nav({ user }: { user: ShellUser }) {
   }, [menuOpen]);
 
   function toggle() {
-    setCollapsed((c) => {
-      const next = !c;
+    setCollapsed((current) => {
+      const next = !current;
       try {
         localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
       } catch {}
@@ -131,56 +163,58 @@ export function Nav({ user }: { user: ShellUser }) {
     });
   }
 
-  function closeMenu() {
-    setMenuOpen(false);
+  function toggleSection(label: string) {
+    setClosedSections((current) =>
+      current.includes(label)
+        ? current.filter((item) => item !== label)
+        : [...current, label]
+    );
   }
 
   const isCollapsed = mounted ? collapsed : false;
   const width = isCollapsed ? "md:w-[76px]" : "md:w-60";
 
-  function renderLink(link: NavLink, mobileGrid = false) {
+  function renderSidebarLink(link: NavLink) {
     const { href, label, Icon } = link;
     const active = pathname.startsWith(href);
     return (
       <Link
         key={href}
         href={href}
-        title={isCollapsed && !mobileGrid ? label : undefined}
-        aria-label={isCollapsed && !mobileGrid ? label : undefined}
+        title={isCollapsed ? label : undefined}
+        aria-label={isCollapsed ? label : undefined}
         aria-current={active ? "page" : undefined}
-        onClick={mobileGrid ? closeMenu : undefined}
-        className={`flex min-h-11 items-center rounded-xl text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
-          mobileGrid ? "gap-2 px-2.5 py-2" : isCollapsed ? "justify-center px-0" : "gap-3 px-3 py-2"
+        className={`flex min-h-10 items-center rounded-xl text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
+          isCollapsed ? "justify-center px-0" : "gap-3 px-3 py-2"
         } ${
           active
             ? "bg-brand-soft text-brand"
             : "text-muted hover:bg-surface2 hover:text-ink"
         }`}
       >
-        <Icon width={20} height={20} className="shrink-0" />
-        {(!isCollapsed || mobileGrid) && <span className="truncate">{label}</span>}
+        <Icon width={19} height={19} className="shrink-0" />
+        {!isCollapsed && <span className="truncate">{label}</span>}
       </Link>
     );
   }
 
-  function footerLink(href: string, label: string, Icon: typeof InfoIcon) {
+  function sheetLink(link: NavLink) {
+    const { href, label, Icon } = link;
     const active = pathname.startsWith(href);
     return (
       <Link
+        key={href}
         href={href}
-        title={isCollapsed ? label : undefined}
-        aria-label={isCollapsed ? label : undefined}
+        onClick={() => setMenuOpen(false)}
         aria-current={active ? "page" : undefined}
-        className={`flex min-h-11 items-center rounded-xl text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
-          isCollapsed ? "justify-center px-0" : "gap-2.5 px-2.5 py-2"
-        } ${
+        className={`tap flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-center text-[11px] font-medium leading-tight ${
           active
-            ? "bg-brand-soft text-brand"
-            : "text-muted hover:bg-surface2 hover:text-ink"
+            ? "border-brand/40 bg-brand-soft text-brand"
+            : "border-border bg-surface text-muted hover:bg-surface2 hover:text-ink"
         }`}
       >
-        <Icon width={18} height={18} className="shrink-0" />
-        {!isCollapsed && <span className="truncate">{label}</span>}
+        <Icon width={20} height={20} className="shrink-0" />
+        <span className="max-w-full">{label}</span>
       </Link>
     );
   }
@@ -191,7 +225,6 @@ export function Nav({ user }: { user: ShellUser }) {
       <aside
         className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-surface transition-[width] duration-200 md:flex ${width}`}
       >
-        {/* Header / brand, notifications, toggle */}
         <div className="flex h-16 shrink-0 items-center px-3">
           {isCollapsed ? (
             <button
@@ -203,110 +236,108 @@ export function Nav({ user }: { user: ShellUser }) {
             </button>
           ) : (
             <>
-              <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
+              <Link
+                href="/dashboard"
+                className="flex min-w-0 items-center gap-2 rounded-lg focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
+              >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
                   <BarChartIcon width={18} height={18} />
                 </span>
                 <span className="truncate text-lg font-bold tracking-tight">Group Portal</span>
               </Link>
-              <div className="ml-auto flex shrink-0 items-center gap-0.5">
-                <NotificationBell />
-                <button
-                  onClick={toggle}
-                  aria-label="Collapse sidebar"
-                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface2 hover:text-ink"
-                >
-                  <ChevronLeftIcon />
-                </button>
-              </div>
+              <button
+                onClick={toggle}
+                aria-label="Collapse sidebar"
+                className="ml-auto flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface2 hover:text-ink"
+              >
+                <ChevronLeftIcon />
+              </button>
             </>
           )}
         </div>
 
-        {!isCollapsed ? (
-          <div className="px-3 pb-2">
-            <SearchBox />
-          </div>
-        ) : null}
-
-        <nav className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 pb-2">
-          {SECTIONS.map((section, index) => (
-            <div key={section.label}>
-              {isCollapsed ? (
-                index > 0 ? <div className="mx-2 mb-1 border-t border-border" /> : null
-              ) : (
-                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/80">
-                  {section.label}
-                </p>
-              )}
-              <div className="flex flex-col gap-0.5">
-                {section.links.map((link) => renderLink(link))}
+        <nav className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3">
+          {SECTIONS.map((section, index) => {
+            const closed = closedSections.includes(section.label);
+            return (
+              <div key={section.label}>
+                {isCollapsed ? (
+                  index > 0 ? <div className="mx-2 mb-1 border-t border-border" /> : null
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.label)}
+                    aria-expanded={!closed}
+                    className="mb-0.5 flex w-full items-center justify-between rounded-lg px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
+                  >
+                    {section.label}
+                    <ChevronDownIcon
+                      width={13}
+                      height={13}
+                      className={`transition-transform ${closed ? "-rotate-90" : ""}`}
+                    />
+                  </button>
+                )}
+                {!closed ? (
+                  <div className="flex flex-col gap-0.5">
+                    {section.links.map((link) => renderSidebarLink(link))}
+                  </div>
+                ) : null}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
-        <div className="shrink-0 border-t border-border p-3">
-          {isAdmin ? footerLink("/admin", "Admin", ShieldIcon) : null}
-          {footerLink("/settings", "Settings", SettingsIcon)}
-          {footerLink("/guide", "Guide", InfoIcon)}
-
-          {isCollapsed ? (
-            <div className="mt-2 flex flex-col items-center gap-1 border-t border-border pt-2">
-              <NotificationBell />
-              <ThemeCycle />
-              <ProfileMenu user={user} collapsed />
-            </div>
-          ) : (
-            <>
-              <div className="mt-2 flex items-center justify-between gap-2 border-t border-border px-2 pt-3">
-                <span className="text-xs text-muted">Theme</span>
-                <ThemeControl />
-              </div>
-              <div className="mt-2">
-                <ProfileMenu user={user} />
-              </div>
-            </>
-          )}
-        </div>
+        {isAdmin ? (
+          <div className="shrink-0 border-t border-border p-3">
+            <Link
+              href="/admin"
+              title={isCollapsed ? "Admin" : undefined}
+              aria-label={isCollapsed ? "Admin" : undefined}
+              aria-current={pathname.startsWith("/admin") ? "page" : undefined}
+              className={`flex min-h-11 items-center rounded-xl text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
+                isCollapsed ? "justify-center px-0" : "gap-2.5 px-2.5 py-2"
+              } ${
+                pathname.startsWith("/admin")
+                  ? "bg-brand-soft text-brand"
+                  : "text-muted hover:bg-surface2 hover:text-ink"
+              }`}
+            >
+              <ShieldIcon width={18} height={18} className="shrink-0" />
+              {!isCollapsed && <span className="truncate">Admin</span>}
+            </Link>
+          </div>
+        ) : null}
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 flex items-center gap-1.5 border-b border-border bg-surface/90 px-3 py-2.5 backdrop-blur md:hidden">
-        <Link
-          href="/dashboard"
-          aria-label="Dashboard"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-white"
-        >
-          <BarChartIcon width={18} height={18} />
-        </Link>
-        <SearchBox className="min-w-0 flex-1" />
-        <NotificationBell />
-        <button
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open all pages"
-          aria-expanded={menuOpen}
-          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface2 hover:text-ink"
-        >
-          <MenuIcon width={20} height={20} />
-        </button>
-      </header>
-
-      {/* Mobile bottom nav: five main pages plus a link to everything else. */}
-      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface/95 pt-1.5 backdrop-blur md:hidden">
-        {MOBILE_LINKS.map(({ href, label, Icon }) => {
+      {/* Mobile bottom navigation: main destinations plus the More sheet. */}
+      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface/95 pt-1 backdrop-blur md:hidden">
+        {BOTTOM_LINKS.map(({ href, label, Icon }) => {
           const active = pathname.startsWith(href);
+          const count =
+            href === "/chat"
+              ? counts.chatUnread
+              : href === "/tasks"
+                ? counts.tasksDueToday
+                : 0;
           return (
             <Link
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium ${
+              aria-label={
+                count > 0
+                  ? `${label}, ${count} ${href === "/chat" ? "unread" : "due"}`
+                  : label
+              }
+              className={`tap flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[11px] font-medium ${
                 active ? "text-brand" : "text-muted"
               }`}
             >
-              <Icon width={20} height={20} />
+              <span className="relative">
+                <Icon width={20} height={20} />
+                <Badge count={count} />
+              </span>
               <span className="max-w-full truncate">{label}</span>
             </Link>
           );
@@ -316,98 +347,99 @@ export function Nav({ user }: { user: ShellUser }) {
           onClick={() => setMenuOpen(true)}
           aria-label="Open all pages"
           aria-expanded={menuOpen}
-          className="flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium text-muted"
+          className={`tap flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[11px] font-medium ${
+            menuOpen ? "text-brand" : "text-muted"
+          }`}
         >
-          <MenuIcon width={20} height={20} />
+          <span className="relative">
+            <GridIcon width={20} height={20} />
+          </span>
           <span>More</span>
         </button>
       </nav>
 
-      {/* Mobile menu sheet */}
+      {/* More: a bottom sheet with an icon grid, not another long drawer. */}
       {menuOpen ? (
         <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
             aria-label="Close menu"
-            onClick={closeMenu}
+            onClick={() => setMenuOpen(false)}
             className="absolute inset-0 h-full w-full bg-black/40"
           />
           <div
             role="dialog"
             aria-modal="true"
             aria-label="All pages"
-            className="absolute inset-y-0 right-0 flex w-[86%] max-w-sm flex-col border-l border-border bg-surface shadow-xl"
+            className="safe-bottom absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface shadow-xl"
           >
-            <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-2xl border-b border-border bg-surface px-4 py-3">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
                   <BarChartIcon width={18} height={18} />
                 </span>
-                <span className="truncate font-bold">Group Portal</span>
+                <span className="truncate font-bold">All pages</span>
               </div>
-              <div className="flex items-center gap-0.5">
-                <NotificationBell />
-                <button
-                  type="button"
-                  onClick={closeMenu}
-                  aria-label="Close menu"
-                  className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface2 hover:text-ink"
-                >
-                  <XIcon width={18} height={18} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                aria-label="Close menu"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface2 hover:text-ink"
+              >
+                <XIcon width={18} height={18} />
+              </button>
             </div>
 
-            <div className="safe-bottom flex-1 overflow-y-auto p-3">
-              <SearchBox />
+            <div className="p-3">
+              {SECTIONS.map((section) => (
+                <section key={section.label} className="mb-3">
+                  <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    {section.label}
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {section.links.map((link) => sheetLink(link))}
+                  </div>
+                </section>
+              ))}
 
-              <div className="mt-4 flex flex-col gap-4">
-                {SECTIONS.map((section) => (
-                  <section key={section.label}>
-                    <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/80">
-                      {section.label}
-                    </p>
-                    <nav className="grid grid-cols-2 gap-1">
-                      {section.links.map((link) => renderLink(link, true))}
-                    </nav>
-                  </section>
-                ))}
-              </div>
-
-              <div className="mt-4 flex flex-col gap-1 border-t border-border pt-3">
-                {isAdmin ? (
-                  <Link
-                    href="/admin"
-                    onClick={closeMenu}
-                    className="flex min-h-11 items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface2 hover:text-ink"
-                  >
-                    <ShieldIcon width={18} height={18} />
-                    Admin
-                  </Link>
-                ) : null}
-                <Link
-                  href="/settings"
-                  onClick={closeMenu}
-                  className="flex min-h-11 items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface2 hover:text-ink"
-                >
-                  <SettingsIcon width={18} height={18} />
+              <section className="mb-2 border-t border-border pt-3">
+                <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
                   Settings
-                </Link>
-                <Link
-                  href="/guide"
-                  onClick={closeMenu}
-                  className="flex min-h-11 items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface2 hover:text-ink"
-                >
-                  <InfoIcon width={18} height={18} />
-                  Guide
-                </Link>
-                <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5">
-                  <span className="text-sm font-medium text-muted">Theme</span>
-                  <ThemeControl />
+                </p>
+                <div className="grid grid-cols-4 gap-2">
+                  <Link
+                    href="/settings"
+                    onClick={() => setMenuOpen(false)}
+                    className="tap flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-1 py-2 text-center text-[11px] font-medium leading-tight text-muted hover:bg-surface2 hover:text-ink"
+                  >
+                    <SettingsIcon width={20} height={20} />
+                    Settings
+                  </Link>
+                  <Link
+                    href="/guide"
+                    onClick={() => setMenuOpen(false)}
+                    className="tap flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-1 py-2 text-center text-[11px] font-medium leading-tight text-muted hover:bg-surface2 hover:text-ink"
+                  >
+                    <InfoIcon width={20} height={20} />
+                    Guide
+                  </Link>
+                  {isAdmin ? (
+                    <Link
+                      href="/admin"
+                      onClick={() => setMenuOpen(false)}
+                      className="tap flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-1 py-2 text-center text-[11px] font-medium leading-tight text-muted hover:bg-surface2 hover:text-ink"
+                    >
+                      <ShieldIcon width={20} height={20} />
+                      Admin
+                    </Link>
+                  ) : null}
+                  <LogoutButton variant="grid" />
                 </div>
-                <div className="mt-2 border-t border-border pt-2">
-                  <ProfileMenu user={user} />
-                </div>
+              </section>
+
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface2/60 px-3 py-2">
+                <span className="text-sm font-medium">Theme</span>
+                <ThemeControl />
               </div>
             </div>
           </div>

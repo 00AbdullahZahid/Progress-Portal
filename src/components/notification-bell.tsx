@@ -54,7 +54,13 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export function NotificationBell({ className = "" }: { className?: string }) {
+export function NotificationBell({
+  className = "",
+  align = "left",
+}: {
+  className?: string;
+  align?: "left" | "right";
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -170,7 +176,9 @@ export function NotificationBell({ className = "" }: { className?: string }) {
           <div
             role="dialog"
             aria-label="Notifications"
-            className="fixed inset-x-3 top-[4.25rem] z-50 flex max-h-[min(34rem,calc(100dvh-6rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl md:absolute md:inset-x-auto md:left-0 md:top-full md:mt-2 md:w-[22rem]"
+            className={`fixed inset-x-3 top-[4.25rem] z-50 flex max-h-[min(34rem,calc(100dvh-6rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl md:absolute md:inset-x-auto md:top-full md:mt-2 md:w-[22rem] ${
+              align === "right" ? "md:right-0" : "md:left-0"
+            }`}
           >
             <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
               <div>

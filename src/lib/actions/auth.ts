@@ -47,16 +47,12 @@ export async function signIn(formData: FormData) {
     "unknown";
   const ipLimit = rateLimit(`login-ip:${ip}`, 30, 60_000);
   if (!ipLimit.ok) {
-    return {
-      error: `Too many attempts from this network. Please wait ${ipLimit.retryAfterSeconds}s and try again.`,
-    };
+    return { error: "Too many attempts. Try again in a minute." };
   }
 
   const limit = rateLimit(`login:${handle}`, 10, 60_000);
   if (!limit.ok) {
-    return {
-      error: `Too many attempts. Please wait ${limit.retryAfterSeconds}s and try again.`,
-    };
+    return { error: "Too many attempts. Try again in a minute." };
   }
 
   const user = await db.user.findUnique({ where: { handle } });
@@ -79,7 +75,7 @@ export async function signIn(formData: FormData) {
 export async function signOut() {
   "use server";
   await destroySession();
-  redirect("/login");
+  redirect("/login?signedout=1");
 }
 
 export async function changeOwnPassword(formData: FormData) {

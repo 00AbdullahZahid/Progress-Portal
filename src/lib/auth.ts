@@ -112,7 +112,10 @@ export const getCurrentUser = cache(async () => {
 
 export async function requireUser() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    const store = await cookies();
+    redirect(store.get(COOKIE)?.value ? "/login?expired=1" : "/login");
+  }
   return user;
 }
 
@@ -122,7 +125,10 @@ export function isAdmin(user: { role: string }): boolean {
 
 export async function requireAdmin() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    const store = await cookies();
+    redirect(store.get(COOKIE)?.value ? "/login?expired=1" : "/login");
+  }
   if (user.role !== "admin") redirect("/dashboard");
   return user;
 }

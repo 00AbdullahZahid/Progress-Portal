@@ -41,7 +41,7 @@ const FEATURES: Feature[] = [
     href: "/dashboard",
     title: "Dashboard",
     Icon: DashboardIcon,
-    what: "Your home page. Shows quick actions for starting a focus block, logging study, asking a doubt, and opening habits, plus the group's activity snapshot, your streaks, upcoming deadlines, weekly study goal progress, and recent chat.",
+    what: "Your home page. A time-aware greeting and an Up next strip put your next class, nearest deadline, and assigned tasks first. Quick actions start a focus block, log study, ask a doubt, or check in habits. Stat cards show context and link to the matching page, and the activity charts switch between Me and Group over 7, 14, or 30 days.",
     who: "Everyone. Data shown is yours plus group-wide totals.",
   },
   {
@@ -165,7 +165,7 @@ const EXTRAS = [
   {
     Icon: BellIcon,
     title: "Notification centre and push",
-    body: "The bell in the sidebar or mobile header collects task assignments, comments and @mentions, task status changes, due-today and overdue reminders, and new projects. It shows an unread count and lets you mark one item or everything as read. In Settings you can choose which events create a notification and enable browser push on each device, so alerts arrive even when the portal is closed. On iPhone and iPad, add the portal to your Home Screen first; Safari only allows web push for installed apps. A separate optional group digest can still go to Discord, Telegram, or a custom webhook.",
+    body: "The top-bar bell collects task assignments, comments and @mentions, task status changes, due-today and overdue reminders, and new projects. It shows an unread count and lets you mark one item or everything as read. In Settings you can choose which events create a notification and enable browser push on each device, so alerts arrive even when the portal is closed. On iPhone and iPad, add the portal to your Home Screen first; Safari only allows web push for installed apps. A separate optional group digest can still go to Discord, Telegram, or a custom webhook.",
   },
   {
     Icon: CalendarIcon,
@@ -180,7 +180,7 @@ const EXTRAS = [
   {
     Icon: InfoIcon,
     title: "Appearance and navigation",
-    body: "The sidebar is grouped into Plan, Study, Track, and Group. Admin, Settings, and Guide stay pinned at the bottom, and profile details plus sign-out live in the profile menu. Choose Light, Dark, or System; when the sidebar is collapsed, the theme button cycles through the same three modes.",
+    body: "The sidebar is grouped into Plan, Study, Track, and Group, and only Admin stays pinned at its bottom. Search, refresh, the notification bell, and your profile live in the top bar; the profile menu holds Settings, Guide, Theme, and Sign out. Choose Light, Dark, or System. On a phone, the bottom bar keeps Home, Tasks, Study, and Chat one tap away, and More opens a sheet with every other page and action.",
   },
   {
     Icon: InfoIcon,
@@ -240,9 +240,9 @@ export default async function GuidePage() {
           content you created.
         </p>
         <p className="mt-2 text-sm text-muted">
-          Use the sidebar to move between pages, or the search box at the top of the sidebar to
-          jump straight to a note, task, resource, or message. The tour below walks through the
-          same ideas step by step.
+          Use the sidebar or the mobile More sheet to move between pages, or the search button in
+          the top bar to jump straight to a note, task, resource, or message. The tour below walks
+          through the same ideas step by step.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link

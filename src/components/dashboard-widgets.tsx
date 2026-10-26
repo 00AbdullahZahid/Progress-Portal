@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "./ui";
 import { Avatar } from "./avatar";
+import { formatHours, formatMinutes } from "@/lib/format";
 import { CalendarIcon, TimerIcon, StudyIcon, FlameIcon, TrophyIcon } from "./icons";
 
 export type DeadlineItem = {
@@ -82,9 +83,9 @@ export function DashboardWidgets({
             This week&apos;s goal
           </h2>
           <p className="mt-1 text-sm text-muted">
-            {Math.round(myWeekMinutes / 6) / 10}h studied
+            {formatMinutes(myWeekMinutes)} studied
             {goalTargetMinutes > 0
-              ? ` of ${Math.round(goalTargetMinutes / 6) / 10}h`
+              ? ` of ${formatMinutes(goalTargetMinutes)}`
               : ""}
           </p>
           {goalTargetMinutes === 0 ? (
@@ -187,7 +188,7 @@ export function DashboardWidgets({
                 <div key={r.subject}>
                   <div className="mb-1 flex justify-between text-xs">
                     <span className="font-medium">{r.subject}</span>
-                    <span className="text-muted">{Math.round(r.minutes / 6) / 10}h</span>
+                    <span className="text-muted">{formatHours(r.minutes)}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-surface2">
                     <div
@@ -201,7 +202,7 @@ export function DashboardWidgets({
           </div>
         )}
         <p className="mt-3 text-xs text-muted">
-          {goalMinutes} min logged this week in total.
+          {formatMinutes(goalMinutes)} logged this week in total.
         </p>
       </Card>
     </div>

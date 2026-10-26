@@ -3,8 +3,27 @@
 import dynamic from "next/dynamic";
 import { Card } from "./ui";
 
-type DayPoint = { label: string; date: string; count?: number; minutes?: number };
-type UserPoint = { name: string; color: string; minutes: number };
+export type ChartDay = {
+  label: string;
+  date: string;
+  tasksMe: number;
+  tasksGroup: number;
+  minutesMe: number;
+  minutesGroup: number;
+};
+
+export type ChartPerson = {
+  id: string;
+  name: string;
+  firstName: string;
+  color: string;
+  minutes: Record<7 | 14 | 30, number>;
+};
+
+export type ChartSubject = {
+  subject: string;
+  minutes: Record<7 | 14 | 30, number>;
+};
 
 /**
  * Recharts is heavy (~100kB) and only used here, so we load it on the client
@@ -13,35 +32,31 @@ type UserPoint = { name: string; color: string; minutes: number };
 const Charts = dynamic(() => import("./charts-inner"), {
   ssr: false,
   loading: () => (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3" aria-hidden="true">
-      <Card className="lg:col-span-2">
-        <div className="h-48 animate-pulse rounded-xl bg-surface2" />
-      </Card>
-      <Card>
-        <div className="h-48 animate-pulse rounded-xl bg-surface2" />
-      </Card>
-      <Card className="lg:col-span-3">
-        <div className="h-44 animate-pulse rounded-xl bg-surface2" />
-      </Card>
+    <div aria-hidden="true">
+      <div className="mb-3 h-10 animate-pulse rounded-xl bg-surface2/70" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <div className="h-56 animate-pulse rounded-xl bg-surface2" />
+        </Card>
+        <Card>
+          <div className="h-56 animate-pulse rounded-xl bg-surface2" />
+        </Card>
+        <Card className="lg:col-span-3">
+          <div className="h-56 animate-pulse rounded-xl bg-surface2" />
+        </Card>
+      </div>
     </div>
   ),
 });
 
 export function ProgressCharts({
-  tasksByDay,
-  studyByDay,
-  studyByUser,
+  days,
+  people,
+  subjects,
 }: {
-  tasksByDay: DayPoint[];
-  studyByDay: DayPoint[];
-  studyByUser: UserPoint[];
+  days: ChartDay[];
+  people: ChartPerson[];
+  subjects: ChartSubject[];
 }) {
-  return (
-    <Charts
-      tasksByDay={tasksByDay}
-      studyByDay={studyByDay}
-      studyByUser={studyByUser}
-    />
-  );
+  return <Charts days={days} people={people} subjects={subjects} />;
 }
-

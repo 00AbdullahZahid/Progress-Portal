@@ -6,6 +6,7 @@ const ACTIONS = [
     href: "/study?timer=start",
     label: "Start timer",
     Icon: TimerIcon,
+    primary: true,
   },
   {
     href: "/study#log-session",
@@ -19,7 +20,7 @@ const ACTIONS = [
   },
   {
     href: "/habits",
-    label: "Check in",
+    label: "Check in habits",
     Icon: HabitsIcon,
   },
 ];
@@ -28,16 +29,20 @@ const ACTIONS = [
 export function QuickActions() {
   return (
     <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {ACTIONS.map(({ href, label, Icon }) => (
+      {ACTIONS.map(({ href, label, Icon, primary }) => (
         <Link
           key={href}
           href={href}
-          className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-sm font-medium shadow-sm transition-colors hover:border-brand/40 hover:bg-brand-soft"
+          className={`tap flex min-h-12 min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium ${
+            primary
+              ? "border-brand bg-brand text-white hover:bg-blue-700 dark:border-blue-400 dark:bg-blue-400 dark:text-slate-950 dark:hover:bg-blue-300"
+              : "border-border bg-surface text-ink hover:border-brand/40 hover:bg-brand-soft"
+          }`}
         >
-          <span className="shrink-0 text-brand">
+          <span className={`shrink-0 ${primary ? "text-white dark:text-slate-950" : "text-brand"}`}>
             <Icon width={17} height={17} />
           </span>
-          <span className="truncate">{label}</span>
+          <span className="truncate leading-tight">{label}</span>
         </Link>
       ))}
     </div>

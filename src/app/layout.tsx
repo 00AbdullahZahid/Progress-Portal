@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
@@ -9,10 +9,27 @@ export const metadata: Metadata = {
   description: "Track tasks, habits, study sessions, and chat with your group.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg" },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Group Portal",
+  },
+  other: {
+    // Next emits `mobile-web-app-capable`; iOS still looks for the apple-prefixed
+    // tag when deciding whether to open the installed app without Safari chrome.
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
-export const viewport = {
-  themeColor: "#2563eb",
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#171513" },
+  ],
 };
 
 const themeScript = `

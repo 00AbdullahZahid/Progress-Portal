@@ -8,7 +8,9 @@
   --color-surface2: #f5f5f4;
   --color-border: #e7e5e4;
   --color-ink: #1c1917;
-  --color-muted: #78716c;
+  /* 7:1 on the page background; the old stone-500 was too faint for labels. */
+  --color-muted: #57534e;
+  --color-chart-axis: #57534e;
   --color-brand: #2563eb;
   --color-brand-soft: #eff6ff;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
@@ -21,7 +23,8 @@
   --color-surface2: #2b2723;
   --color-border: #3a3530;
   --color-ink: #f5f5f4;
-  --color-muted: #a8a29e;
+  --color-muted: #b8b2ac;
+  --color-chart-axis: #c7c2bc;
   --color-brand: #60a5fa;
   --color-brand-soft: #1c2b4a;
 }
@@ -56,6 +59,41 @@ canvas {
 @supports (padding: max(0px)) {
   .safe-bottom {
     padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* The sidebar has its own scroll region; showing a second scrollbar next to
+   the page one looks broken, so keep the rail scrollable but visually clean. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile has no hover state, so every tappable card/row gets a small press
+   response instead of feeling inert. */
+.tap {
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+@media (hover: none) {
+  .tap:active {
+    transform: scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
