@@ -176,7 +176,7 @@ export function FocusTimer({
             disabled={phase !== "idle"}
             aria-pressed={i === presetIndex}
             className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              i === presetIndex ? "bg-brand text-white" : "bg-surface2 text-muted hover:text-ink"
+              i === presetIndex ? "bg-brand text-brand-ink" : "bg-surface2 text-muted hover:text-ink"
             }`}
           >
             {p.label}

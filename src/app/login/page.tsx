@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { LoginForm } from "./login-form";
 import { AdminContact } from "./admin-contact";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -34,13 +35,20 @@ export default async function LoginPage({
 
   return (
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-bg px-4 py-10">
+      <div className="absolute right-3 top-3 z-10">
+        <ThemeToggle className="border border-border bg-surface shadow-sm" />
+      </div>
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_0%,#dbeafe_0%,transparent_58%)] dark:bg-[radial-gradient(circle_at_50%_0%,#1e3a8a_0%,transparent_58%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-80"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 50% 0%, var(--color-brand-soft) 0%, transparent 58%)",
+        }}
       />
       <div className="relative w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_4px_14px_rgba(37,99,235,0.25)] dark:bg-blue-400 dark:text-slate-950">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-brand-ink shadow-lg">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"

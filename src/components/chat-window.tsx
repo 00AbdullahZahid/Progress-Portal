@@ -335,7 +335,7 @@ export function ChatWindow({
                         <p
                           className={`inline-block break-words rounded-2xl px-3 py-2 text-sm ${
                             mine
-                              ? "rounded-tr-sm bg-brand text-white"
+                              ? "rounded-tr-sm bg-brand text-brand-ink"
                               : "rounded-tl-sm bg-surface2"
                           }`}
                         >

@@ -82,7 +82,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Settings and the guide",
-    body: "Settings is where you change your name, colour, photo, timezone, password, and weekly goal. Turn individual notification events on or off, and enable browser push on each device for alerts even when the portal is closed. On iPhone and iPad, add the portal to your Home Screen first. The feature guide explains every page and permission; replay this tour from either place whenever you like.",
+    body: "Settings opens with Appearance, where you choose Light, Dark, or System and one of eight accent colours; both save to this device instantly. Below that you can change your name, profile colour, photo, timezone, password, and weekly goal. Turn individual notification events on or off, and enable browser push on each device for alerts even when the portal is closed. On iPhone and iPad, add the portal to your Home Screen first. The feature guide explains every page and permission; replay this tour from either place whenever you like.",
     href: "/guide",
     linkLabel: "Open feature guide",
   },

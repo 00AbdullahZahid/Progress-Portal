@@ -508,7 +508,7 @@ export function TaskBoard({
                               }
                               className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
                                 task.status === s
-                                  ? "bg-brand text-white"
+                                  ? "bg-brand text-brand-ink"
                                   : canMove
                                     ? "text-muted hover:bg-surface2 hover:text-ink"
                                     : "cursor-not-allowed text-muted/50"

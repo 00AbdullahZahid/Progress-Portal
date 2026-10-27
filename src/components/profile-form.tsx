@@ -87,7 +87,7 @@ export function ProfileForm({
                 accept="image/*"
                 onChange={onFileChange}
                 disabled={uploading}
-                className="w-full max-w-full min-w-0 text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-brand/90 disabled:opacity-50"
+                className="w-full max-w-full min-w-0 text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-ink hover:file:bg-brand/90 disabled:opacity-50"
               />
               <span className="text-xs text-muted">
                 {uploading ? "Uploading…" : "Max 2MB"}

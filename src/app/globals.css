@@ -13,6 +13,8 @@
   --color-chart-axis: #57534e;
   --color-brand: #2563eb;
   --color-brand-soft: #eff6ff;
+  /* Readable text/icons placed on top of a filled brand surface. */
+  --color-brand-ink: #ffffff;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
@@ -27,10 +29,76 @@
   --color-chart-axis: #c7c2bc;
   --color-brand: #60a5fa;
   --color-brand-soft: #1c2b4a;
+  /* Dark-mode accents are pastel, so filled surfaces need dark text. */
+  --color-brand-ink: #0f172a;
+}
+
+/*
+ * Accent presets. The selected accent is stored in the `data-accent` attribute
+ * on <html> (see theme-control.tsx), so switching mode keeps the same accent
+ * and every token-based utility (buttons, links, charts, rings) follows it.
+ * Blue is the default and intentionally has no data attribute.
+ */
+html[data-accent="indigo"] {
+  --color-brand: #4f46e5;
+  --color-brand-soft: #eef2ff;
+}
+html[data-accent="indigo"].dark {
+  --color-brand: #818cf8;
+  --color-brand-soft: #232a52;
+}
+html[data-accent="violet"] {
+  --color-brand: #7c3aed;
+  --color-brand-soft: #f5f3ff;
+}
+html[data-accent="violet"].dark {
+  --color-brand: #a78bfa;
+  --color-brand-soft: #2b2350;
+}
+html[data-accent="emerald"] {
+  --color-brand: #047857;
+  --color-brand-soft: #ecfdf5;
+}
+html[data-accent="emerald"].dark {
+  --color-brand: #34d399;
+  --color-brand-soft: #0f2f27;
+}
+html[data-accent="teal"] {
+  --color-brand: #0f766e;
+  --color-brand-soft: #f0fdfa;
+}
+html[data-accent="teal"].dark {
+  --color-brand: #2dd4bf;
+  --color-brand-soft: #0e3230;
+}
+html[data-accent="amber"] {
+  --color-brand: #b45309;
+  --color-brand-soft: #fffbeb;
+}
+html[data-accent="amber"].dark {
+  --color-brand: #fbbf24;
+  --color-brand-soft: #38280c;
+}
+html[data-accent="rose"] {
+  --color-brand: #be123c;
+  --color-brand-soft: #fff1f2;
+}
+html[data-accent="rose"].dark {
+  --color-brand: #fb7185;
+  --color-brand-soft: #3b1420;
+}
+html[data-accent="slate"] {
+  --color-brand: #475569;
+  --color-brand-soft: #f1f5f9;
+}
+html[data-accent="slate"].dark {
+  --color-brand: #94a3b8;
+  --color-brand-soft: #252f3d;
 }
 
 html {
   color-scheme: light;
+  scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }

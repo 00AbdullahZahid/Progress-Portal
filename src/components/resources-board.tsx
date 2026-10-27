@@ -781,7 +781,7 @@ export function ResourcesBoard({
                 onClick={() => setTab(option.value)}
                 className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
                   active
-                    ? "border-brand bg-brand text-white"
+                    ? "border-brand bg-brand text-brand-ink"
                     : "border-border bg-surface text-muted hover:bg-surface2 hover:text-ink"
                 }`}
               >

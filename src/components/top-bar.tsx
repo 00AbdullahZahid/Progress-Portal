@@ -7,6 +7,7 @@ import { BarChartIcon, RefreshIcon, SearchIcon, XIcon } from "./icons";
 import { NotificationBell } from "./notification-bell";
 import { ProfileMenu } from "./profile-menu";
 import { SearchBox } from "./search-box";
+import { ThemeToggle } from "./theme-toggle";
 import type { ShellUser } from "./shell";
 
 /**
@@ -26,6 +27,34 @@ export function TopBar({ user }: { user: ShellUser }) {
     };
   }, []);
 
+  // Ctrl/Cmd+K from anywhere, or "/" outside a field, opens search.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        event.key.toLowerCase() === "k"
+      ) {
+        event.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
+      if (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   function refresh() {
     setRefreshing(true);
     router.refresh();
@@ -42,7 +71,7 @@ export function TopBar({ user }: { user: ShellUser }) {
             aria-label="Go to dashboard"
             className="tap flex min-w-0 items-center gap-2 rounded-xl focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none md:hidden"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-brand-ink">
               <BarChartIcon width={18} height={18} />
             </span>
             <span className="hidden truncate text-base font-bold tracking-tight min-[380px]:inline">
@@ -74,8 +103,8 @@ export function TopBar({ user }: { user: ShellUser }) {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              aria-label="Search"
-              title="Search"
+              aria-label="Search (Ctrl+K)"
+              title="Search (Ctrl+K)"
               className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
             >
               <SearchIcon width={20} height={20} />
@@ -85,13 +114,16 @@ export function TopBar({ user }: { user: ShellUser }) {
 
         {!searchOpen ? (
           <>
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
             <button
               type="button"
               onClick={refresh}
               aria-label={refreshing ? "Refreshing" : "Refresh data"}
               title="Refresh data"
               aria-busy={refreshing}
-              className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
+              className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none max-sm:hidden"
             >
               <RefreshIcon
                 width={19}

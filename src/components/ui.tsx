@@ -65,7 +65,7 @@ export function Button({
 }) {
   const styles: Record<string, string> = {
     primary:
-      "bg-brand text-white hover:bg-blue-700 disabled:opacity-50 shadow-[0_1px_2px_rgba(0,0,0,0.08)] dark:bg-blue-400 dark:text-slate-950 dark:hover:bg-blue-300",
+      "bg-brand text-brand-ink hover:bg-brand/90 disabled:opacity-50 shadow-[0_1px_2px_rgba(0,0,0,0.08)]",
     ghost: "bg-transparent hover:bg-surface2 text-ink",
     outline:
       "border border-border bg-surface hover:bg-surface2 text-ink",

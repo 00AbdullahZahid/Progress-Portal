@@ -1,49 +1,55 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { SunIcon, MoonIcon } from "./icons";
+import { useEffect, useState } from "react";
+import { MoonIcon, SunIcon } from "./icons";
+import { THEME_EVENT, saveTheme } from "./theme-control";
 
-const THEME_EVENT = "theme-change";
-
-/** Read the current theme directly from the DOM (single source of truth). */
-function isDarkNow(): boolean {
-  return document.documentElement.classList.contains("dark");
-}
-
-export function ThemeToggle() {
+/**
+ * One-tap light/dark switch for the top bar and sign-in screen. The full
+ * Light/Dark/System choice lives in Settings > Appearance.
+ */
+export function ThemeToggle({ className = "" }: { className?: string }) {
   const [dark, setDark] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Defer to the next tick so we never set state during the effect body.
+    const read = () => setDark(document.documentElement.classList.contains("dark"));
+    // Defer to the next frame so we never set state during the effect body.
     const raf = requestAnimationFrame(() => {
       setMounted(true);
-      setDark(isDarkNow());
+      read();
     });
-    const onChange = () => setDark(isDarkNow());
-    window.addEventListener(THEME_EVENT, onChange);
+    window.addEventListener(THEME_EVENT, read);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener(THEME_EVENT, onChange);
+      window.removeEventListener(THEME_EVENT, read);
     };
   }, []);
 
-  const toggle = useCallback(() => {
-    const next = !isDarkNow();
-    document.documentElement.classList.toggle("dark", next);
-    try {
-      localStorage.setItem("theme", next ? "dark" : "light");
-    } catch {}
-    window.dispatchEvent(new Event(THEME_EVENT));
-  }, []);
+  function toggle() {
+    const nextDark = !document.documentElement.classList.contains("dark");
+    saveTheme(nextDark ? "dark" : "light");
+  }
+
+  const label = !mounted
+    ? "Toggle theme"
+    : dark
+      ? "Switch to light theme"
+      : "Switch to dark theme";
 
   return (
     <button
+      type="button"
       onClick={toggle}
-      aria-label="Toggle dark mode"
-      className="rounded-xl p-2 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+      aria-label={label}
+      title={label}
+      className={`flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${className}`}
     >
-      {mounted && dark ? <MoonIcon /> : <SunIcon />}
+      {mounted && dark ? (
+        <SunIcon width={19} height={19} />
+      ) : (
+        <MoonIcon width={19} height={19} />
+      )}
     </button>
   );
 }

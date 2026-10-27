@@ -236,7 +236,7 @@ export function TimetableBoard({
                 aria-pressed={active}
                 aria-label={`Show ${d}`}
                 className={`flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center rounded-lg px-1 py-1 text-xs font-semibold transition-colors ${
-                  active ? "bg-brand text-white" : "text-muted hover:bg-surface2 hover:text-ink"
+                  active ? "bg-brand text-brand-ink" : "text-muted hover:bg-surface2 hover:text-ink"
                 }`}
               >
                 {d}

@@ -6,6 +6,7 @@ import { AdminResetPanel } from "@/components/admin-reset-panel";
 import { PreferencesForm } from "@/components/preferences-form";
 import { NotificationSettings } from "@/components/notification-settings";
 import { CalendarFeed } from "@/components/calendar-feed";
+import { AppearanceSettings } from "@/components/appearance-settings";
 import { TutorialPreference } from "@/components/tutorial";
 import { signOut } from "@/lib/actions/auth";
 import { db } from "@/lib/db";
@@ -68,20 +69,53 @@ export default async function SettingsPage() {
         : "https";
   const calendarUrl = `${proto}://${host}/api/calendar?token=${encodeURIComponent(token)}`;
 
+  const sections = [
+    { id: "appearance", label: "Appearance" },
+    { id: "profile", label: "Profile" },
+    { id: "password", label: "Password" },
+    { id: "goals", label: "Goals & notifications" },
+    { id: "notifications", label: "Notification events" },
+    { id: "calendar", label: "Calendar" },
+    { id: "tutorial", label: "Tutorial" },
+    ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
+    { id: "session", label: "Session" },
+  ];
+
   return (
     <div className="max-w-2xl">
       <PageHeader title="Settings" subtitle="Your profile, password, and preferences." />
 
-      <ProfileForm
-        user={{ name: me.name, color: me.color, timezone: me.timezone, image: me.image }}
-        timezones={timezones}
-      />
+      <nav
+        aria-label="Settings sections"
+        className="no-scrollbar -mx-1 mb-5 flex gap-1.5 overflow-x-auto px-1 pb-1"
+      >
+        {sections.map((section) => (
+          <a
+            key={section.id}
+            href={`#${section.id}`}
+            className="shrink-0 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-brand/40 hover:text-brand focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
+          >
+            {section.label}
+          </a>
+        ))}
+      </nav>
 
-      <div className="mt-6">
+      <div id="appearance" className="scroll-mt-24">
+        <AppearanceSettings />
+      </div>
+
+      <div id="profile" className="mt-6 scroll-mt-24">
+        <ProfileForm
+          user={{ name: me.name, color: me.color, timezone: me.timezone, image: me.image }}
+          timezones={timezones}
+        />
+      </div>
+
+      <div id="password" className="mt-6 scroll-mt-24">
         <ChangePasswordForm />
       </div>
 
-      <div className="mt-6">
+      <div id="goals" className="mt-6 scroll-mt-24">
         <PreferencesForm
           weeklyGoalMinutes={me.weeklyGoalMinutes}
           notifyTasks={me.notifyTasks}
@@ -89,7 +123,7 @@ export default async function SettingsPage() {
         />
       </div>
 
-      <div className="mt-6">
+      <div id="notifications" className="mt-6 scroll-mt-24">
         <NotificationSettings
           initial={{
             notifyTaskAssigned: me.notifyTaskAssigned,
@@ -103,11 +137,11 @@ export default async function SettingsPage() {
         />
       </div>
 
-      <div className="mt-6">
+      <div id="calendar" className="mt-6 scroll-mt-24">
         <CalendarFeed url={calendarUrl} />
       </div>
 
-      <div className="mt-6">
+      <div id="tutorial" className="mt-6 scroll-mt-24">
         <Card>
           <h2 className="mb-1 font-semibold">Tutorial and feature guide</h2>
           <p className="mb-3 text-sm text-muted">
@@ -118,7 +152,7 @@ export default async function SettingsPage() {
       </div>
 
       {isAdmin ? (
-        <div className="mt-6">
+        <div id="admin" className="mt-6 scroll-mt-24">
           <Card>
             <h2 className="mb-1 flex items-center gap-2 font-semibold">
               <ShieldIcon width={18} height={18} className="text-amber-500" />
@@ -140,19 +174,21 @@ export default async function SettingsPage() {
         </div>
       ) : null}
 
-      <Card className="mt-6">
-        <h2 className="mb-1 font-semibold">Session</h2>
-        <p className="mb-3 text-sm text-muted">
-          Signed in as @{me.handle} ({isAdmin ? "super admin" : "member"}). Logging out clears
-          this browser only.
-        </p>
-        <form action={signOut}>
-          <Button type="submit" variant="outline">
-            <LogoutIcon width={16} height={16} />
-            Sign out
-          </Button>
-        </form>
-      </Card>
+      <div id="session" className="scroll-mt-24">
+        <Card className="mt-6">
+          <h2 className="mb-1 font-semibold">Session</h2>
+          <p className="mb-3 text-sm text-muted">
+            Signed in as @{me.handle} ({isAdmin ? "super admin" : "member"}). Logging out clears
+            this browser only.
+          </p>
+          <form action={signOut}>
+            <Button type="submit" variant="outline">
+              <LogoutIcon width={16} height={16} />
+              Sign out
+            </Button>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

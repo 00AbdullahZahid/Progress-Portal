@@ -35,11 +35,11 @@ export function QuickActions() {
           href={href}
           className={`tap flex min-h-12 min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium ${
             primary
-              ? "border-brand bg-brand text-white hover:bg-blue-700 dark:border-blue-400 dark:bg-blue-400 dark:text-slate-950 dark:hover:bg-blue-300"
+              ? "border-brand bg-brand text-brand-ink hover:bg-brand/90"
               : "border-border bg-surface text-ink hover:border-brand/40 hover:bg-brand-soft"
           }`}
         >
-          <span className={`shrink-0 ${primary ? "text-white dark:text-slate-950" : "text-brand"}`}>
+          <span className={`shrink-0 ${primary ? "text-brand-ink" : "text-brand"}`}>
             <Icon width={17} height={17} />
           </span>
           <span className="truncate leading-tight">{label}</span>

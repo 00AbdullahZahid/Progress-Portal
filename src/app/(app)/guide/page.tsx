@@ -180,7 +180,7 @@ const EXTRAS = [
   {
     Icon: InfoIcon,
     title: "Appearance and navigation",
-    body: "The sidebar is grouped into Plan, Study, Track, and Group, and only Admin stays pinned at its bottom. Search, refresh, the notification bell, and your profile live in the top bar; the profile menu holds Settings, Guide, Theme, and Sign out. Choose Light, Dark, or System. On a phone, the bottom bar keeps Home, Tasks, Study, and Chat one tap away, and More opens a sheet with every other page and action.",
+    body: "The sidebar is grouped into Plan, Study, Track, and Group, and only Admin stays pinned at its bottom. Search, the one-tap theme switch, refresh, the notification bell, and your profile live in the top bar; press Ctrl/Cmd+K or / anywhere to search. Settings opens with Appearance, where you pick Light, Dark, or System and one of eight accent colours that recolour buttons, links, and charts. The profile menu holds Settings, Guide, Theme, and Sign out. On a phone, the bottom bar keeps Home, Tasks, Study, and Chat one tap away, and More opens a sheet with every other page and action.",
   },
   {
     Icon: InfoIcon,
@@ -247,7 +247,7 @@ export default async function GuidePage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             href="/dashboard"
-            className="rounded-xl bg-brand px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            className="rounded-xl bg-brand px-3.5 py-2 text-sm font-medium text-brand-ink transition-opacity hover:opacity-90"
           >
             Go to dashboard
           </Link>

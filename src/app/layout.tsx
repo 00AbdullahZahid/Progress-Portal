@@ -32,13 +32,19 @@ export const viewport: Viewport = {
   ],
 };
 
+// Runs before paint so the saved theme and accent never flash the defaults.
+// Keep the accent list in sync with ACCENTS in components/theme-control.tsx.
 const themeScript = `
 (function () {
   try {
+    var root = document.documentElement;
     var t = localStorage.getItem("theme");
     if (t === "dark" || ((!t || t === "system") && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-      document.documentElement.classList.add("dark");
+      root.classList.add("dark");
     }
+    var accents = ["indigo", "violet", "emerald", "teal", "amber", "rose", "slate"];
+    var a = localStorage.getItem("theme-accent");
+    if (a && accents.indexOf(a) !== -1) root.setAttribute("data-accent", a);
   } catch (e) {}
 })();
 `;

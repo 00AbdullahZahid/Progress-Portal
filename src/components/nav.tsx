@@ -240,7 +240,7 @@ export function Nav({
                 href="/dashboard"
                 className="flex min-w-0 items-center gap-2 rounded-lg focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-brand-ink">
                   <BarChartIcon width={18} height={18} />
                 </span>
                 <span className="truncate text-lg font-bold tracking-tight">Group Portal</span>
@@ -375,7 +375,7 @@ export function Nav({
           >
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-2xl border-b border-border bg-surface px-4 py-3">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand text-brand-ink">
                   <BarChartIcon width={18} height={18} />
                 </span>
                 <span className="truncate font-bold">All pages</span>

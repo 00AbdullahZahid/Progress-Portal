@@ -150,7 +150,7 @@ export function HabitTracker({
                           title={d}
                           className={`h-8 w-8 rounded-md text-xs transition-colors sm:h-7 sm:w-7 ${
                             done
-                              ? "bg-brand text-white"
+                              ? "bg-brand text-brand-ink"
                               : "bg-surface2 text-muted hover:bg-border"
                           } ${isToday ? "ring-2 ring-brand ring-offset-1 ring-offset-surface" : ""}`}
                         >
