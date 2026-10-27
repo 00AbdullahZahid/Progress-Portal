@@ -4,7 +4,7 @@
 // survive logout and could be read offline on a shared computer. Only static
 // assets (scripts, styles, fonts, images) are cached, plus a small offline
 // fallback page.
-const CACHE = "portal-static-v1";
+const CACHE = "portal-static-v2";
 const OFFLINE_URL = "/offline.html";
 
 // Private pages whose HTML must never be stored, even as a fallback.
