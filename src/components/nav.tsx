@@ -14,7 +14,6 @@ import {
   ChatIcon,
   PeopleIcon,
   ShieldIcon,
-  BarChartIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CalendarIcon,

@@ -358,10 +358,10 @@ export function TimetableBoard({
                       return (
                         <div
                           key={entry.id}
-                          className="group absolute overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-[11px] leading-tight"
+                          className="group absolute rounded-lg border-l-[3px] px-1.5 py-1 text-[11px] leading-tight"
                           style={{
                             top: `${top}px`,
-                            height: `${Math.max(height, 22)}px`,
+                            height: `${Math.max(height, 40)}px`,
                             left: wide
                               ? `calc(${(col / cols) * 100}% + 2px)`
                               : "2px",
@@ -376,7 +376,7 @@ export function TimetableBoard({
                           } - added by ${entry.ownerName}`}
                         >
                           <div className="flex items-start justify-between gap-1">
-                            <p className="min-w-0 flex-1 truncate font-semibold text-ink">
+                            <p className="min-w-0 flex-1 break-words font-semibold text-ink">
                               {entry.title}
                             </p>
                             {isAdmin ? (
@@ -392,7 +392,7 @@ export function TimetableBoard({
                             ) : null}
                           </div>
                           {details ? (
-                            <p className="truncate text-muted">
+                            <p className="break-words text-muted">
                               {fmt(entry.startMin)}-{fmt(entry.endMin)}
                               {entry.location ? ` · ${entry.location}` : ""}
                             </p>
