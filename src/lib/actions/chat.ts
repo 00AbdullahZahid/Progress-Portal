@@ -45,7 +45,7 @@ export async function postMessage(formData: FormData): Promise<ActionResult> {
   const channel = await db.channel.findUnique({ where: { id: channelId } });
   if (!channel) return { ok: false, error: "Channel not found." };
 
-  await db.message.create({
+  const msg = await db.message.create({
     data: { channelId, authorId: me.id, body: bodyRes.value },
   });
 
@@ -65,6 +65,7 @@ export async function postMessage(formData: FormData): Promise<ActionResult> {
           body: excerpt,
           href: `/chat?ch=${channelId}`,
           excludeUserId: me.id,
+          dedupeKey: `chat_mention:${msg.id}`,
         });
         queueWebhookAlert(
           `Mention in #${channel.name}\n${me.name} mentioned ${mentioned
@@ -94,10 +95,62 @@ export async function editMessage(formData: FormData): Promise<ActionResult> {
   if (message.authorId !== me.id)
     return { ok: false, error: "You can only edit your own messages." };
 
+  const previousMentions = mentionedHandles(message.body, me.handle);
+  const nextMentions = mentionedHandles(bodyRes.value, me.handle);
+
   await db.message.update({
     where: { id: messageId },
     data: { body: bodyRes.value },
   });
+
+  try {
+    // Remove notifications for mentions that were deleted in the edit.
+    const removed = previousMentions.filter((h) => !nextMentions.includes(h));
+    if (removed.length > 0) {
+      const mentionedUsers = await db.user.findMany({
+        where: { handle: { in: removed }, isActive: true },
+        select: { id: true },
+      });
+      if (mentionedUsers.length > 0) {
+        await db.notification.deleteMany({
+          where: {
+            kind: "chat_mention",
+            userId: { in: mentionedUsers.map((u) => u.id) },
+            dedupeKey: `chat_mention:${messageId}`,
+          },
+        });
+      }
+    }
+
+    // Notify newly added mentions (if any).
+    const added = nextMentions.filter((h) => !previousMentions.includes(h));
+    if (added.length > 0) {
+      const channel = await db.channel.findUnique({
+        where: { id: message.channelId },
+      });
+      if (channel) {
+        const mentioned = await db.user.findMany({
+          where: { handle: { in: added }, isActive: true },
+          select: { id: true, handle: true, name: true },
+        });
+        if (mentioned.length > 0) {
+          const excerpt = bodyRes.value.replace(/\s+/g, " ").slice(0, 160);
+          await notifyUsers({
+            audience: mentioned.map((u) => u.id),
+            kind: "chat_mention",
+            title: `${me.name} mentioned you in #${channel.name}`,
+            body: excerpt,
+            href: `/chat?ch=${channel.id}`,
+            excludeUserId: me.id,
+            dedupeKey: `chat_mention:${messageId}`,
+          });
+        }
+      }
+    }
+  } catch {
+    // Ignore notification errors on edit.
+  }
+
   revalidatePath("/chat");
   return { ok: true };
 }
@@ -113,7 +166,15 @@ export async function deleteMessage(formData: FormData): Promise<ActionResult> {
   if (message.authorId !== me.id && me.role !== "admin")
     return { ok: false, error: "You don't have permission to delete this message." };
 
-  await db.message.delete({ where: { id: messageId } });
+  await db.$transaction([
+    db.notification.deleteMany({
+      where: {
+        kind: "chat_mention",
+        dedupeKey: { startsWith: `chat_mention:${messageId}:` },
+      },
+    }),
+    db.message.delete({ where: { id: messageId } }),
+  ]);
   revalidatePath("/chat");
   return { ok: true };
 }
