@@ -7,6 +7,7 @@ import { Avatar } from "./avatar";
 import { Button, Input, Textarea } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useToast } from "./toast";
+import { mentionTokenAt, type MentionToken } from "@/lib/mentions";
 import { SendIcon, EditIcon, TrashIcon, XIcon, CheckIcon, ChatIcon } from "./icons";
 
 type Channel = { id: string; name: string; kind: string };
@@ -16,19 +17,32 @@ type Message = {
   createdAt: string;
   author: { id: string; name: string; color: string; image?: string | null };
 };
+type Member = {
+  id: string;
+  handle: string;
+  name: string;
+  color: string;
+  image?: string | null;
+};
+type ActiveMention = MentionToken & { index: number };
 
 const MENTION_RE = /(^|[^a-z0-9_])@([a-z0-9_]{2,20})\b/gi;
+/** How many member suggestions the composer shows at once. */
+const MENTION_LIMIT = 6;
 
 /**
- * Render message text with @mentions highlighted. Mentions of the signed-in
- * member get a stronger style so they are easy to spot in a long conversation.
+ * Render message text with @mentions highlighted. Only handles that belong to
+ * a member are styled; mentions of the signed-in member get a stronger style
+ * so they are easy to spot in a long conversation.
  */
 function MessageText({
   body,
+  handles,
   meHandle,
   mine,
 }: {
   body: string;
+  handles: Set<string>;
   meHandle?: string;
   mine: boolean;
 }) {
@@ -40,16 +54,22 @@ function MessageText({
   MENTION_RE.lastIndex = 0;
   while ((match = MENTION_RE.exec(body)) !== null) {
     const handle = match[2];
+    // Leave an arbitrary @word alone; only real members are mentions.
+    if (!handles.has(handle.toLowerCase())) continue;
+
     const start = match.index + match[1].length;
     if (start > last) nodes.push(body.slice(last, start));
-    const isMe =
-      Boolean(meHandle) && handle.toLowerCase() === meHandle!.toLowerCase();
+    const isMe = meHandle
+      ? handle.toLowerCase() === meHandle.toLowerCase()
+      : false;
     nodes.push(
       <span
         key={`mention-${index++}`}
         className={`rounded px-0.5 font-semibold ${
           mine
-            ? "bg-black/15 text-inherit"
+            ? // Invert against the accent bubble so the handle still changes
+              // colour instead of inheriting the bubble's text colour.
+              "bg-brand-ink/90 text-brand"
             : "bg-brand-soft text-brand"
         } ${isMe ? "underline decoration-2 underline-offset-2" : ""}`}
       >
@@ -68,6 +88,7 @@ export function ChatWindow({
   channels,
   activeId,
   initialMessages,
+  members,
   meId,
   meHandle,
   isAdmin,
@@ -76,7 +97,7 @@ export function ChatWindow({
   channels: Channel[];
   activeId: string;
   initialMessages: Message[];
-  members: { id: string; name: string; color: string; image?: string | null }[];
+  members: Member[];
   meId: string;
   meHandle?: string;
   isAdmin: boolean;
@@ -91,8 +112,45 @@ export function ChatWindow({
   const [editDraft, setEditDraft] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Message | null>(null);
+  const [mention, setMention] = useState<ActiveMention | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
   const [shownChannel, setShownChannel] = useState(activeId);
+
+  // Every member handle, used to decide which @words are real mentions.
+  const memberHandles = new Set(members.map((m) => m.handle.toLowerCase()));
+
+  // Suggestions for the @token under the caret. Handles that start with the
+  // query rank above name matches, so "@sa" puts @sara first.
+  const mentionQuery = mention?.query ?? "";
+  const mentionOptions = mention
+    ? members
+        .filter((m) => m.id !== meId)
+        .filter((m) => {
+          if (!mentionQuery) return true;
+          return (
+            m.handle.toLowerCase().includes(mentionQuery) ||
+            m.name.toLowerCase().includes(mentionQuery)
+          );
+        })
+        .sort((a, b) => {
+          if (!mentionQuery) return a.name.localeCompare(b.name);
+          const rank = (m: Member) => {
+            const handle = m.handle.toLowerCase();
+            const name = m.name.toLowerCase();
+            if (handle.startsWith(mentionQuery)) return 0;
+            if (name.startsWith(mentionQuery)) return 1;
+            return 2;
+          };
+          return rank(a) - rank(b) || a.name.localeCompare(b.name);
+        })
+        .slice(0, MENTION_LIMIT)
+    : [];
+  const activeMentionIndex =
+    mention && mentionOptions.length > 0
+      ? Math.min(mention.index, mentionOptions.length - 1)
+      : 0;
 
   // When the channel changes, reset local state during render (the React-
   // sanctioned "adjust state on prop change" pattern) instead of in an effect.
@@ -100,6 +158,7 @@ export function ChatWindow({
     setShownChannel(activeId);
     setMessages(initialMessages);
     setEditingId(null);
+    setMention(null);
   }
 
   /**
@@ -120,6 +179,89 @@ export function ChatWindow({
       });
     });
   }
+
+  /** Open/close the picker based on the @token at the caret. */
+  function syncMention(value: string, caret: number) {
+    const token = mentionTokenAt(value, caret);
+    setMention((prev) => {
+      if (!token) return null;
+      // Keep the highlighted row when the token itself has not changed.
+      if (
+        prev &&
+        prev.start === token.start &&
+        prev.end === token.end &&
+        prev.query === token.query
+      ) {
+        return prev;
+      }
+      return { ...token, index: 0 };
+    });
+  }
+
+  function updateDraft(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setDraft(value);
+    syncMention(value, e.target.selectionStart ?? value.length);
+  }
+
+  /** Replace the whole @token with the chosen member's handle. */
+  function applyMention(member: Member) {
+    if (!mention) return;
+    const inserted = `@${member.handle} `;
+    const next =
+      draft.slice(0, mention.start) + inserted + draft.slice(mention.end);
+    const caret = mention.start + inserted.length;
+    setDraft(next);
+    setMention(null);
+    // The input is controlled, so move the caret after React paints the value.
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(caret, caret);
+    });
+  }
+
+  function onDraftKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!mention) return;
+
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (mentionOptions.length === 0) return;
+      e.preventDefault();
+      const delta = e.key === "ArrowDown" ? 1 : -1;
+      setMention((prev) => {
+        if (!prev) return prev;
+        const current = Math.min(prev.index, mentionOptions.length - 1);
+        const index =
+          (current + delta + mentionOptions.length) % mentionOptions.length;
+        return { ...prev, index };
+      });
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setMention(null);
+      return;
+    }
+
+    if ((e.key === "Enter" || e.key === "Tab") && mentionOptions.length > 0) {
+      e.preventDefault();
+      const choice =
+        mentionOptions[Math.min(mention.index, mentionOptions.length - 1)];
+      if (choice) applyMention(choice);
+    }
+  }
+
+  /** Close the picker on any click outside the composer (or dropdown). */
+  useEffect(() => {
+    if (!mention) return;
+    function onPointerDown(e: PointerEvent) {
+      if (!composerRef.current?.contains(e.target as Node)) setMention(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [mention]);
 
   /** Poll while the tab is visible; waits longer after repeated failures. */
   useEffect(() => {
@@ -180,6 +322,7 @@ export function ChatWindow({
     fd.set("body", draft);
     const previous = draft;
     setDraft("");
+    setMention(null);
     try {
       const res = await postMessage(fd);
       if (!res.ok) {
@@ -373,7 +516,12 @@ export function ChatWindow({
                               : "rounded-tl-sm bg-surface2"
                           }`}
                         >
-                          <MessageText body={m.body} meHandle={meHandle} mine={mine} />
+                          <MessageText
+                            body={m.body}
+                            handles={memberHandles}
+                            meHandle={meHandle}
+                            mine={mine}
+                          />
                         </p>
                         {(mine || canDelete) && (
                           <div
@@ -420,14 +568,92 @@ export function ChatWindow({
         <div ref={bottomRef} />
       </div>
       <form onSubmit={send} className="flex flex-wrap items-center gap-2 border-t border-border p-3">
-        <Input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Type a message... use @handle to mention someone"
-          aria-label="Message"
-          maxLength={4000}
-          className="min-w-0 flex-1"
-        />
+        <div ref={composerRef} className="relative min-w-0 flex-1">
+          <Input
+            ref={inputRef}
+            value={draft}
+            onChange={updateDraft}
+            onSelect={(e) =>
+              syncMention(
+                e.currentTarget.value,
+                e.currentTarget.selectionStart ?? e.currentTarget.value.length
+              )
+            }
+            onKeyDown={onDraftKeyDown}
+            onBlur={(e) => {
+              // Close when keyboard focus leaves the composer; a null
+              // relatedTarget (page click) is handled by the pointer listener.
+              const next = e.relatedTarget;
+              if (next instanceof Node && !composerRef.current?.contains(next)) {
+                setMention(null);
+              }
+            }}
+            placeholder="Type a message… use @ to mention someone"
+            aria-label="Message"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-expanded={mention !== null}
+            aria-controls={mention ? "mention-listbox" : undefined}
+            aria-activedescendant={
+              mention && mentionOptions.length > 0
+                ? `mention-option-${mentionOptions[activeMentionIndex].id}`
+                : undefined
+            }
+            maxLength={4000}
+            className="w-full"
+          />
+
+          {mention ? (
+            <div className="absolute inset-x-0 bottom-full z-20 mb-1 overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
+              <ul
+                id="mention-listbox"
+                role="listbox"
+                aria-label="Members to mention"
+                className="max-h-64 overflow-y-auto py-1"
+              >
+                {mentionOptions.length === 0 ? (
+                  <li role="presentation" className="px-3 py-2 text-sm text-muted">
+                    {mention.query
+                      ? `No member matches @${mention.query}`
+                      : "No other members to mention"}
+                  </li>
+                ) : (
+                  mentionOptions.map((m, i) => (
+                    <li key={m.id} role="presentation">
+                      <button
+                        type="button"
+                        id={`mention-option-${m.id}`}
+                        role="option"
+                        aria-selected={i === activeMentionIndex}
+                        // Keep focus in the input so the caret stays put.
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyMention(m)}
+                        onMouseEnter={() =>
+                          setMention((prev) => (prev ? { ...prev, index: i } : prev))
+                        }
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                          i === activeMentionIndex
+                            ? "bg-brand-soft text-brand"
+                            : "hover:bg-surface2"
+                        }`}
+                      >
+                        <Avatar user={m} size="sm" />
+                        <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                        <span className="shrink-0 text-xs opacity-70">@{m.handle}</span>
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+              {mentionOptions.length > 0 ? (
+                <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted">
+                  ↑↓ to move · Enter to select · Esc to close
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         <Button type="submit" disabled={sending || !draft.trim()} className="shrink-0">
           <SendIcon width={16} height={16} />
           Send

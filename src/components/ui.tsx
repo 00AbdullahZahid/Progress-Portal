@@ -87,7 +87,7 @@ export function Button({
   );
 }
 
-export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Input(props: React.ComponentPropsWithRef<"input">) {
   const { className = "", ...rest } = props;
   return (
     <input

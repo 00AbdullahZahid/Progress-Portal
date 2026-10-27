@@ -40,6 +40,7 @@ export default async function ChatPage({
         })()
       : Promise.resolve([]),
     db.user.findMany({
+      where: { isActive: true },
       orderBy: { name: "asc" },
       select: publicUserSelect,
     }),
@@ -65,6 +66,7 @@ export default async function ChatPage({
         }))}
         members={members.map((u) => ({
           id: u.id,
+          handle: u.handle,
           name: u.name,
           color: u.color,
           image: u.image,
