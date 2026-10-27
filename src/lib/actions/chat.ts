@@ -8,6 +8,7 @@ import { rateLimit } from "../rate-limit";
 import { audit } from "../audit";
 import { queueWebhookAlert } from "../alerts";
 import { mentionedHandles } from "../mentions";
+import { notifyUsers } from "../notifications";
 import type { ActionResult } from "./tasks";
 
 /**
@@ -53,9 +54,18 @@ export async function postMessage(formData: FormData): Promise<ActionResult> {
     if (mentions.length > 0) {
       const mentioned = await db.user.findMany({
         where: { handle: { in: mentions }, isActive: true },
-        select: { handle: true, name: true },
+        select: { id: true, handle: true, name: true },
       });
       if (mentioned.length > 0) {
+        const excerpt = bodyRes.value.replace(/\s+/g, " ").slice(0, 160);
+        await notifyUsers({
+          audience: mentioned.map((u) => u.id),
+          kind: "chat_mention",
+          title: `${me.name} mentioned you in #${channel.name}`,
+          body: excerpt,
+          href: `/chat?ch=${channelId}`,
+          excludeUserId: me.id,
+        });
         queueWebhookAlert(
           `Mention in #${channel.name}\n${me.name} mentioned ${mentioned
             .map((u) => `@${u.handle}`)

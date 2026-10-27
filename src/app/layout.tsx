@@ -3,12 +3,29 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { AppIcon } from "@/components/app-icon";
 
 export const metadata: Metadata = {
   title: "Group Portal",
   description: "Track tasks, habits, study sessions, and chat with your group.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg" },
+  icons: {
+    icon: [
+      {
+        url: "/icon-light-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/icon-dark-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -27,7 +44,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
+    { media: "(prefers-color-scheme: light)", color: "#f1efec" },
     { media: "(prefers-color-scheme: dark)", color: "#171513" },
   ],
 };
@@ -60,6 +77,7 @@ export default function RootLayout({
       <body>
         <ToastProvider>
           <ServiceWorkerRegister />
+          <AppIcon />
           {children}
           <Analytics />
         </ToastProvider>

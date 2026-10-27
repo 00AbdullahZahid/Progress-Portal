@@ -1,17 +1,15 @@
 import { requireUser, createCalendarTokenForUser } from "@/lib/auth";
-import { PageHeader, Card, Button } from "@/components/ui";
+import { PageHeader, Card } from "@/components/ui";
 import { ProfileForm } from "@/components/profile-form";
 import { ChangePasswordForm } from "@/components/change-password-form";
-import { AdminResetPanel } from "@/components/admin-reset-panel";
 import { PreferencesForm } from "@/components/preferences-form";
 import { NotificationSettings } from "@/components/notification-settings";
+import { DeviceNotificationSettings } from "@/components/device-notification-settings";
 import { CalendarFeed } from "@/components/calendar-feed";
 import { AppearanceSettings } from "@/components/appearance-settings";
 import { TutorialPreference } from "@/components/tutorial";
-import { signOut } from "@/lib/actions/auth";
-import { db } from "@/lib/db";
+import { LogoutButton } from "@/components/logout-button";
 import { supportedTimezones } from "@/lib/validation";
-import { LogoutIcon, ShieldIcon } from "@/components/icons";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -44,16 +42,6 @@ export default async function SettingsPage() {
   ];
   if (!timezones.includes(me.timezone)) timezones.unshift(me.timezone);
 
-  const members = isAdmin
-    ? (
-        await db.user.findMany({
-          where: { isActive: true },
-          orderBy: [{ role: "desc" }, { name: "asc" }],
-          select: { handle: true, name: true, role: true, color: true },
-        })
-      ).map((u) => ({ handle: u.handle, name: u.name, role: u.role, color: u.color }))
-    : [];
-
   const token = await createCalendarTokenForUser(me.id);
   if (!token) redirect("/login?expired=1");
   const requestHeaders = await headers();
@@ -75,9 +63,9 @@ export default async function SettingsPage() {
     { id: "password", label: "Password" },
     { id: "goals", label: "Goals & notifications" },
     { id: "notifications", label: "Notification events" },
+    { id: "phone", label: "Phone alerts" },
     { id: "calendar", label: "Calendar" },
     { id: "tutorial", label: "Tutorial" },
-    ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
     { id: "session", label: "Session" },
   ];
 
@@ -131,10 +119,16 @@ export default async function SettingsPage() {
             notifyTaskStatus: me.notifyTaskStatus,
             notifyTaskDue: me.notifyTaskDue,
             notifyNewProjects: me.notifyNewProjects,
+            notifyChatMentions: me.notifyChatMentions,
+            notifyExamReminders: me.notifyExamReminders,
             notifyPush: me.notifyPush,
           }}
           pushPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
         />
+      </div>
+
+      <div id="phone" className="mt-6 scroll-mt-24">
+        <DeviceNotificationSettings />
       </div>
 
       <div id="calendar" className="mt-6 scroll-mt-24">
@@ -152,26 +146,13 @@ export default async function SettingsPage() {
       </div>
 
       {isAdmin ? (
-        <div id="admin" className="mt-6 scroll-mt-24">
-          <Card>
-            <h2 className="mb-1 flex items-center gap-2 font-semibold">
-              <ShieldIcon width={18} height={18} className="text-amber-500" />
-              Super admin
-            </h2>
-            <p className="mb-3 text-sm text-muted">
-              Manage members, reset passwords, and edit anyone&apos;s details from the admin
-              dashboard.
-            </p>
-            <Link href="/admin">
-              <Button type="button" variant="outline">
-                Open admin dashboard
-              </Button>
-            </Link>
-          </Card>
-          <div className="mt-6">
-            <AdminResetPanel members={members} />
-          </div>
-        </div>
+        <p className="mt-4 text-xs text-muted">
+          Admin tools now live in the{" "}
+          <Link href="/admin" className="font-medium text-brand hover:underline">
+            Admin tab
+          </Link>
+          .
+        </p>
       ) : null}
 
       <div id="session" className="scroll-mt-24">
@@ -181,12 +162,7 @@ export default async function SettingsPage() {
             Signed in as @{me.handle} ({isAdmin ? "super admin" : "member"}). Logging out clears
             this browser only.
           </p>
-          <form action={signOut}>
-            <Button type="submit" variant="outline">
-              <LogoutIcon width={16} height={16} />
-              Sign out
-            </Button>
-          </form>
+                    <LogoutButton variant="inline" />
         </Card>
       </div>
     </div>

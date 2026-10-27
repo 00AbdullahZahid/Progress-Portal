@@ -32,6 +32,8 @@ export async function setNotificationEventPrefs(
       notifyTaskStatus: formData.get("notifyTaskStatus") === "on",
       notifyTaskDue: formData.get("notifyTaskDue") === "on",
       notifyNewProjects: formData.get("notifyNewProjects") === "on",
+      notifyChatMentions: formData.get("notifyChatMentions") === "on",
+      notifyExamReminders: formData.get("notifyExamReminders") === "on",
     },
   });
   revalidatePath("/settings");

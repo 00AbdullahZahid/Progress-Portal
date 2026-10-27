@@ -20,10 +20,10 @@ canonical version users see; keep the two in sync when adding a feature.
 | Timetable | The group's weekly class calendar on a time grid. | Everyone views; only admins add or remove classes. |
 | Grades | Courses, assessment weights, marks and GPA prediction. | Private to each member. |
 | Search | One search across notes, tasks, resources and chat messages. | Everyone; results respect access rules. |
-| Chat | Group channels with polling refresh; authors edit or delete their own messages. | Everyone; admins moderate. |
+| Chat | Group channels with polling refresh; `@mention` highlighting and notifications. Authors edit or delete their own messages, and edits/deletes appear in other open windows without a reload. | Everyone; admins moderate. |
 | People | Member directory with study totals and streaks. | Everyone. |
-| Settings | Profile, colour, photo, timezone, password, weekly goal, per-event notifications, browser push, calendar feed, data export, tutorial. | Your own account. |
-| Admin | Create, edit, deactivate and delete members; reset passwords; audit log. | Super admins only. |
+| Settings | Profile, colour, photo, timezone, password, weekly goal, per-event notifications, browser and phone alerts, calendar feed, data export, tutorial. | Your own account. |
+| Admin | Create, edit, deactivate and delete members; reset passwords; audit log. Password reset lives here, not in Settings. | Super admins only. |
 
 ## Cross-cutting features
 
@@ -50,13 +50,21 @@ canonical version users see; keep the two in sync when adding a feature.
 - **Notification centre** — The top-bar bell shows an unread count and a panel with
   recent events. Members choose which events create a notification: task
   assignments, task comments and @mentions, task status changes, due-today/overdue
-  reminders, and new projects. Mark one item or everything as read; notifications
-  link straight to the task or project.
+  reminders, exam/deadline reminders, chat @mentions, and new projects. Mark one
+  item or everything as read; notifications link straight to the task or project.
+  New unread items also raise a device notification, and the app badge and tab
+  title show the unread count.
 - **Browser push** — An opt-in delivery channel on top of the in-app bell. After
   permission is granted, the device is saved as a push subscription and receives
   the same events even when the portal is closed. Push is disabled on a device
   by default and can be turned off again from Settings. On iPhone and iPad,
   Safari only allows web push after the portal is added to the Home Screen.
+- **Phone alerts (APK)** — In an Android APK built with FreeWebToApk / AppMint,
+  the portal detects the native bridge and uses the phone's notification shade
+  instead of browser push. Enable **Notifications** and **Reminders** in the
+  AppMint wizard, then use **Settings > Phone alerts** to grant permission, send
+  a test, and choose activity or exam/deadline reminders. These reminders are
+  scheduled locally from `/api/reminders` and do not need VAPID keys.
 - **Daily digest webhook (optional)** — A separate group digest of upcoming tasks
   and exams, plus instant webhook alerts for new doubts, deadlines added for
   today or tomorrow, and chat mentions. Sent to Discord, Telegram or a custom
@@ -71,7 +79,8 @@ canonical version users see; keep the two in sync when adding a feature.
 - **Tutorial** — An eight-step guided tour. It appears once per browser, can be
   switched off in Settings, and can be replayed from Settings or the Guide page.
 - **Offline support** — Installable PWA with standalone display, theme-aware
-  `theme-color`, and `viewport-fit=cover` safe-area handling. Only static assets
+  `theme-color` and browser-tab icon (separate light/dark artwork), and
+  `viewport-fit=cover` safe-area handling. Only static assets
   are cached; private pages (Grades, Settings, Admin, Chat) are never cached and
   caches are cleared on sign out. The service worker also receives browser push
   and opens the relevant task or project when a notification is clicked.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { postMessage, editMessage, deleteMessage } from "@/lib/actions/chat";
 import { Avatar } from "./avatar";
@@ -17,11 +17,59 @@ type Message = {
   author: { id: string; name: string; color: string; image?: string | null };
 };
 
+const MENTION_RE = /(^|[^a-z0-9_])@([a-z0-9_]{2,20})\b/gi;
+
+/**
+ * Render message text with @mentions highlighted. Mentions of the signed-in
+ * member get a stronger style so they are easy to spot in a long conversation.
+ */
+function MessageText({
+  body,
+  meHandle,
+  mine,
+}: {
+  body: string;
+  meHandle?: string;
+  mine: boolean;
+}) {
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  let index = 0;
+  let match: RegExpExecArray | null;
+
+  MENTION_RE.lastIndex = 0;
+  while ((match = MENTION_RE.exec(body)) !== null) {
+    const handle = match[2];
+    const start = match.index + match[1].length;
+    if (start > last) nodes.push(body.slice(last, start));
+    const isMe =
+      Boolean(meHandle) && handle.toLowerCase() === meHandle!.toLowerCase();
+    nodes.push(
+      <span
+        key={`mention-${index++}`}
+        className={`rounded px-0.5 font-semibold ${
+          mine
+            ? "bg-black/15 text-inherit"
+            : "bg-brand-soft text-brand"
+        } ${isMe ? "underline decoration-2 underline-offset-2" : ""}`}
+      >
+        @{handle}
+      </span>
+    );
+    last = start + handle.length + 1;
+  }
+
+  if (nodes.length === 0) return <>{body}</>;
+  if (last < body.length) nodes.push(body.slice(last));
+  return <>{nodes}</>;
+}
+
 export function ChatWindow({
   channels,
   activeId,
   initialMessages,
   meId,
+  meHandle,
   isAdmin,
   tz = "Asia/Karachi",
 }: {
@@ -30,6 +78,7 @@ export function ChatWindow({
   initialMessages: Message[];
   members: { id: string; name: string; color: string; image?: string | null }[];
   meId: string;
+  meHandle?: string;
   isAdmin: boolean;
   tz?: string;
 }) {
@@ -43,7 +92,6 @@ export function ChatWindow({
   const [savingEdit, setSavingEdit] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Message | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const lastTs = useRef(initialMessages.at(-1)?.createdAt ?? "");
   const [shownChannel, setShownChannel] = useState(activeId);
 
   // When the channel changes, reset local state during render (the React-
@@ -55,35 +103,21 @@ export function ChatWindow({
   }
 
   /**
-   * Merge the latest window from the server into local state.
+   * Replace the visible window with the server's latest copy.
    *
-   * We reconcile against the recent window (not just "newer than last seen")
-   * so edits and deletes made by other people show up without a reload.
-   * Anything the server no longer knows about is dropped locally.
+   * The full poll is authoritative: a message missing from it was deleted, and
+   * a changed body is an edit. Keeping "local-only" messages here used to leave
+   * a deleted newest message on screen until a manual reload.
    */
   function mergeWindow(incoming: Message[]) {
     setMessages((prev) => {
-      if (!incoming.length) return prev;
-      const byId = new Map(incoming.map((m) => [m.id, m]));
-      const serverIds = new Set(byId.keys());
-
-      // Keep local-only messages that are newer than the newest server one
-      // (e.g. a message we just posted that the window hasn't caught up to yet).
-      const newestServerTs = incoming[incoming.length - 1].createdAt;
-      const kept = prev.filter(
-        (m) => !serverIds.has(m.id) && m.createdAt > newestServerTs
-      );
-
-      const merged = [
-        ...incoming.map((m) => {
-          const old = prev.find((p) => p.id === m.id);
-          // Preserve identity when nothing changed so React can skip re-render.
-          return old && old.body === m.body ? old : m;
-        }),
-        ...kept,
-      ];
-      lastTs.current = merged.at(-1)?.createdAt ?? lastTs.current;
-      return merged;
+      if (!incoming.length) return [];
+      const byId = new Map(prev.map((m) => [m.id, m]));
+      return incoming.map((m) => {
+        const old = byId.get(m.id);
+        // Preserve identity when nothing changed so React can skip re-render.
+        return old && old.body === m.body ? old : m;
+      });
     });
   }
 
@@ -339,7 +373,7 @@ export function ChatWindow({
                               : "rounded-tl-sm bg-surface2"
                           }`}
                         >
-                          {m.body}
+                          <MessageText body={m.body} meHandle={meHandle} mine={mine} />
                         </p>
                         {(mine || canDelete) && (
                           <div
@@ -389,7 +423,7 @@ export function ChatWindow({
         <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Type a message..."
+          placeholder="Type a message... use @handle to mention someone"
           aria-label="Message"
           maxLength={4000}
           className="min-w-0 flex-1"

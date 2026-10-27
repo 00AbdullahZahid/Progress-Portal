@@ -5,6 +5,7 @@ import { Nav } from "./nav";
 import { TopBar } from "./top-bar";
 import { Tutorial } from "./tutorial";
 import { CHAT_READ_EVENT } from "@/lib/events";
+import { DEVICE_NOTIFY_EVENT, syncScheduledReminders } from "@/lib/device-notifications";
 import type { PublicUser } from "@/lib/user";
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -63,6 +64,23 @@ export function Shell({
     const clear = () => setChatUnread(0);
     window.addEventListener(CHAT_READ_EVENT, clear);
     return () => window.removeEventListener(CHAT_READ_EVENT, clear);
+  }, []);
+
+  // Schedule (or refresh) on-device due/exam reminders once a day. The helper
+  // no-ops outside the Android bridge, so browsers are unaffected.
+  useEffect(() => {
+    const sync = () => void syncScheduledReminders();
+    const timer = window.setTimeout(sync, 2500);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    window.addEventListener(DEVICE_NOTIFY_EVENT, sync);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(DEVICE_NOTIFY_EVENT, sync);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const isCollapsed = mounted ? collapsed : false;

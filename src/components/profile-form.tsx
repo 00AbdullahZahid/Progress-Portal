@@ -31,7 +31,11 @@ export function ProfileForm({
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
   const [image, setImage] = useState<string | null>(user.image ?? null);
+  // Keep the choice local so the ring and avatar preview update on click,
+  // before the save round-trip finishes.
+  const [color, setColor] = useState(user.color);
   const [uploading, setUploading] = useState(false);
+  const colorOptions = COLORS.includes(color) ? COLORS : [...COLORS, color];
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -55,6 +59,9 @@ export function ProfileForm({
   function submit(fd: FormData) {
     // Always send the image field: a URL keeps/sets it, an empty string clears it.
     fd.set("image", image ?? "");
+    // The controlled radios already carry this, but set it explicitly so the
+    // saved colour can never disagree with the preview.
+    fd.set("color", color);
     startTransition(async () => {
       try {
         const res = (await updateProfile(fd)) as
@@ -80,7 +87,7 @@ export function ProfileForm({
             Profile picture
           </label>
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar user={{ name: user.name, color: user.color, image }} size="lg" />
+            <Avatar user={{ name: user.name, color, image }} size="lg" />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <input
                 type="file"
@@ -122,12 +129,14 @@ export function ProfileForm({
           <label htmlFor="profile-color" className="mb-1.5 block text-sm font-medium">
             Color
           </label>
-          <div className="flex flex-wrap gap-2">
-            {COLORS.map((c) => (
+          <div id="profile-color" role="radiogroup" aria-label="Profile color" className="flex flex-wrap gap-2">
+            {colorOptions.map((c) => (
               <label
                 key={c}
                 className={`cursor-pointer rounded-full p-1 transition-transform ${
-                  user.color === c ? "ring-2 ring-brand ring-offset-2 ring-offset-surface" : ""
+                  color === c
+                    ? "ring-2 ring-brand ring-offset-2 ring-offset-surface"
+                    : "hover:scale-105"
                 }`}
                 title={c}
               >
@@ -135,30 +144,18 @@ export function ProfileForm({
                   type="radio"
                   name="color"
                   value={c}
-                  defaultChecked={user.color === c}
+                  checked={color === c}
+                  onChange={() => setColor(c)}
                   className="sr-only"
                   aria-label={`Color ${c}`}
                 />
                 <span className="block h-7 w-7 rounded-full" style={{ backgroundColor: c }} />
               </label>
             ))}
-            {COLORS.includes(user.color) ? null : (
-              <label className="cursor-pointer rounded-full p-1 ring-2 ring-brand ring-offset-2 ring-offset-surface">
-                <input
-                  type="radio"
-                  name="color"
-                  value={user.color}
-                  defaultChecked
-                  className="sr-only"
-                  aria-label="Current color"
-                />
-                <span
-                  className="block h-7 w-7 rounded-full"
-                  style={{ backgroundColor: user.color }}
-                />
-              </label>
-            )}
           </div>
+          <p className="mt-1.5 text-xs text-muted">
+            Used for your avatar and activity charts. Save to apply it everywhere.
+          </p>
         </div>
 
         <div>

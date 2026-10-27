@@ -5,6 +5,7 @@ import { supportedTimezones } from "@/lib/validation";
 import { PageHeader, Card } from "@/components/ui";
 import { StatCard } from "@/components/stat-card";
 import { AdminUserManager } from "@/components/admin-user-manager";
+import { AdminResetPanel } from "@/components/admin-reset-panel";
 import { Avatar } from "@/components/avatar";
 import { managedUserSelect, publicUserSelect } from "@/lib/user";
 import {
@@ -120,6 +121,18 @@ export default async function AdminDashboardPage() {
               (tz) => tz !== "Asia/Karachi" && tz !== "UTC"
             ),
           ]}
+        />
+      </div>
+
+      {/* Password reset — super-admin only, moved here from Settings */}
+      <div className="mt-6">
+        <AdminResetPanel
+          members={users.map((u) => ({
+            handle: u.handle,
+            name: u.name,
+            role: u.role,
+            color: u.color,
+          }))}
         />
       </div>
 

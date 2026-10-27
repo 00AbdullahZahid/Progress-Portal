@@ -70,6 +70,7 @@ export default async function ChatPage({
           image: u.image,
         }))}
         meId={me.id}
+        meHandle={me.handle}
         isAdmin={me.role === "admin"}
         tz={me.timezone}
       />

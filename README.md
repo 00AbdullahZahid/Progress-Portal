@@ -24,15 +24,15 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Timetable** — A shared weekly class calendar on a time grid. Everyone can view it; only admins add or remove classes.
 - **Grade & GPA tracker** — Private courses with weights and scores; predicts your GPA on a 4.0 scale.
 - **Global search** - Search across notes, tasks, chat messages and resources from the top bar, or press Ctrl/Cmd+K (or `/`) anywhere to start a search.
-- **Weekly goals & notification centre** — Set a weekly study target (shown as a progress ring on the dashboard). The top-bar bell shows an unread count and collects task assignments, task comments and mentions, task status changes, due-today/overdue reminders, and new projects. Every event can be switched on or off per member, and any item or the whole list can be marked read. An optional daily digest still posts to Discord, Telegram, or any JSON webhook.
+- **Weekly goals & notification centre** - Set a weekly study target (shown as a progress ring on the dashboard). The top-bar bell shows an unread count and collects task assignments, task comments and mentions, task status changes, due-today/overdue reminders, exam/deadline reminders, chat @mentions, and new projects. Every event can be switched on or off per member, and any item or the whole list can be marked read. An optional daily digest still posts to Discord, Telegram, or any JSON webhook. New unread items also raise a phone/desktop notification, and the app icon and tab title show an unread badge.
 - **Browser push** — Opt-in Web Push on top of the in-app bell. Generate VAPID keys, save each device's subscription, and receive the same events while the portal is closed. Push can be turned off again per device. iPhone/iPad users must add the portal to their Home Screen first because Safari only supports web push for installed apps.
 - **Presence & weekly report** — See who is online or studying now, plus a week-in-review breakdown by subject.
 - **Data export** - Download your own study sessions, habits, tasks, notes, grades, exams and flashcard reviews as JSON or CSV. Questions, answers and resources are intentionally not included.
 - **Calendar feed** — Subscribe once in Settings to a signed, read-only `.ics` feed with group exams, your task deadlines, and the shared timetable. Changing your password revokes the link.
-- **PWA** — Installable. Static assets are cached for speed, private pages are never cached, caches are cleared on sign out, and the service worker receives push notifications and opens the relevant task or project.
+- **PWA** - Installable. Static assets are cached for speed, private pages are never cached, caches are cleared on sign out, and the service worker receives push notifications and opens the relevant task or project. The browser-tab icon switches between dedicated light and dark artwork to match the app theme; the installed home-screen icon uses the light mark.
 - **Feature guide and tutorial** — An in-app Guide page explains every page and permission, and an optional eight-step tour walks through the app. The tour can be turned off or replayed from Settings. See [`docs/FEATURES.md`](docs/FEATURES.md).
 - **Profile pictures** — Upload a photo from Settings (or the admin page for any member); it shows up next to your name everywhere. Falls back to colored initials when unset.
-- **Group chat** — Real-time-ish chat with polling (no extra infra needed). Messages can be edited by their author and deleted by the author or an admin; edits and deletes sync into other open windows.
+- **Group chat** - Real-time-ish chat with polling (no extra infra needed). Messages can be edited by their author and deleted by the author or an admin; edits and deletes reconcile automatically in other open windows without a reload. `@handle` mentions are highlighted, and mentioning a member adds a chat-mention notification.
 - **Dashboard** — A time-aware greeting, an **Up next** strip (next class, nearest deadline, assigned tasks), context-rich stat cards, quick actions, and 7/14/30-day **Me / Group** bar charts for tasks and study minutes. Study time is minute-aware and shows daily-goal progress when configured; charts load lazily so the first paint stays fast.
 - **Polished flow** — Toast notifications, confirmation dialogs for destructive actions, inline validation, and empty states on every screen.
 - **Navigation** — A grouped, collapsible desktop sidebar (Plan, Study, Track, Group) with only the role-gated Admin link pinned to its footer. The top bar holds expandable search, refresh, the notification bell, and the profile menu (Settings, Guide, Theme, Sign out). On mobile, a safe-area-aware bottom bar offers Home, Tasks, Study, Chat, and a **More** sheet with every other page and action; Chat and Tasks show unread/due badges.
@@ -161,10 +161,33 @@ no cleanup or due reminders run. The cron also skips blob cleanup when
 
 The **in-app notification centre** needs no extra configuration. The bell in the
 sidebar/mobile header collects task assignments, task comments and @mentions,
-task status changes, due-today/overdue reminders, and new projects. Each member
-chooses those events in **Settings > Notifications**, can mark items or the whole
-list read, and follows a link straight to the task or project. The daily
-`/api/notify` cron creates the due/overdue reminders for each member's timezone.
+task status changes, due-today/overdue reminders, exam/deadline reminders, chat
+@mentions, and new projects. Each member chooses those events in
+**Settings > Notifications**, can mark items or the whole list read, and follows
+a link straight to the task or project. The daily `/api/notify` cron creates the
+due/overdue and exam/deadline reminders for each member's timezone. Super-admin
+tools, including member password resets, live on the **Admin** tab rather than
+in Settings.
+
+### Phone notifications (APK / installed app)
+
+In a normal browser the portal uses the Web Notifications API (and browser push
+when VAPID keys are configured). In an Android APK built with **FreeWebToApk /
+AppMint**, it detects the `window.WebToApk` / `window.AppMint` bridge and uses
+the native notification and scheduling APIs instead, so alerts still arrive in
+the notification shade and can show an app-icon badge.
+
+To enable them, tick **Notifications** and **Reminders** in the AppMint build
+wizard, then open **Settings > Phone alerts** in the installed app and grant
+permission. The same screen offers a test notification and controls for:
+
+- new activity (chat mentions, assignments, comments, and the other bell events);
+- exam/deadline and task-due reminders, scheduled locally from `/api/reminders`.
+
+Android WebView has no browser Web Push, so this bridge path is what makes APK
+notifications work; it does not require VAPID keys. If the bridge or permission
+is unavailable, the portal falls back to the standard `Notification` API or the
+service worker and never blocks the page.
 
 **Browser push** is opt-in per device and uses Web Push with VAPID:
 
@@ -244,7 +267,8 @@ src/
     api/chat/            # Chat polling endpoint
     api/upload/          # File upload endpoint (Vercel Blob)
     api/cleanup/         # Daily cron: sweep orphaned uploads
-    api/notify/          # Daily cron: in-app due reminders + optional webhook digest
+    api/notify/          # Daily cron: in-app due/exam reminders + optional webhook digest
+    api/reminders/       # Upcoming tasks/exams for on-device APK scheduling
     api/link-preview/    # Auth + SSRF-guarded Open Graph metadata for resources
     api/push/            # Save/remove browser push subscriptions
     login/               # Login page
@@ -257,7 +281,8 @@ src/
     blob.ts              # Blob deletion with ownership + reference checks
     upload-rules.ts      # Shared upload size/type/signature rules
     notify.ts            # Digest builder + webhook sender
-    notifications.ts     # In-app events, notification preferences, due reminders
+    notifications.ts     # In-app events, notification preferences, due/exam reminders
+    device-notifications.ts # Phone/APK bridge notifications + scheduled reminders
     push.ts              # Web Push delivery + stale subscription cleanup
     db.ts                # Prisma client
     dates.ts             # Timezone-aware date + streak helpers

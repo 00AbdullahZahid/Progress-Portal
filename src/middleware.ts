@@ -33,6 +33,6 @@ export const config = {
   // internals, and static files. Inverted (rather than listing each page) so a
   // new route can never silently skip the first auth gate.
   matcher: [
-    "/((?!login|api|_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|sw.js).*)",
+    "/((?!login|api|_next/static|_next/image|favicon.ico|icon[^/]*\\.png|apple-touch-icon\\.png|manifest.webmanifest|sw.js).*)",
   ],
 };

@@ -113,6 +113,8 @@ const SESSION_USER_SELECT = {
   notifyTaskStatus: true,
   notifyTaskDue: true,
   notifyNewProjects: true,
+  notifyChatMentions: true,
+  notifyExamReminders: true,
   notifyPush: true,
   lastSeenAt: true,
   chatReadAt: true,

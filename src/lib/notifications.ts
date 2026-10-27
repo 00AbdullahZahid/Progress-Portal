@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import type { NotificationKind } from "@prisma/client";
 import { db } from "./db";
-import { dateInTz, todayStr } from "./dates";
+import { dateInTz, shiftDate, todayStr } from "./dates";
 import { pushConfigured, sendPushToUsers, type PushPayload } from "./push";
 
 type PrefField =
@@ -9,7 +9,9 @@ type PrefField =
   | "notifyTaskComments"
   | "notifyTaskStatus"
   | "notifyTaskDue"
-  | "notifyNewProjects";
+  | "notifyNewProjects"
+  | "notifyChatMentions"
+  | "notifyExamReminders";
 
 const PREF_FOR_KIND: Record<NotificationKind, PrefField> = {
   task_assigned: "notifyTaskAssigned",
@@ -18,6 +20,8 @@ const PREF_FOR_KIND: Record<NotificationKind, PrefField> = {
   task_status: "notifyTaskStatus",
   task_due: "notifyTaskDue",
   project_new: "notifyNewProjects",
+  chat_mention: "notifyChatMentions",
+  exam_due: "notifyExamReminders",
 };
 
 type NewNotification = {
@@ -65,6 +69,8 @@ export async function notifyUsers(
         notifyTaskStatus: true,
         notifyTaskDue: true,
         notifyNewProjects: true,
+        notifyChatMentions: true,
+        notifyExamReminders: true,
         notifyPush: true,
       },
     });
@@ -122,49 +128,95 @@ export async function notifyUsers(
 }
 
 /**
- * Daily "due today / overdue" reminders. Deduped per member, task and local
- * calendar day so a later cron run cannot post the same reminder twice.
+ * Daily "due today / overdue" task reminders and exam/deadline reminders for
+ * tomorrow. Both are deduped per member, item and local calendar day so a later
+ * cron run cannot post the same reminder twice.
  */
 export async function buildDueNotifications(): Promise<{
   created: number;
   checkedMembers: number;
+  examReminders: number;
 }> {
   const users = await db.user.findMany({
-    where: { isActive: true, notifyTaskDue: true },
-    select: { id: true, timezone: true },
+    where: {
+      isActive: true,
+      OR: [{ notifyTaskDue: true }, { notifyExamReminders: true }],
+    },
+    select: {
+      id: true,
+      timezone: true,
+      notifyTaskDue: true,
+      notifyExamReminders: true,
+    },
   });
 
   let created = 0;
+  let examReminders = 0;
   for (const user of users) {
     const today = todayStr(user.timezone);
-    const horizon = new Date(Date.now() + 36 * 60 * 60 * 1000);
-    const tasks = await db.task.findMany({
-      where: {
-        assignees: { some: { userId: user.id } },
-        status: { not: "done" },
-        dueDate: { not: null, lte: horizon },
-      },
-      orderBy: { dueDate: "asc" },
-      select: { id: true, title: true, dueDate: true },
-      take: 20,
-    });
+    const tomorrow = shiftDate(today, 1);
 
-    for (const task of tasks) {
-      if (!task.dueDate) continue;
-      const due = dateInTz(task.dueDate, user.timezone);
-      if (due > today) continue;
-
-      const result = await notifyUsers({
-        audience: [user.id],
-        kind: "task_due",
-        title: due < today ? "Task overdue" : "Task due today",
-        body: task.title,
-        href: `/tasks#task-${task.id}`,
-        dedupeKey: `task_due:${task.id}:${today}`,
+    if (user.notifyTaskDue) {
+      const horizon = new Date(Date.now() + 36 * 60 * 60 * 1000);
+      const tasks = await db.task.findMany({
+        where: {
+          assignees: { some: { userId: user.id } },
+          status: { not: "done" },
+          dueDate: { not: null, lte: horizon },
+        },
+        orderBy: { dueDate: "asc" },
+        select: { id: true, title: true, dueDate: true },
+        take: 20,
       });
-      created += result.created;
+
+      for (const task of tasks) {
+        if (!task.dueDate) continue;
+        const due = dateInTz(task.dueDate, user.timezone);
+        if (due > today) continue;
+
+        const result = await notifyUsers({
+          audience: [user.id],
+          kind: "task_due",
+          title: due < today ? "Task overdue" : "Task due today",
+          body: task.title,
+          href: `/tasks#task-${task.id}`,
+          dedupeKey: `task_due:${task.id}:${today}`,
+        });
+        created += result.created;
+      }
+    }
+
+    if (user.notifyExamReminders) {
+      const exams = await db.exam.findMany({
+        where: { date: { in: [today, tomorrow] } },
+        orderBy: { date: "asc" },
+        select: { id: true, title: true, subject: true, kind: true, date: true },
+        take: 20,
+      });
+
+      for (const exam of exams) {
+        const label =
+          exam.kind === "assignment"
+            ? "Assignment"
+            : exam.kind === "quiz"
+              ? "Quiz"
+              : exam.kind === "deadline"
+                ? "Deadline"
+                : "Exam";
+        const when = exam.date === today ? "today" : "tomorrow";
+        const result = await notifyUsers({
+          audience: [user.id],
+          kind: "exam_due",
+          title: `${label} ${when}`,
+          body: `${exam.title} (${exam.subject})`,
+          href: "/exams",
+          dedupeKey: `exam_due:${exam.id}:${today}`,
+        });
+        created += result.created;
+        examReminders += result.created;
+      }
     }
   }
 
-  return { created, checkedMembers: users.length };
+  return { created, checkedMembers: users.length, examReminders };
 }

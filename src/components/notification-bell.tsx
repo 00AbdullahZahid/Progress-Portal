@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BellIcon,
+  CalendarIcon,
   ChatIcon,
   CheckIcon,
   ClockIcon,
   FolderIcon,
   TasksIcon,
 } from "./icons";
+import { showDeviceNotification, hasBrowserPushSubscription } from "@/lib/device-notifications";
 
 type NotificationItem = {
   id: string;
@@ -20,7 +22,9 @@ type NotificationItem = {
     | "task_mention"
     | "task_status"
     | "task_due"
-    | "project_new";
+    | "project_new"
+    | "chat_mention"
+    | "exam_due";
   title: string;
   body: string | null;
   href: string | null;
@@ -40,6 +44,8 @@ const KIND_META: Record<
   task_status: { icon: CheckIcon, className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
   task_due: { icon: ClockIcon, className: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" },
   project_new: { icon: FolderIcon, className: "bg-surface2 text-muted" },
+  chat_mention: { icon: ChatIcon, className: "bg-brand-soft text-brand" },
+  exam_due: { icon: CalendarIcon, className: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300" },
 };
 
 function timeAgo(iso: string): string {
@@ -67,6 +73,12 @@ export function NotificationBell({
   const [unread, setUnread] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // Null until the first successful poll so old unread items do not all pop a
+  // device notification the moment the app opens.
+  const seenIds = useRef<Set<string> | null>(null);
+  // A browser with Web Push already gets these from the service worker; adding
+  // a local notification would show each event twice.
+  const pushActive = useRef<boolean | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -76,9 +88,33 @@ export function NotificationBell({
         unread?: number;
         items?: NotificationItem[];
       };
-      setItems(Array.isArray(data.items) ? data.items : []);
+      const nextItems = Array.isArray(data.items) ? data.items : [];
+      setItems(nextItems);
       setUnread(typeof data.unread === "number" ? data.unread : 0);
       setLoaded(true);
+
+      const previous = seenIds.current;
+      seenIds.current = new Set(nextItems.map((item) => item.id));
+      if (!previous) return;
+
+      if (pushActive.current === null) {
+        pushActive.current = await hasBrowserPushSubscription();
+      }
+      if (pushActive.current) return;
+
+      // Notify on the phone/desktop for genuinely new unread items. Cap it so
+      // a burst (e.g. several mentions) does not spam the notification shade.
+      const fresh = nextItems
+        .filter((item) => !item.read && !previous.has(item.id))
+        .slice(0, 3);
+      for (const item of fresh) {
+        void showDeviceNotification({
+          title: item.title,
+          body: item.body,
+          href: item.href,
+          tag: `portal-${item.kind}-${item.id}`,
+        });
+      }
     } catch {
       // A notification refresh must never interrupt the page.
     }
@@ -107,6 +143,30 @@ export function NotificationBell({
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Home-screen/app badge (Android and installed PWAs) and a tab-title count.
+  useEffect(() => {
+    const badge = unread > 0 ? Math.min(unread, 99) : 0;
+    const nav = navigator as Navigator & {
+      setAppBadge?: (value?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+    try {
+      if (badge > 0) void nav.setAppBadge?.(badge);
+      else void nav.clearAppBadge?.();
+    } catch {
+      // Badging is optional; ignore unsupported browsers.
+    }
+
+    const applyTitle = () => {
+      const base = document.title.replace(/^\(\d+\+?\)\s*/, "");
+      document.title = badge > 0 ? `(${badge > 99 ? "99+" : badge}) ${base}` : base;
+    };
+    applyTitle();
+    // Next.js may update the title just after a route change.
+    const frame = requestAnimationFrame(applyTitle);
+    return () => cancelAnimationFrame(frame);
+  }, [unread, pathname]);
 
   useEffect(() => {
     if (!open) return;

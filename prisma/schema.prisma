@@ -53,6 +53,8 @@ enum NotificationKind {
   task_status
   task_due
   project_new
+  chat_mention
+  exam_due
 }
 
 model User {
@@ -82,6 +84,8 @@ model User {
   notifyTaskStatus   Boolean   @default(true)
   notifyTaskDue      Boolean   @default(true)
   notifyNewProjects  Boolean   @default(true)
+  notifyChatMentions Boolean   @default(true)
+  notifyExamReminders Boolean  @default(true)
   // Browser push is opt-in and requires an active push subscription.
   notifyPush         Boolean   @default(false)
   // Presence: the last time this user opened the app.

@@ -31,6 +31,16 @@ const EVENT_OPTIONS = [
     hint: "A daily nudge for tasks that need attention.",
   },
   {
+    key: "notifyExamReminders",
+    label: "Exams and deadlines",
+    hint: "Reminders for exams, quizzes, and assignments today or tomorrow.",
+  },
+  {
+    key: "notifyChatMentions",
+    label: "Chat @mentions",
+    hint: "When someone mentions you in group chat.",
+  },
+  {
     key: "notifyNewProjects",
     label: "New projects",
     hint: "When an admin creates a project.",
@@ -203,7 +213,8 @@ export function NotificationSettings({
           Notifications
         </h2>
         <p className="mb-4 text-sm text-muted">
-          Choose what lands in your bell. Changes save automatically.
+          Choose what lands in your bell and on your phone. Changes save
+          automatically.
         </p>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

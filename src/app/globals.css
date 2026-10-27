@@ -3,10 +3,11 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-bg: #fafaf9;
-  --color-surface: #ffffff;
-  --color-surface2: #f5f5f4;
-  --color-border: #e7e5e4;
+  /* Slightly warm, deeper neutrals keep the light theme from washing out. */
+  --color-bg: #f1efec;
+  --color-surface: #fbfaf8;
+  --color-surface2: #e9e6e2;
+  --color-border: #dcd7d1;
   --color-ink: #1c1917;
   /* 7:1 on the page background; the old stone-500 was too faint for labels. */
   --color-muted: #57534e;
