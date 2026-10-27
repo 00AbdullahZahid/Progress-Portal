@@ -93,7 +93,7 @@ npm run start
 | `npm run db:seed`  | Seed the admin / starter data         |
 | `npm run db:studio`| Open Prisma Studio                    |
 
-CI (`.github/workflows/ci.yml`) runs typecheck, lint, and `prisma validate` on every push and pull request.
+CI (`.github/workflows/ci.yml`) runs `prisma validate`, typecheck, lint, tests, and a full `next build` on every push and pull request.
 
 ## Environment
 
@@ -142,7 +142,20 @@ when no saved row still references it, so a member can't delete a teammate's
 file by pasting its URL. A daily cron (`/api/cleanup`) removes uploads that were
 never attached to a saved form and are more than 24 hours old, then re-checks a
 rotating batch of older claimed uploads for files orphaned by later edits or
-deletions.
+deletions. A tracking row is also removed when its blob is already missing, so
+failed or out-of-band deletions cannot leave permanent rows behind.
+
+**Production checklist.** Create the Blob store in the same Vercel project and
+set `BLOB_READ_WRITE_TOKEN` for **Production** (and Preview if you want uploads
+there), then redeploy. If the token is missing or belongs to a store that is not
+linked to the project, `/api/upload` returns a clear error instead of writing to
+the local filesystem — Vercel functions do not have persistent writable storage.
+Check the deployment logs for `[upload] put() failed` when diagnosing.
+
+Set `CRON_SECRET` in Vercel as well. Vercel Cron automatically sends it as
+`Authorization: Bearer <secret>`; without it the production jobs return 401 and
+no cleanup or due reminders run. The cron also skips blob cleanup when
+`BLOB_READ_WRITE_TOKEN` is unset, while the rest of the app keeps working.
 
 ### Notifications and browser push
 
@@ -209,7 +222,7 @@ This app uses **Postgres** so it can run both locally and on Vercel (SQLite does
 
 ### Deploying to Vercel
 
-1. In the Vercel project, add environment variables: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `APP_URL`, `ADMIN_HANDLES`, `BLOB_READ_WRITE_TOKEN`, and the three VAPID values if you want browser push (leave `SEED_ADMIN_PASSWORD` unset unless you want a known password). Optionally set `ADMIN_CONTACT` so the login page shows a real reset contact. Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` before the build; the other keys can be added at the same time.
+1. In the Vercel project, add environment variables: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `APP_URL`, `ADMIN_HANDLES`, `CRON_SECRET`, `BLOB_READ_WRITE_TOKEN` (if uploads are enabled), and the three VAPID values if you want browser push (leave `SEED_ADMIN_PASSWORD` unset unless you want a known password). Optionally set `ADMIN_CONTACT` so the login page shows a real reset contact. Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` before the build; the other keys can be added at the same time.
 2. Deploy. The `postinstall` script runs `prisma generate` automatically.
 3. Run the schema and seed against the production database (locally, with the prod URLs in `.env`):
    ```bash

@@ -13,17 +13,10 @@ import {
   verifyPassword,
   hashPassword,
   validatePassword,
+  DUMMY_PASSWORD_HASH,
 } from "../security";
 import { rateLimit, resetRateLimit, sweepRateLimits } from "../rate-limit";
 import { audit } from "../audit";
-
-/**
- * A real scrypt hash for a throwaway password. Unknown usernames run a dummy
- * verify against this so a missing account and a wrong password take about the
- * same time, which stops the login form from confirming which handles exist.
- */
-const DUMMY_PASSWORD_HASH =
-  "7c8a5d9be6fa507058875c724e116991:28381788feaa973fece48c7d9d6882c7899aa783f0379c18c6cb54961f8597df1f533ae0b0bfaba49779a308e6d0e11b3fe133acbfbbcbc28462a2619fe7876b";
 
 export async function signIn(formData: FormData) {
   "use server";
@@ -87,7 +80,12 @@ export async function changeOwnPassword(formData: FormData) {
   if (current.length > 200 || next.length > 200) {
     return { error: "Password is too long." };
   }
-  if (!(await verifyPassword(current, me.passwordHash))) {
+  // `requireUser` deliberately omits passwordHash; fetch it only for this check.
+  const currentRow = await db.user.findUnique({
+    where: { id: me.id },
+    select: { passwordHash: true },
+  });
+  if (!currentRow || !(await verifyPassword(current, currentRow.passwordHash))) {
     return { error: "Current password is incorrect." };
   }
   const invalid = validatePassword(next);

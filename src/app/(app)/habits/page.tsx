@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { lastNDays, todayStr } from "@/lib/dates";
 import { PageHeader } from "@/components/ui";
 import { HabitTracker } from "@/components/habit-tracker";
+import { publicUserSelect } from "@/lib/user";
 
 export default async function HabitsPage() {
   const me = await requireUser();
@@ -17,7 +18,7 @@ export default async function HabitsPage() {
     }),
     db.habitCheckIn.findMany({
       where: { date: today },
-      include: { habit: { include: { owner: true } } },
+      include: { habit: { include: { owner: { select: publicUserSelect } } } },
     }),
   ]);
 

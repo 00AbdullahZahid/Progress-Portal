@@ -11,6 +11,14 @@ export const MAX_PASSWORD_LENGTH = 200;
 export const MIN_PASSWORD_LENGTH = 8;
 
 /**
+ * A real scrypt hash for a throwaway password. Unknown usernames run a dummy
+ * verify against this so a missing account and a wrong password take about the
+ * same time, which stops the login form from confirming which handles exist.
+ */
+export const DUMMY_PASSWORD_HASH =
+  "7c8a5d9be6fa507058875c724e116991:28381788feaa973fece48c7d9d6882c7899aa783f0379c18c6cb54961f8597df1f533ae0b0bfaba49779a308e6d0e11b3fe133acbfbbcbc28462a2619fe7876b";
+
+/**
  * Hash a password with scrypt. Stored as `salt:hash` (both hex).
  * Async so it doesn't block the event loop under load.
  */

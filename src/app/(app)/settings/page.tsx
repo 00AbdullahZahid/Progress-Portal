@@ -1,4 +1,4 @@
-import { requireUser, createCalendarToken } from "@/lib/auth";
+import { requireUser, createCalendarTokenForUser } from "@/lib/auth";
 import { PageHeader, Card, Button } from "@/components/ui";
 import { ProfileForm } from "@/components/profile-form";
 import { ChangePasswordForm } from "@/components/change-password-form";
@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { supportedTimezones } from "@/lib/validation";
 import { LogoutIcon, ShieldIcon } from "@/components/icons";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 const COMMON_TIMEZONES = [
@@ -52,7 +53,8 @@ export default async function SettingsPage() {
       ).map((u) => ({ handle: u.handle, name: u.name, role: u.role, color: u.color }))
     : [];
 
-  const token = await createCalendarToken(me.id, me.tokenVersion);
+  const token = await createCalendarTokenForUser(me.id);
+  if (!token) redirect("/login?expired=1");
   const requestHeaders = await headers();
   const host = (requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000")
     .split(",")[0]

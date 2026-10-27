@@ -1,4 +1,4 @@
-import type { User } from "@prisma/client";
+import type { PublicUser } from "@/lib/user";
 
 const sizes: Record<string, string> = {
   sm: "h-7 w-7 text-[11px]",
@@ -10,7 +10,7 @@ export function Avatar({
   user,
   size = "md",
 }: {
-  user: Pick<User, "name" | "color"> & { image?: string | null };
+  user: Pick<PublicUser, "name" | "color"> & { image?: string | null };
   size?: keyof typeof sizes;
 }) {
   const initial = user.name.trim().charAt(0).toUpperCase() || "?";

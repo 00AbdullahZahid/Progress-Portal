@@ -60,6 +60,18 @@ export async function createCalendarToken(
     .sign(getSecret());
 }
 
+/**
+ * Issue a calendar token without exposing `tokenVersion` on the user object
+ * returned to pages and actions.
+ */
+export async function createCalendarTokenForUser(userId: string) {
+  const row = await db.user.findUnique({
+    where: { id: userId },
+    select: { tokenVersion: true },
+  });
+  return row ? createCalendarToken(userId, row.tokenVersion) : null;
+}
+
 export async function verifyCalendarToken(
   token: string
 ): Promise<{ userId: string; v: number } | null> {
@@ -77,6 +89,35 @@ export async function verifyCalendarToken(
 }
 
 type SessionPayload = { userId: string; v: number };
+
+/**
+ * Everything the signed-in user can need on the server, minus the two fields
+ * that must never leave this module. `tokenVersion` is selected only so the
+ * session can be validated, then stripped before the user is returned.
+ */
+const SESSION_USER_SELECT = {
+  id: true,
+  handle: true,
+  name: true,
+  role: true,
+  color: true,
+  image: true,
+  timezone: true,
+  isActive: true,
+  weeklyGoalMinutes: true,
+  streakFreezesFree: true,
+  notifyTasks: true,
+  notifyExams: true,
+  notifyTaskAssigned: true,
+  notifyTaskComments: true,
+  notifyTaskStatus: true,
+  notifyTaskDue: true,
+  notifyNewProjects: true,
+  notifyPush: true,
+  lastSeenAt: true,
+  chatReadAt: true,
+  tokenVersion: true,
+} as const;
 
 async function readSession(): Promise<SessionPayload | null> {
   const store = await cookies();
@@ -104,9 +145,16 @@ async function readSession(): Promise<SessionPayload | null> {
 export const getCurrentUser = cache(async () => {
   const session = await readSession();
   if (!session) return null;
-  const user = await db.user.findUnique({ where: { id: session.userId } });
-  if (!user || !user.isActive) return null;
-  if (user.tokenVersion !== session.v) return null;
+  const row = await db.user.findUnique({
+    where: { id: session.userId },
+    select: SESSION_USER_SELECT,
+  });
+  if (!row || !row.isActive) return null;
+  if (row.tokenVersion !== session.v) return null;
+  // The session check is the only reason tokenVersion was selected. Return the
+  // rest so a page or action can never forward it (or passwordHash) by accident.
+  const { tokenVersion, ...user } = row;
+  void tokenVersion;
   return user;
 });
 

@@ -6,6 +6,7 @@ import { StudyForm } from "@/components/study-form";
 import { SessionList } from "@/components/session-list";
 import { StudyNotesPanel } from "@/components/study-notes-panel";
 import { FocusTimer } from "@/components/focus-timer";
+import { publicUserSelect } from "@/lib/user";
 import { TargetIcon, ClockIcon, StudyIcon } from "@/components/icons";
 
 export default async function StudyPage({
@@ -26,7 +27,7 @@ export default async function StudyPage({
       OR: [{ userId: me.id }, { shared: true }],
     },
     include: {
-      user: true,
+      user: { select: publicUserSelect },
       task: { select: { id: true, title: true } },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],

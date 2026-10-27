@@ -5,13 +5,16 @@ import { Nav } from "./nav";
 import { TopBar } from "./top-bar";
 import { Tutorial } from "./tutorial";
 import { CHAT_READ_EVENT } from "@/lib/events";
-import type { User } from "@prisma/client";
+import type { PublicUser } from "@/lib/user";
 
 const STORAGE_KEY = "sidebar-collapsed";
 export const SIDEBAR_EVENT = "sidebar-toggle";
 
 /** The only user fields the client shell needs. Keep password/token server-side. */
-export type ShellUser = Pick<User, "id" | "name" | "role" | "color" | "image">;
+export type ShellUser = Pick<
+  PublicUser,
+  "id" | "name" | "role" | "color" | "image"
+>;
 
 export type ShellCounts = {
   chatUnread: number;

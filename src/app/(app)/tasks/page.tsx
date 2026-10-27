@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { TaskBoard } from "@/components/task-board";
+import { publicUserSelect } from "@/lib/user";
 
 export default async function TasksPage() {
   const me = await requireUser();
@@ -12,7 +13,10 @@ export default async function TasksPage() {
         goals: { orderBy: { createdAt: "asc" } },
       },
     }),
-    db.user.findMany({ orderBy: { name: "asc" } }),
+    db.user.findMany({
+      orderBy: { name: "asc" },
+      select: publicUserSelect,
+    }),
     db.task.findMany({
       orderBy: [{ status: "asc" }, { createdAt: "asc" }],
       include: {
@@ -22,7 +26,10 @@ export default async function TasksPage() {
           },
         },
         goal: true,
-        comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
+        comments: {
+          include: { author: { select: publicUserSelect } },
+          orderBy: { createdAt: "asc" },
+        },
         studySessions: { select: { minutes: true } },
       },
     }),

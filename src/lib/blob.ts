@@ -1,5 +1,47 @@
-import { del } from "@vercel/blob";
+import { BlobNotFoundError, del } from "@vercel/blob";
 import { isBlobUrl } from "./validation";
+
+/** True when a blob is already gone, so its tracking row can be removed too. */
+function isMissingBlob(err: unknown): boolean {
+  return (
+    err instanceof BlobNotFoundError ||
+    (err instanceof Error && err.name === "BlobNotFoundError")
+  );
+}
+
+/**
+ * Delete blob files and report which URLs no longer exist. A URL that was
+ * already missing counts as gone: leaving its `Upload` row behind would make
+ * the cleanup job retry it forever and leak a row per deleted file.
+ *
+ * A batch delete is tried first; if it fails, each URL is retried alone so one
+ * bad file can't block the rest. Failures other than "not found" are left for
+ * the next cleanup run.
+ */
+export async function removeBlobFiles(
+  urls: (string | null | undefined)[]
+): Promise<string[]> {
+  const targets = [
+    ...new Set(urls.filter((u): u is string => typeof u === "string" && isBlobUrl(u))),
+  ];
+  if (targets.length === 0) return [];
+
+  try {
+    await del(targets);
+    return targets;
+  } catch {
+    const gone: string[] = [];
+    for (const url of targets) {
+      try {
+        await del(url);
+        gone.push(url);
+      } catch (err) {
+        if (isMissingBlob(err)) gone.push(url);
+      }
+    }
+    return gone;
+  }
+}
 
 /**
  * Best-effort deletion of blobs we no longer reference.
@@ -15,15 +57,17 @@ import { isBlobUrl } from "./validation";
 export async function deleteBlobs(urls: (string | null | undefined)[]) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return;
 
-  const targets = [
-    ...new Set(urls.filter((u): u is string => typeof u === "string" && isBlobUrl(u))),
-  ];
-  if (targets.length === 0) return;
+  const gone = await removeBlobFiles(urls);
+  if (gone.length === 0) return;
 
+  // Remove the ownership rows in the same best-effort pass. Otherwise every
+  // direct delete leaves a row whose blob is already gone; the cleanup job
+  // later treats the missing file as a permanent failure and keeps the row.
   try {
-    await del(targets);
+    const { db } = await import("./db");
+    await db.upload.deleteMany({ where: { url: { in: gone } } });
   } catch {
-    // Ignore — orphaned blobs are preferable to a failed user action.
+    // Ignore — the cleanup job will remove the row once it sees the file gone.
   }
 }
 
@@ -41,6 +85,10 @@ type Db = {
       where: { ownerId: string; url: { in: string[] } };
       data: { claimedAt: Date };
     }) => Promise<{ count: number }>;
+    findFirst: (args: {
+      where: { url: string; ownerId: string };
+      select: { id: true };
+    }) => Promise<{ id: string } | null>;
   };
   studySession: {
     findMany: (args: {
@@ -178,11 +226,12 @@ export async function claimUploads(
  */
 export async function ownsUpload(
   ownerId: string,
-  url: string | null | undefined
+  url: string | null | undefined,
+  client?: Db
 ): Promise<boolean> {
   if (!url || !isBlobUrl(url)) return false;
-  const { db } = await import("./db");
-  const row = await db.upload.findFirst({
+  const target = client ?? (await import("./db")).db;
+  const row = await target.upload.findFirst({
     where: { url, ownerId },
     select: { id: true },
   });
@@ -198,11 +247,12 @@ export async function ownsUpload(
  */
 export async function attachmentError(
   ownerId: string,
-  pairs: [next: string | null | undefined, current: string | null | undefined][]
+  pairs: [next: string | null | undefined, current: string | null | undefined][],
+  client?: Db
 ): Promise<string | null> {
   for (const [next, current] of pairs) {
     if (!next || next === current) continue;
-    if (!(await ownsUpload(ownerId, next))) {
+    if (!(await ownsUpload(ownerId, next, client))) {
       return "Attach files with the upload button, not a link copied from somewhere else.";
     }
   }

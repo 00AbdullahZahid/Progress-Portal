@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { ChatWindow } from "@/components/chat-window";
 import { ChatReadMarker } from "@/components/chat-read-marker";
+import { publicUserSelect } from "@/lib/user";
 
 export default async function ChatPage({
   searchParams,
@@ -31,14 +32,17 @@ export default async function ChatPage({
       ? (async () => {
           const recent = await db.message.findMany({
             where: { channelId: active.id },
-            include: { author: true },
+            include: { author: { select: publicUserSelect } },
             orderBy: { createdAt: "desc" },
             take: 200,
           });
           return recent.reverse();
         })()
       : Promise.resolve([]),
-    db.user.findMany({ orderBy: { name: "asc" } }),
+    db.user.findMany({
+      orderBy: { name: "asc" },
+      select: publicUserSelect,
+    }),
   ]);
 
   return (

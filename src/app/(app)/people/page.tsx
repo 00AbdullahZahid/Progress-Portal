@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { lastNDays, todayStr, currentStreak, dateInTz } from "@/lib/dates";
 import { PageHeader, Card } from "@/components/ui";
 import { Avatar } from "@/components/avatar";
+import { publicUserSelect } from "@/lib/user";
 import { FlameIcon, CheckIcon, StudyIcon, ShieldIcon } from "@/components/icons";
 
 export default async function PeoplePage() {
@@ -11,7 +12,10 @@ export default async function PeoplePage() {
   const today = todayStr(me.timezone);
 
   const [users, doneTasks, studyRows, habits] = await Promise.all([
-    db.user.findMany({ orderBy: [{ role: "desc" }, { name: "asc" }] }),
+    db.user.findMany({
+      orderBy: [{ role: "desc" }, { name: "asc" }],
+      select: publicUserSelect,
+    }),
     db.task.findMany({
       where: { status: "done", completedAt: { not: null } },
       select: {

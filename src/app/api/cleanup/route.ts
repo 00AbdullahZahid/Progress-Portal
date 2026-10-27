@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { del } from "@vercel/blob";
 import { db } from "@/lib/db";
-import { referencedUrls } from "@/lib/blob";
+import { referencedUrls, removeBlobFiles } from "@/lib/blob";
 import { cronAuthorized } from "@/lib/cron";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -13,25 +12,13 @@ type UploadRow = { id: string; url: string };
 
 /**
  * Delete the given blobs, falling back to one-by-one when a batch fails.
- * Returns the ids whose file is gone so the tracking rows can be removed.
+ * Returns the ids whose file is gone (deleted or already missing) so the
+ * tracking rows can be removed.
  */
 async function removeBlobs(rows: UploadRow[]): Promise<string[]> {
   if (rows.length === 0) return [];
-  try {
-    await del(rows.map((u) => u.url));
-    return rows.map((u) => u.id);
-  } catch {
-    const deleted: string[] = [];
-    for (const u of rows) {
-      try {
-        await del(u.url);
-        deleted.push(u.id);
-      } catch {
-        // Leave this row alone; the next run will try again.
-      }
-    }
-    return deleted;
-  }
+  const gone = new Set(await removeBlobFiles(rows.map((u) => u.url)));
+  return rows.filter((u) => gone.has(u.url)).map((u) => u.id);
 }
 
 /**

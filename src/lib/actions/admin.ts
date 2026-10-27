@@ -274,9 +274,6 @@ export async function adminDeleteUser(formData: FormData): Promise<ActionResult>
   });
   if (safe.length > 0) {
     await deleteBlobs(safe);
-    await db.upload.deleteMany({
-      where: { ownerId: me.id, url: { in: safe } },
-    });
   }
 
   await audit(me.id, "user.delete", {

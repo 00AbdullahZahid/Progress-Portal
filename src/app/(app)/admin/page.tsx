@@ -6,6 +6,7 @@ import { PageHeader, Card } from "@/components/ui";
 import { StatCard } from "@/components/stat-card";
 import { AdminUserManager } from "@/components/admin-user-manager";
 import { Avatar } from "@/components/avatar";
+import { managedUserSelect, publicUserSelect } from "@/lib/user";
 import {
   PeopleIcon,
   TasksIcon,
@@ -22,7 +23,10 @@ export default async function AdminDashboardPage() {
 
   const [users, tasks, studyRows, checkinRows, recentMessages, recentStudy] =
     await Promise.all([
-      db.user.findMany({ orderBy: [{ role: "desc" }, { name: "asc" }] }),
+      db.user.findMany({
+        orderBy: [{ role: "desc" }, { name: "asc" }],
+        select: managedUserSelect,
+      }),
       db.task.findMany({ select: { status: true } }),
       db.studySession.findMany({
         where: {
@@ -35,7 +39,10 @@ export default async function AdminDashboardPage() {
       db.message.findMany({
         orderBy: { createdAt: "desc" },
         take: 6,
-        include: { author: true, channel: true },
+        include: {
+          author: { select: publicUserSelect },
+          channel: true,
+        },
       }),
       db.studySession.findMany({
         where: { OR: [{ shared: true }, { userId: me.id }] },

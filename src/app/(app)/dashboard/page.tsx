@@ -11,6 +11,7 @@ import { QuickActions } from "@/components/quick-actions";
 import { DashboardWidgets } from "@/components/dashboard-widgets";
 import { UpNext, type UpNextClass, type UpNextTask } from "@/components/up-next";
 import { PresenceHeartbeat } from "@/components/presence-heartbeat";
+import { presenceUserSelect, publicUserSelect } from "@/lib/user";
 import { TasksIcon, CheckIcon, StudyIcon, FlameIcon, TrophyIcon, ChatIcon } from "@/components/icons";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -120,7 +121,10 @@ export default async function DashboardPage() {
     openTasks,
     timetableEntries,
   ] = await Promise.all([
-    db.user.findMany({ orderBy: { name: "asc" } }),
+    db.user.findMany({
+      orderBy: { name: "asc" },
+      select: presenceUserSelect,
+    }),
     db.task.findMany({
       where: { status: "done", completedAt: { not: null } },
       select: {
@@ -145,7 +149,10 @@ export default async function DashboardPage() {
     db.message.findMany({
       take: 6,
       orderBy: { createdAt: "desc" },
-      include: { author: true, channel: true },
+      include: {
+        author: { select: publicUserSelect },
+        channel: true,
+      },
     }),
     // Full check-in history for streaks — no artificial cap.
     db.habitCheckIn.findMany({
