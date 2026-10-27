@@ -100,20 +100,29 @@ export function NotificationBell({
       if (pushActive.current === null) {
         pushActive.current = await hasBrowserPushSubscription();
       }
-      if (pushActive.current) return;
 
       // Notify on the phone/desktop for genuinely new unread items. Cap it so
       // a burst (e.g. several mentions) does not spam the notification shade.
+      // Chat mentions are important - always show them even if Web Push is active
+      // to ensure they reach the APK/device notifications.
       const fresh = nextItems
         .filter((item) => !item.read && !previous.has(item.id))
-        .slice(0, 3);
+        .sort((a, b) => {
+          if (a.kind === "chat_mention" && b.kind !== "chat_mention") return -1;
+          if (b.kind === "chat_mention" && a.kind !== "chat_mention") return 1;
+          return 0;
+        })
+        .slice(0, 5);
       for (const item of fresh) {
-        void showDeviceNotification({
-          title: item.title,
-          body: item.body,
-          href: item.href,
-          tag: `portal-${item.kind}-${item.id}`,
-        });
+        if (item.kind === "chat_mention" || !pushActive.current) {
+          void showDeviceNotification({
+            title: item.title,
+            body: item.body,
+            href: item.href,
+            tag: `portal-${item.kind}-${item.id}`,
+            important: item.kind === "chat_mention",
+          });
+        }
       }
     } catch {
       // A notification refresh must never interrupt the page.

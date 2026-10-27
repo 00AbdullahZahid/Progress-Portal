@@ -13,6 +13,7 @@ export type DeviceNotificationPayload = {
   body?: string | null;
   href?: string | null;
   tag?: string;
+  important?: boolean;
 };
 
 type WebToApkBridge = {
@@ -265,6 +266,7 @@ export async function showDeviceNotification(
   const native = bridge();
   const body = payload.body?.trim() ?? "";
   const tag = payload.tag ?? "portal";
+  const isImportant = payload.important || tag.includes("chat_mention");
   // Match the active app theme; Android notifications look wrong with a light
   // mark on a dark shade and vice versa.
   const dark = document.documentElement.classList.contains("dark");
@@ -276,9 +278,16 @@ export async function showDeviceNotification(
         JSON.stringify({
           title: payload.title,
           body,
-          channel: "default",
+          channel: isImportant ? "chat_mentions" : "default",
+          channelId: isImportant ? "chat_mentions" : "default",
           tag,
           largeIcon: icon,
+          priority: isImportant ? "high" : "default",
+          importance: isImportant ? "max" : "default",
+          sound: "default",
+          vibrate: isImportant ? [200, 100, 200] : undefined,
+          autoCancel: true,
+          onclick: payload.href ?? undefined,
         })
       );
       if (result !== false) return true;
