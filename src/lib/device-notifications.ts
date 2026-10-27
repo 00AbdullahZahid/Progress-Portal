@@ -251,7 +251,6 @@ export async function hasBrowserPushSubscription(): Promise<boolean> {
   }
 }
 
-/** Post a device notification. Returns false when nothing could be shown. */
 export async function showDeviceNotification(
   payload: DeviceNotificationPayload
 ): Promise<boolean> {
@@ -272,41 +271,42 @@ export async function showDeviceNotification(
   const dark = document.documentElement.classList.contains("dark");
   const icon = `${window.location.origin}${dark ? "/icon-dark-192.png" : "/icon-light-192.png"}`;
 
+  // Try WebToApk/AppMint bridge FIRST - this is what the APK uses
   if (native?.notify) {
     try {
       const result = native.notify(
         JSON.stringify({
           title: payload.title,
           body,
-          channel: isImportant ? "chat_mentions" : "default",
-          channelId: isImportant ? "chat_mentions" : "default",
+          channel: isImportant ? "chat_mentions" : "messages",
+          channelId: isImportant ? "chat_mentions" : "messages",
           tag,
           largeIcon: icon,
+          smallIcon: icon,
           priority: isImportant ? "high" : "default",
-          importance: isImportant ? "max" : "default",
+          importance: isImportant ? "max" : "high",
           sound: "default",
-          vibrate: isImportant ? [200, 100, 200] : undefined,
+          vibrate: isImportant ? [300, 200, 300] : [200, 100, 200],
           autoCancel: true,
-          onclick: payload.href ?? undefined,
+          ongoing: false,
         })
       );
       if (result !== false) return true;
     } catch {
-      // Fall through to the standard API.
+      // Fall through to next method
     }
   }
 
   if (native?.showNotification) {
     try {
-      // Let Android use the app's own icon; an absolute web URL is not a
-      // drawable and can make the bridge reject the call.
-      native.showNotification(payload.title, body, "", tag);
+      native.showNotification(payload.title, body, icon, tag);
       return true;
     } catch {
-      // Fall through to the standard API.
+      // Fall through to standard API
     }
   }
 
+  // For browser/PWA, check permission
   if (typeof Notification === "undefined") return false;
   if (Notification.permission !== "granted") return false;
 
@@ -319,7 +319,8 @@ export async function showDeviceNotification(
         badge: icon,
         tag,
         data: { href: payload.href ?? "/dashboard" },
-      });
+        requireInteraction: isImportant,
+      } as NotificationOptions & { vibrate?: number[]; requireInteraction?: boolean });
       return true;
     }
   } catch {
@@ -332,6 +333,7 @@ export async function showDeviceNotification(
       icon,
       tag,
       data: { href: payload.href ?? "/dashboard" },
+      requireInteraction: isImportant,
     });
     notification.onclick = () => {
       window.focus();
