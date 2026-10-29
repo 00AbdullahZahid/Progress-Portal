@@ -7,6 +7,7 @@ import { cleanText } from "../validation";
 import { audit } from "../audit";
 import { notifyUsers } from "../notifications";
 import { mentionedHandles } from "../mentions";
+import { canDeleteTask, canEditTask } from "../task-permissions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -25,29 +26,6 @@ function parseDate(value: unknown): Date | null | "invalid" {
   if (!raw) return null;
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? "invalid" : d;
-}
-
-/** Admins and the creator may edit every field. Legacy tasks have no creator. */
-export function canEditTask(
-  user: { id: string; role: string },
-  task: { createdById: string | null }
-): boolean {
-  return (
-    user.role === "admin" ||
-    task.createdById === user.id ||
-    task.createdById === null
-  );
-}
-
-/**
- * Deleting is stricter than editing: legacy tasks without a creator stay
- * admin-only so an old shared task cannot be removed by accident.
- */
-export function canDeleteTask(
-  user: { id: string; role: string },
-  task: { createdById: string | null }
-): boolean {
-  return user.role === "admin" || task.createdById === user.id;
 }
 
 export async function createProject(formData: FormData): Promise<ActionResult> {
@@ -72,6 +50,36 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
     body: project.name,
     href: "/tasks",
     excludeUserId: me.id,
+  });
+
+  refresh();
+  revalidatePath("/chat");
+  return { ok: true };
+}
+
+export async function updateProject(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireAdmin();
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) return { ok: false, error: "Project not found." };
+  const nameRes = cleanText(formData.get("name"), 120);
+  if (!nameRes.ok) return nameRes;
+
+  const project = await db.project.findUnique({ where: { id: projectId } });
+  if (!project) return { ok: false, error: "Project not found." };
+
+  await db.project.update({
+    where: { id: projectId },
+    data: { name: nameRes.value },
+  });
+  // The project's chat channel mirrors the project name.
+  await db.channel.updateMany({
+    where: { projectId },
+    data: { name: nameRes.value },
+  });
+  await audit(me.id, "project.update", {
+    targetId: projectId,
+    detail: nameRes.value,
   });
 
   refresh();
@@ -332,6 +340,31 @@ export async function deleteTask(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "Only the creator or an admin can delete this task." };
   await db.task.delete({ where: { id: taskId } });
   await audit(me.id, "task.delete", { targetId: taskId, detail: task.title });
+  refresh();
+  return { ok: true };
+}
+
+export async function updateGoal(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireAdmin();
+  const goalId = String(formData.get("goalId") ?? "");
+  if (!goalId) return { ok: false, error: "Goal not found." };
+  const titleRes = cleanText(formData.get("title"), 160);
+  if (!titleRes.ok) return titleRes;
+
+  const target = parseDate(formData.get("targetDate"));
+  if (target === "invalid")
+    return { ok: false, error: "Please pick a valid target date." };
+
+  const goal = await db.goal.findUnique({ where: { id: goalId } });
+  if (!goal) return { ok: false, error: "Goal not found." };
+
+  await db.goal.update({
+    where: { id: goalId },
+    data: { title: titleRes.value, targetDate: target },
+  });
+  await audit(me.id, "goal.update", { targetId: goalId, detail: titleRes.value });
+
   refresh();
   return { ok: true };
 }

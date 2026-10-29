@@ -78,6 +78,37 @@ export async function acceptAnswer(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function updateQuestion(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const id = String(formData.get("questionId") ?? "").trim();
+  if (!id) return { ok: false, error: "Question not found." };
+  const question = await db.question.findUnique({
+    where: { id },
+    select: { authorId: true },
+  });
+  if (!question) return { ok: false, error: "Question not found." };
+  if (question.authorId !== me.id && me.role !== "admin")
+    return { ok: false, error: "Only the asker or an admin can edit this." };
+
+  const subjectRes = cleanText(formData.get("subject"), 60);
+  if (!subjectRes.ok) return subjectRes;
+  const titleRes = cleanText(formData.get("title"), 160);
+  if (!titleRes.ok) return titleRes;
+  const bodyRes = cleanText(formData.get("body"), 5000);
+  if (!bodyRes.ok) return bodyRes;
+
+  await db.question.update({
+    where: { id },
+    data: {
+      subject: subjectRes.value,
+      title: titleRes.value,
+      body: bodyRes.value,
+    },
+  });
+  refresh();
+  return { ok: true };
+}
+
 export async function deleteQuestion(formData: FormData): Promise<ActionResult> {
   const me = await requireUser();
   const id = String(formData.get("questionId") ?? "");

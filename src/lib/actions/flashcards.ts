@@ -43,6 +43,33 @@ export async function createFlashcard(formData: FormData): Promise<ActionResult>
   return { ok: true };
 }
 
+export async function updateFlashcard(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const id = String(formData.get("cardId") ?? "").trim();
+  if (!id) return { ok: false, error: "Card not found." };
+  const card = await db.flashcard.findUnique({
+    where: { id },
+    select: { createdById: true },
+  });
+  if (!card) return { ok: false, error: "Card not found." };
+  if (card.createdById !== me.id && me.role !== "admin")
+    return { ok: false, error: "Only the creator or an admin can edit this card." };
+
+  const deckRes = cleanText(formData.get("deck"), 60);
+  if (!deckRes.ok) return deckRes;
+  const frontRes = cleanText(formData.get("front"), 500);
+  if (!frontRes.ok) return frontRes;
+  const backRes = cleanText(formData.get("back"), 1000);
+  if (!backRes.ok) return backRes;
+
+  await db.flashcard.update({
+    where: { id },
+    data: { deck: deckRes.value, front: frontRes.value, back: backRes.value },
+  });
+  refresh();
+  return { ok: true };
+}
+
 export async function deleteFlashcard(formData: FormData): Promise<ActionResult> {
   const me = await requireUser();
   const id = String(formData.get("cardId") ?? "");

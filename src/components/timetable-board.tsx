@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createTimetableEntry, deleteTimetableEntry } from "@/lib/actions/timetable";
+import { createTimetableEntry, deleteTimetableEntry, updateTimetableEntry } from "@/lib/actions/timetable";
 import { Button, Card, Input, Select } from "./ui";
+import { Dialog } from "./dialog";
 import { useToast } from "./toast";
-import { PlusIcon, XIcon, CalendarIcon } from "./icons";
+import { PlusIcon, XIcon, CalendarIcon, EditIcon } from "./icons";
 
 export type EntryRow = {
   id: string;
@@ -91,6 +92,7 @@ export function TimetableBoard({
   const router = useRouter();
   const { toast } = useToast();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<EntryRow | null>(null);
   const [busy, setBusy] = useState(false);
   // Mobile shows a day-by-day agenda instead of squeezing a 7-column grid into
   // a phone. Default to the first day that actually has classes.
@@ -106,6 +108,26 @@ export function TimetableBoard({
       }
       toast("Added to timetable", "success");
       setCreating(false);
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitEdit(fd: FormData) {
+    if (!editing) return;
+    fd.set("entryId", editing.id);
+    setBusy(true);
+    try {
+      const res = await updateTimetableEntry(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast("Timetable entry updated", "success");
+      setEditing(null);
       router.refresh();
     } catch {
       toast("Something went wrong. Please try again.", "error");
@@ -302,15 +324,26 @@ export function TimetableBoard({
                     </p>
                   </div>
                   {isAdmin || (entry.scope === "personal" && entry.ownerId === meId) ? (
-                    <button
-                      type="button"
-                      onClick={() => remove(entry.id)}
-                      title="Remove class"
-                      aria-label={`Remove ${entry.title}`}
-                      className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
-                    >
-                      <XIcon width={14} height={14} />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(entry)}
+                        title="Edit class"
+                        aria-label={`Edit ${entry.title}`}
+                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+                      >
+                        <EditIcon width={14} height={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(entry.id)}
+                        title="Remove class"
+                        aria-label={`Remove ${entry.title}`}
+                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
+                      >
+                        <XIcon width={14} height={14} />
+                      </button>
+                    </div>
                   ) : null}
                 </li>
               ))}
@@ -404,15 +437,26 @@ export function TimetableBoard({
                               {entry.title}
                             </p>
                             {isAdmin || (entry.scope === "personal" && entry.ownerId === meId) ? (
-                              <button
-                                type="button"
-                                onClick={() => remove(entry.id)}
-                                title="Remove class"
-                                aria-label={`Remove ${entry.title}`}
-                                className="shrink-0 p-1 text-muted transition-opacity hover:text-rose-600 focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                              >
-                                <XIcon width={12} height={12} />
-                              </button>
+                              <div className="flex shrink-0 items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditing(entry)}
+                                  title="Edit class"
+                                  aria-label={`Edit ${entry.title}`}
+                                  className="p-1 text-muted transition-opacity hover:text-ink focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                                >
+                                  <EditIcon width={12} height={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => remove(entry.id)}
+                                  title="Remove class"
+                                  aria-label={`Remove ${entry.title}`}
+                                  className="p-1 text-muted transition-opacity hover:text-rose-600 focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                                >
+                                  <XIcon width={12} height={12} />
+                                </button>
+                              </div>
                             ) : null}
                           </div>
                           {details ? (
@@ -431,6 +475,91 @@ export function TimetableBoard({
           </div>
         </div>
       </Card>
+
+      <Dialog
+        open={editing !== null}
+        title="Edit class"
+        description={
+          editing?.scope === "personal"
+            ? "This personal class is only visible to you."
+            : "This class is part of the shared group timetable."
+        }
+        onClose={() => setEditing(null)}
+      >
+        <form id="timetable-edit-form" action={submitEdit} className="flex flex-col gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Title</span>
+            <Input
+              name="title"
+              maxLength={100}
+              defaultValue={editing?.title ?? ""}
+              required
+              data-autofocus
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Day</span>
+              <Select name="weekday" defaultValue={String(editing?.weekday ?? 1)}>
+                {DAYS.map((d, i) => (
+                  <option key={d} value={i}>
+                    {d}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Location</span>
+              <Input
+                name="location"
+                maxLength={80}
+                defaultValue={editing?.location ?? ""}
+                placeholder="Room / link"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Start</span>
+              <Input
+                type="time"
+                name="start"
+                required
+                defaultValue={editing ? fmt(editing.startMin) : "09:00"}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">End</span>
+              <Input
+                type="time"
+                name="end"
+                required
+                defaultValue={editing ? fmt(editing.endMin) : "10:00"}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Color</span>
+              <Input
+                type="color"
+                name="color"
+                defaultValue={editing?.color ?? "#2563eb"}
+                className="h-10 w-full p-1"
+              />
+            </label>
+          </div>
+          <div className="mt-1 flex gap-2">
+            <Button type="submit" disabled={busy} className="flex-1">
+              {busy ? "Saving…" : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setEditing(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

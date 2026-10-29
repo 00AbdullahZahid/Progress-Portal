@@ -8,16 +8,19 @@ import {
   toggleResourceFavorite,
   toggleResourceRead,
   toggleResourceUseful,
+  updateResource,
 } from "@/lib/actions/resources";
 import { FileUpload, type Attached } from "./file-upload";
 import { Avatar } from "./avatar";
 import { Button, Card, EmptyState, Input, PageHeader, Select, Textarea } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Dialog } from "./dialog";
 import { useBodyLock, useToast } from "./toast";
 import {
   BookIcon,
   CheckIcon,
   ChevronDownIcon,
+  EditIcon,
   ExternalLinkIcon,
   FileIcon,
   FolderIcon,
@@ -273,12 +276,14 @@ export function ResourcesBoard({
 
   const [pendingDelete, setPendingDelete] = useState<ResourceRow | null>(null);
   const [menuResource, setMenuResource] = useState<ResourceRow | null>(null);
+  const [editing, setEditing] = useState<ResourceRow | null>(null);
+  const [editKind, setEditKind] = useState<ResourceKind>("paper");
   const [actionKey, setActionKey] = useState<string | null>(null);
 
   const previewTried = useRef("");
   const kindTouched = useRef(false);
 
-  useBodyLock(adding || menuResource !== null);
+  useBodyLock(adding || menuResource !== null || editing !== null);
 
   useEffect(() => {
     try {
@@ -548,6 +553,32 @@ export function ResourcesBoard({
       );
       setAdding(false);
       resetForm();
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openEdit(resource: ResourceRow) {
+    setMenuResource(null);
+    setEditKind(resource.kind);
+    setEditing(resource);
+  }
+
+  async function submitEdit(fd: FormData) {
+    if (!editing) return;
+    fd.set("resourceId", editing.id);
+    setBusy(true);
+    try {
+      const result = await updateResource(fd);
+      if (!result.ok) {
+        toast(result.error, "error");
+        return;
+      }
+      toast("Resource updated", "success");
+      setEditing(null);
       router.refresh();
     } catch {
       toast("Something went wrong. Please try again.", "error");
@@ -1060,18 +1091,28 @@ export function ResourcesBoard({
                 </button>
               ) : null}
               {isAdmin || menuResource.addedById === meId ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const resource = menuResource;
-                    setMenuResource(null);
-                    setPendingDelete(resource);
-                  }}
-                  className="flex min-h-11 items-center gap-2.5 rounded-xl px-3 text-left text-sm text-rose-600 hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none dark:text-rose-300 dark:hover:bg-rose-950/60"
-                >
-                  <XIcon width={17} height={17} />
-                  Remove resource
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(menuResource)}
+                    className="flex min-h-11 items-center gap-2.5 rounded-xl px-3 text-left text-sm hover:bg-surface2 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
+                  >
+                    <EditIcon width={17} height={17} className="text-muted" />
+                    Edit details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const resource = menuResource;
+                      setMenuResource(null);
+                      setPendingDelete(resource);
+                    }}
+                    className="flex min-h-11 items-center gap-2.5 rounded-xl px-3 text-left text-sm text-rose-600 hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none dark:text-rose-300 dark:hover:bg-rose-950/60"
+                  >
+                    <XIcon width={17} height={17} />
+                    Remove resource
+                  </button>
+                </>
               ) : null}
             </div>
           </div>
@@ -1313,6 +1354,119 @@ export function ResourcesBoard({
           </div>
         </div>
       ) : null}
+
+      <Dialog
+        open={editing !== null}
+        title="Edit resource"
+        description="Update the details other members see. The link or uploaded file stays the same."
+        onClose={() => setEditing(null)}
+        size="lg"
+      >
+        <form id="resource-edit-form" action={submitEdit} className="flex flex-col gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Title</span>
+            <Input
+              name="title"
+              maxLength={160}
+              defaultValue={editing?.title ?? ""}
+              required
+              data-autofocus
+            />
+          </label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
+              <Input
+                name="subject"
+                maxLength={60}
+                defaultValue={editing?.subject ?? ""}
+                required
+                list="resource-subjects-edit"
+              />
+              <datalist id="resource-subjects-edit">
+                {subjects.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Type</span>
+              <Select
+                name="kind"
+                value={editKind}
+                onChange={(event) => setEditKind(event.target.value as ResourceKind)}
+              >
+                {KIND_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          </div>
+          {editKind === "paper" ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <Input
+                type="number"
+                name="year"
+                inputMode="numeric"
+                min={1900}
+                max={2100}
+                defaultValue={editing?.year ?? ""}
+                placeholder="Year"
+                aria-label="Past paper year"
+              />
+              <Select
+                name="semester"
+                defaultValue={editing?.semester ?? ""}
+                aria-label="Semester"
+              >
+                <option value="">Semester</option>
+                {["Spring", "Summer", "Fall", "Winter", "Annual", "Other"].map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                name="examType"
+                defaultValue={editing?.examType ?? ""}
+                aria-label="Exam type"
+              >
+                <option value="">Exam type</option>
+                {["Midterm", "Final", "Quiz", "Assignment", "Annual", "Other"].map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Note</span>
+            <Textarea
+              name="note"
+              rows={3}
+              maxLength={500}
+              defaultValue={editing?.note ?? ""}
+              placeholder="Anything useful for the group?"
+            />
+          </label>
+          <div className="mt-1 flex gap-2">
+            <Button type="submit" disabled={busy} className="flex-1">
+              {busy ? "Saving…" : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setEditing(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

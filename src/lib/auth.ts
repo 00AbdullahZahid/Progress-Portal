@@ -106,6 +106,7 @@ const SESSION_USER_SELECT = {
   isActive: true,
   weeklyGoalMinutes: true,
   streakFreezesFree: true,
+  gpaScale: true,
   notifyTasks: true,
   notifyExams: true,
   notifyTaskAssigned: true,

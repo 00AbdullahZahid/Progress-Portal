@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { GradesBoard } from "@/components/grades-board";
+import { DEFAULT_GPA_SCALE, normalizeGpaScale } from "@/lib/grades";
 
 export const metadata = { title: "Grades" };
 
@@ -22,6 +23,7 @@ export default async function GradesPage() {
         subtitle="Track course weights and predict your GPA. This page is private to you."
       />
       <GradesBoard
+        gpaScale={normalizeGpaScale(me.gpaScale) ?? DEFAULT_GPA_SCALE}
         courses={courses.map((c) => ({
           id: c.id,
           name: c.name,

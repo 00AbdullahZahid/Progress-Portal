@@ -6,11 +6,13 @@ import {
   createFlashcard,
   deleteFlashcard,
   reviewFlashcard,
+  updateFlashcard,
 } from "@/lib/actions/flashcards";
 import { Button, Card, Input, Textarea, Select, EmptyState } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Dialog } from "./dialog";
 import { useToast } from "./toast";
-import { CardIcon, PlusIcon, XIcon, CheckIcon } from "./icons";
+import { CardIcon, PlusIcon, XIcon, CheckIcon, EditIcon } from "./icons";
 
 export type FlashcardRow = {
   id: string;
@@ -42,6 +44,7 @@ export function FlashcardsBoard({
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [pending, setPending] = useState<FlashcardRow | null>(null);
+  const [editing, setEditing] = useState<FlashcardRow | null>(null);
 
   const dueCards = useMemo(() => cards.filter((c) => c.due), [cards]);
   const reviewDeck = useMemo(
@@ -59,6 +62,26 @@ export function FlashcardsBoard({
       }
       toast("Card added", "success");
       setCreating(false);
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitEdit(fd: FormData) {
+    if (!editing) return;
+    fd.set("cardId", editing.id);
+    setBusy(true);
+    try {
+      const res = await updateFlashcard(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast("Card updated", "success");
+      setEditing(null);
       router.refresh();
     } catch {
       toast("Something went wrong. Please try again.", "error");
@@ -288,15 +311,26 @@ export function FlashcardsBoard({
                     <span className="text-[10px] text-muted">box {c.box}</span>
                   )}
                   {c.createdById === meId || isAdmin ? (
-                    <button
-                      type="button"
-                      onClick={() => setPending(c)}
-                      title="Delete card"
-                      aria-label="Delete card"
-                      className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
-                    >
-                      <XIcon width={15} height={15} />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(c)}
+                        title="Edit card"
+                        aria-label="Edit card"
+                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+                      >
+                        <EditIcon width={15} height={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPending(c)}
+                        title="Delete card"
+                        aria-label="Delete card"
+                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
+                      >
+                        <XIcon width={15} height={15} />
+                      </button>
+                    </div>
                   ) : null}
                 </li>
               ))}
@@ -304,6 +338,66 @@ export function FlashcardsBoard({
           </Card>
         ))
       )}
+
+      <Dialog
+        open={editing !== null}
+        title="Edit flashcard"
+        description="Review history is kept when a card changes."
+        onClose={() => setEditing(null)}
+        size="lg"
+      >
+        <form id="flashcard-edit-form" action={submitEdit} className="flex flex-col gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Deck</span>
+            <Input
+              name="deck"
+              maxLength={60}
+              defaultValue={editing?.deck ?? ""}
+              required
+              list="flash-decks-edit"
+              data-autofocus
+            />
+            <datalist id="flash-decks-edit">
+              {decks.map((d) => (
+                <option key={d} value={d} />
+              ))}
+            </datalist>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Front</span>
+            <Textarea
+              name="front"
+              rows={3}
+              maxLength={500}
+              defaultValue={editing?.front ?? ""}
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Back</span>
+            <Textarea
+              name="back"
+              rows={4}
+              maxLength={1000}
+              defaultValue={editing?.back ?? ""}
+              required
+            />
+          </label>
+          <div className="mt-1 flex gap-2">
+            <Button type="submit" disabled={busy} className="flex-1">
+              {busy ? "Saving…" : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setEditing(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       <ConfirmDialog
         open={pending !== null}

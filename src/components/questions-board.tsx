@@ -7,14 +7,16 @@ import {
   createAnswer,
   createQuestion,
   deleteQuestion,
+  updateQuestion,
   saveAnswerAsFlashcard,
   saveAnswerAsNote,
 } from "@/lib/actions/questions";
 import { Avatar } from "./avatar";
 import { Button, Card, Input, Textarea, Select, EmptyState } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Dialog } from "./dialog";
 import { useToast } from "./toast";
-import { QuestionIcon, PlusIcon, XIcon, CheckIcon, NotesIcon, CardIcon } from "./icons";
+import { QuestionIcon, PlusIcon, XIcon, CheckIcon, NotesIcon, CardIcon, EditIcon } from "./icons";
 
 export type AnswerRow = {
   id: string;
@@ -52,6 +54,7 @@ export function QuestionsBoard({
   const [creating, setCreating] = useState(initialCreating);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<QuestionRow | null>(null);
+  const [editing, setEditing] = useState<QuestionRow | null>(null);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [savingAccepted, setSavingAccepted] = useState<string | null>(null);
@@ -141,6 +144,26 @@ export function QuestionsBoard({
       router.refresh();
     } catch {
       toast("Something went wrong. Please try again.", "error");
+    }
+  }
+
+  async function submitEdit(fd: FormData) {
+    if (!editing) return;
+    fd.set("questionId", editing.id);
+    setBusy(true);
+    try {
+      const res = await updateQuestion(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast("Question updated", "success");
+      setEditing(null);
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -236,15 +259,26 @@ export function QuestionsBoard({
                   <h3 className="mt-1 break-words font-semibold">{q.title}</h3>
                 </div>
                 {canDelete ? (
-                  <button
-                    type="button"
-                    onClick={() => setPending(q)}
-                    title="Delete question"
-                    aria-label="Delete question"
-                    className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
-                  >
-                    <XIcon width={15} height={15} />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(q)}
+                      title="Edit question"
+                      aria-label="Edit question"
+                      className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+                    >
+                      <EditIcon width={15} height={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPending(q)}
+                      title="Delete question"
+                      aria-label="Delete question"
+                      className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
+                    >
+                      <XIcon width={15} height={15} />
+                    </button>
+                  </div>
                 ) : null}
               </div>
               <p className="whitespace-pre-wrap break-words text-sm text-muted">{q.body}</p>
@@ -349,6 +383,67 @@ export function QuestionsBoard({
           );
         })
       )}
+
+      <Dialog
+        open={editing !== null}
+        title="Edit question"
+        description="Updates are visible to everyone in the group."
+        onClose={() => setEditing(null)}
+        size="lg"
+      >
+        <form id="question-edit-form" action={submitEdit} className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label className="block sm:col-span-1">
+              <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
+              <Input
+                name="subject"
+                maxLength={60}
+                defaultValue={editing?.subject ?? ""}
+                required
+                list="q-subjects-edit"
+                data-autofocus
+              />
+              <datalist id="q-subjects-edit">
+                {subjects.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-muted">Title</span>
+              <Input
+                name="title"
+                maxLength={160}
+                defaultValue={editing?.title ?? ""}
+                required
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Details</span>
+            <Textarea
+              name="body"
+              rows={5}
+              maxLength={5000}
+              defaultValue={editing?.body ?? ""}
+              required
+            />
+          </label>
+          <div className="mt-1 flex gap-2">
+            <Button type="submit" disabled={busy} className="flex-1">
+              {busy ? "Saving…" : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setEditing(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       <ConfirmDialog
         open={pending !== null}

@@ -107,6 +107,55 @@ export async function createResource(formData: FormData): Promise<ResourceAction
   return { ok: true, id: resource.id };
 }
 
+export async function updateResource(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const id = String(formData.get("resourceId") ?? "").trim();
+  if (!id) return { ok: false, error: "Resource not found." };
+  const existing = await db.resource.findUnique({
+    where: { id },
+    select: { addedById: true, url: true },
+  });
+  if (!existing) return { ok: false, error: "Resource not found." };
+  if (existing.addedById !== me.id && me.role !== "admin")
+    return { ok: false, error: "Only the person who added it or an admin can edit it." };
+
+  const titleRes = cleanText(formData.get("title"), 160);
+  if (!titleRes.ok) return titleRes;
+  const subjectRes = cleanText(formData.get("subject"), 60);
+  if (!subjectRes.ok) return subjectRes;
+  const noteRes = cleanText(formData.get("note"), 500, { required: false });
+  if (!noteRes.ok) return noteRes;
+  const kind = parseKind(formData.get("kind"));
+  const semesterRes = cleanText(formData.get("semester"), 30, { required: false });
+  if (!semesterRes.ok) return semesterRes;
+  const examTypeRes = cleanText(formData.get("examType"), 40, { required: false });
+  if (!examTypeRes.ok) return examTypeRes;
+
+  const existingSubjects = await db.resource.findMany({
+    select: { subject: true },
+    distinct: ["subject"],
+  });
+  const canonicalSubject =
+    existingSubjects.find(
+      (row) => row.subject.trim().toLowerCase() === subjectRes.value.toLowerCase()
+    )?.subject ?? subjectRes.value;
+
+  await db.resource.update({
+    where: { id },
+    data: {
+      title: titleRes.value,
+      subject: canonicalSubject,
+      kind,
+      note: noteRes.value || null,
+      year: kind === "paper" ? optionalNumber(formData.get("year"), 1900, 2100) : null,
+      semester: kind === "paper" ? semesterRes.value || null : null,
+      examType: kind === "paper" ? examTypeRes.value || null : null,
+    },
+  });
+  refresh();
+  return { ok: true };
+}
+
 export async function deleteResource(formData: FormData): Promise<ActionResult> {
   const me = await requireUser();
   const id = String(formData.get("resourceId") ?? "");

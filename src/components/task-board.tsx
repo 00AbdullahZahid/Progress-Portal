@@ -7,6 +7,8 @@ import {
   createGoal,
   createTask,
   updateTask,
+  updateProject,
+  updateGoal,
   setTaskStatus,
   deleteTask,
   deleteGoal,
@@ -72,6 +74,10 @@ export function TaskBoard({
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskProjectId, setTaskProjectId] = useState(projects[0]?.id ?? "");
   const [editing, setEditing] = useState<Task | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingGoal, setEditingGoal] = useState<{ projectId: string; goal: Goal } | null>(
+    null
+  );
   const [editProjectId, setEditProjectId] = useState("");
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState<{
@@ -157,6 +163,40 @@ export function TaskBoard({
       }
       setEditing(null);
       toast("Task updated", "success");
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    }
+  }
+
+  async function saveProjectEdit(fd: FormData) {
+    if (!editingProject) return;
+    fd.set("projectId", editingProject.id);
+    try {
+      const res = await updateProject(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      setEditingProject(null);
+      toast("Project updated", "success");
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    }
+  }
+
+  async function saveGoalEdit(fd: FormData) {
+    if (!editingGoal) return;
+    fd.set("goalId", editingGoal.goal.id);
+    try {
+      const res = await updateGoal(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      setEditingGoal(null);
+      toast("Goal updated", "success");
       router.refresh();
     } catch {
       toast("Something went wrong. Please try again.", "error");
@@ -359,6 +399,17 @@ export function TaskBoard({
                 />
               </div>
               {isAdmin && !project.standalone ? (
+                <button
+                  type="button"
+                  onClick={() => setEditingProject(project)}
+                  title="Rename project"
+                  aria-label={`Rename project ${project.name}`}
+                  className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+                >
+                  <EditIcon width={16} height={16} />
+                </button>
+              ) : null}
+              {isAdmin && !project.standalone ? (
                 <form
                   onSubmit={askDelete({
                     title: `Delete project "${project.name}"?`,
@@ -400,6 +451,17 @@ export function TaskBoard({
                   <span className="text-xs text-muted">
                     due {new Date(g.targetDate).toLocaleDateString()}
                   </span>
+                ) : null}
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingGoal({ projectId: project.id, goal: g })}
+                    title="Edit goal"
+                    aria-label={`Edit goal ${g.title}`}
+                    className="rounded-md p-1 text-muted transition-colors hover:bg-surface/60 hover:text-ink"
+                  >
+                    <EditIcon width={14} height={14} />
+                  </button>
                 ) : null}
                 {isAdmin ? (
                   <form
@@ -789,6 +851,84 @@ export function TaskBoard({
           </form>
         </Dialog>
       ) : null}
+
+      <Dialog
+        open={editingProject !== null}
+        title="Rename project"
+        description="The project's chat channel is renamed too."
+        onClose={() => setEditingProject(null)}
+      >
+        <form key={editingProject?.id} action={saveProjectEdit} className="flex flex-col gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Project name</span>
+            <Input
+              name="name"
+              data-autofocus
+              defaultValue={editingProject?.name ?? ""}
+              maxLength={120}
+              required
+            />
+          </label>
+          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setEditingProject(null)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" className="w-full sm:w-auto">
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={editingGoal !== null}
+        title="Edit goal"
+        description="Tasks linked to this goal stay linked."
+        onClose={() => setEditingGoal(null)}
+      >
+        <form
+          key={editingGoal?.goal.id}
+          action={saveGoalEdit}
+          className="flex flex-col gap-3"
+        >
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Goal</span>
+            <Input
+              name="title"
+              data-autofocus
+              defaultValue={editingGoal?.goal.title ?? ""}
+              maxLength={160}
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Target date</span>
+            <Input
+              type="date"
+              name="targetDate"
+              defaultValue={editingGoal?.goal.targetDate?.slice(0, 10) ?? ""}
+            />
+          </label>
+          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setEditingGoal(null)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" className="w-full sm:w-auto">
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       <ConfirmDialog
         open={confirm !== null}

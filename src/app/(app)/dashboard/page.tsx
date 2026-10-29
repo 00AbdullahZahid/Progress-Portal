@@ -2,17 +2,27 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { lastNDays, todayStr, currentStreak, dateInTz, nowMs, shiftDate } from "@/lib/dates";
 import { formatClock, formatMinutes, firstName } from "@/lib/format";
-import { PageHeader, Card, EmptyState } from "@/components/ui";
+import Link from "next/link";
+import { PageHeader, Card, EmptyState, Badge } from "@/components/ui";
+import { ListRow } from "@/components/list-row";
 import { Avatar } from "@/components/avatar";
 import { StatCard } from "@/components/stat-card";
 import { ProgressCharts, type ChartDay } from "@/components/charts";
-import { QuickLinks } from "@/components/quick-links";
 import { QuickActions } from "@/components/quick-actions";
 import { DashboardWidgets } from "@/components/dashboard-widgets";
 import { UpNext, type UpNextClass, type UpNextTask } from "@/components/up-next";
 import { PresenceHeartbeat } from "@/components/presence-heartbeat";
 import { presenceUserSelect, publicUserSelect } from "@/lib/user";
-import { TasksIcon, CheckIcon, StudyIcon, FlameIcon, TrophyIcon, ChatIcon } from "@/components/icons";
+import {
+  TasksIcon,
+  CheckIcon,
+  StudyIcon,
+  FlameIcon,
+  TrophyIcon,
+  ChatIcon,
+  CalendarIcon,
+  ChevronDownIcon,
+} from "@/components/icons";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -405,7 +415,113 @@ export default async function DashboardPage() {
 
       <QuickActions />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-semibold">
+              <TasksIcon width={18} height={18} className="text-brand" />
+              Your tasks
+            </h2>
+            <Link
+              href="/tasks"
+              className="text-xs font-medium text-brand hover:underline"
+            >
+              All tasks
+            </Link>
+          </div>
+          {myOpenTasks.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted">
+              Nothing assigned to you.{" "}
+              <Link href="/tasks" className="text-brand hover:underline">
+                Add a task
+              </Link>
+              .
+            </p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-border">
+              {myOpenTasks.slice(0, 5).map((task) => (
+                <li key={task.id}>
+                  <ListRow
+                    href={`/tasks#task-${task.id}`}
+                    title={task.title}
+                    subtitle={
+                      task.dueDate
+                        ? `Due ${dueLabel(task.dueDate, me.timezone, today)}`
+                        : "No due date"
+                    }
+                    trailing={<Badge kind={task.priority} />}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-semibold">
+              <CalendarIcon width={18} height={18} className="text-brand" />
+              Deadlines
+            </h2>
+            <Link
+              href="/exams"
+              className="text-xs font-medium text-brand hover:underline"
+            >
+              All deadlines
+            </Link>
+          </div>
+          {deadlineItems.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted">
+              Nothing upcoming.{" "}
+              <Link href="/exams" className="text-brand hover:underline">
+                Add a deadline
+              </Link>
+              .
+            </p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-border">
+              {deadlineItems.slice(0, 5).map((item) => (
+                <li key={item.id}>
+                  <ListRow
+                    href="/exams"
+                    title={item.title}
+                    subtitle={`${item.subject} · ${
+                      item.days === 0
+                        ? "today"
+                        : item.days === 1
+                          ? "tomorrow"
+                          : `in ${item.days} days`
+                    }`}
+                    trailing={
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          item.days <= 2
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                            : "bg-brand-soft text-brand"
+                        }`}
+                      >
+                        {item.days === 0 ? "Today" : `${item.days}d`}
+                      </span>
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <details className="group mt-6 overflow-hidden rounded-2xl border border-border bg-surface">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold transition-colors hover:bg-surface2/60 sm:px-5 [&::-webkit-details-marker]:hidden">
+          <span>This week at a glance</span>
+          <ChevronDownIcon
+            width={18}
+            height={18}
+            className="shrink-0 text-muted transition-transform group-open:rotate-180"
+          />
+        </summary>
+        <div className="border-t border-border p-4 sm:p-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Open tasks"
           value={tasksTotal}
@@ -476,13 +592,6 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="mt-6">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          Jump to
-        </h2>
-        <QuickLinks />
-      </div>
-
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 flex items-center gap-2 font-semibold">
@@ -547,6 +656,8 @@ export default async function DashboardPage() {
           )}
         </Card>
       </div>
+        </div>
+      </details>
     </div>
   );
 }

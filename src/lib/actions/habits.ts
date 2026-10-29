@@ -47,6 +47,26 @@ export async function toggleCheckIn(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function renameHabit(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireUser();
+  const habitId = String(formData.get("habitId") ?? "");
+  const nameRes = cleanText(formData.get("name"), 80);
+  if (!nameRes.ok) return nameRes;
+  const habit = await db.habit.findUnique({
+    where: { id: habitId },
+    select: { ownerId: true },
+  });
+  if (!habit || habit.ownerId !== me.id)
+    return { ok: false, error: "You can only edit your own habits." };
+  await db.habit.update({
+    where: { id: habitId },
+    data: { name: nameRes.value },
+  });
+  refresh();
+  return { ok: true };
+}
+
 export async function deleteHabit(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();

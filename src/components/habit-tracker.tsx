@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createHabit,
+  renameHabit,
   toggleCheckIn,
   deleteHabit,
 } from "@/lib/actions/habits";
@@ -11,9 +12,10 @@ import type { ActionResult } from "@/lib/actions/tasks";
 import { Card, Button, Input, EmptyState } from "./ui";
 import { Avatar } from "./avatar";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Dialog } from "./dialog";
 import { useToast } from "./toast";
 import { currentStreak } from "@/lib/dates";
-import { HabitsIcon, FlameIcon, PlusIcon, XIcon, CheckIcon } from "./icons";
+import { HabitsIcon, FlameIcon, PlusIcon, XIcon, CheckIcon, EditIcon } from "./icons";
 
 type Habit = { id: string; name: string; checkinDates: string[]; allDates: string[] };
 type GroupMember = { id: string; name: string; color: string; image?: string | null };
@@ -36,6 +38,8 @@ export function HabitTracker({
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(
     null
   );
+  const [editing, setEditing] = useState<Habit | null>(null);
+  const [busy, setBusy] = useState(false);
 
   function act(
     fn: (fd: FormData) => Promise<ActionResult>,
@@ -72,6 +76,26 @@ export function HabitTracker({
       router.refresh();
     } catch {
       toast("Something went wrong. Please try again.", "error");
+    }
+  }
+
+  async function submitRename(fd: FormData) {
+    if (!editing) return;
+    fd.set("habitId", editing.id);
+    setBusy(true);
+    try {
+      const res = await renameHabit(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast("Habit updated", "success");
+      setEditing(null);
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -128,14 +152,24 @@ export function HabitTracker({
                       {streak} day{streak === 1 ? "" : "s"}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setPendingDelete({ id: habit.id, name: habit.name })}
-                    className="flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-xs text-muted hover:bg-surface2 hover:text-rose-600"
-                  >
-                    <XIcon width={14} height={14} />
-                    Remove
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(habit)}
+                      className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs text-muted hover:bg-surface2 hover:text-ink"
+                    >
+                      <EditIcon width={14} height={14} />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete({ id: habit.id, name: habit.name })}
+                      className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs text-muted hover:bg-surface2 hover:text-rose-600"
+                    >
+                      <XIcon width={14} height={14} />
+                      Remove
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {days.map((d) => {
@@ -195,6 +229,39 @@ export function HabitTracker({
           </div>
         )}
       </Card>
+
+      <Dialog
+        open={editing !== null}
+        title="Edit habit"
+        description="Renaming keeps the full check-in history."
+        onClose={() => setEditing(null)}
+      >
+        <form id="habit-edit-form" action={submitRename} className="flex flex-col gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Habit name</span>
+            <Input
+              name="name"
+              maxLength={80}
+              defaultValue={editing?.name ?? ""}
+              required
+              data-autofocus
+            />
+          </label>
+          <div className="mt-1 flex gap-2">
+            <Button type="submit" disabled={busy} className="flex-1">
+              {busy ? "Saving…" : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setEditing(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       <ConfirmDialog
         open={pendingDelete !== null}
