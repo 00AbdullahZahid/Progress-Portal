@@ -58,6 +58,7 @@ export async function GET(request: Request) {
       take: 500,
     }),
     db.timetableEntry.findMany({
+      where: { OR: [{ scope: "group" }, { ownerId: user.id }] },
       orderBy: [{ weekday: "asc" }, { startMin: "asc" }],
       select: {
         id: true,

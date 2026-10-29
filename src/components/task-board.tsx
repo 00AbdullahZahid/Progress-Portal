@@ -6,6 +6,7 @@ import {
   createProject,
   createGoal,
   createTask,
+  updateTask,
   setTaskStatus,
   deleteTask,
   deleteGoal,
@@ -16,6 +17,7 @@ import {
 import { Card, Button, Input, Select, Badge, EmptyState } from "./ui";
 import { Avatar } from "./avatar";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Dialog } from "./dialog";
 import { useToast } from "./toast";
 import {
   TasksIcon,
@@ -24,6 +26,7 @@ import {
   PlusIcon,
   XIcon,
   TrashIcon,
+  EditIcon,
 } from "./icons";
 
 type Member = { id: string; name: string; color: string; image?: string | null };
@@ -34,6 +37,8 @@ type Task = {
   status: string;
   priority: string;
   dueDate: string | null;
+  projectId: string | null;
+  createdById: string | null;
   assignees: Member[];
   goal: { id: string; title: string } | null;
   studyMinutes: number;
@@ -66,6 +71,8 @@ export function TaskBoard({
   const { toast } = useToast();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskProjectId, setTaskProjectId] = useState(projects[0]?.id ?? "");
+  const [editing, setEditing] = useState<Task | null>(null);
+  const [editProjectId, setEditProjectId] = useState("");
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState<{
     title: string;
@@ -130,6 +137,31 @@ export function TaskBoard({
   const selectedTaskProject = taskProjectId
     ? projects.find((project) => project.id === taskProjectId) ?? null
     : null;
+  const selectedEditProject = editProjectId
+    ? projects.find((project) => project.id === editProjectId) ?? null
+    : null;
+
+  function openEdit(task: Task) {
+    setEditProjectId(task.projectId ?? "");
+    setEditing(task);
+  }
+
+  async function saveEdit(fd: FormData) {
+    if (!editing) return;
+    fd.set("taskId", editing.id);
+    try {
+      const res = await updateTask(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      setEditing(null);
+      toast("Task updated", "success");
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    }
+  }
 
   const taskGroups: TaskGroup[] = [
     ...projects,
@@ -169,15 +201,9 @@ export function TaskBoard({
             </Button>
           </form>
         </Card>
-      ) : (
-        <p className="rounded-xl bg-surface2 px-3 py-2 text-xs text-muted">
-          Only the super admin can add projects, goals, and tasks. Assigned members can move
-          their own tasks; everyone can comment.
-        </p>
-      )}
+      ) : null}
 
-      {isAdmin ? (
-        <Card className="p-4">
+      <Card className="p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="flex items-center gap-1.5 font-semibold">
@@ -186,7 +212,7 @@ export function TaskBoard({
               </h2>
               <p className="mt-0.5 text-sm text-muted">
                 Add a task to any project, or leave it standalone, and assign it to one or
-                more members.
+                more members. Anyone in the group can create a task.
               </p>
             </div>
             <Button
@@ -296,18 +322,13 @@ export function TaskBoard({
                 </div>
             </form>
           ) : null}
-        </Card>
-      ) : null}
+      </Card>
 
       {projects.length === 0 && standaloneTasks.length === 0 ? (
         <EmptyState
           icon={<TasksIcon />}
           title="No tasks yet"
-          hint={
-            isAdmin
-              ? "Create a project or a standalone task above to get started."
-              : undefined
-          }
+          hint="Create a task above to get started."
         />
       ) : null}
 
@@ -438,6 +459,11 @@ export function TaskBoard({
             {project.tasks.map((task) => {
               const canMove =
                 isAdmin || task.assignees.some((assignee) => assignee.id === meId);
+              // Legacy tasks predate creator tracking, so anyone may edit them;
+              // deleting those stays admin-only.
+              const canEdit =
+                isAdmin || task.createdById === meId || task.createdById === null;
+              const canDelete = isAdmin || task.createdById === meId;
               return (
                 <div
                   key={task.id}
@@ -559,32 +585,45 @@ export function TaskBoard({
                             {task.comments.length}
                           </button>
                         </div>
-                        {isAdmin ? (
-                          <form
-                            onSubmit={askDelete({
-                              title: "Delete this task?",
-                              body: `"${task.title}" and its comments will be permanently removed.`,
-                              confirmLabel: "Delete task",
-                              run: deleteTask,
-                              data: (() => {
-                                const fd = new FormData();
-                                fd.set("taskId", task.id);
-                                return fd;
-                              })(),
-                              success: "Task deleted",
-                            })}
-                          >
-                            <input type="hidden" name="taskId" value={task.id} />
+                        <div className="flex shrink-0 items-center gap-1">
+                          {canEdit ? (
                             <button
-                              type="submit"
-                              className="text-xs text-muted hover:text-rose-600"
-                              title="Delete task"
-                              aria-label="Delete task"
+                              type="button"
+                              onClick={() => openEdit(task)}
+                              className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
+                              title="Edit task"
+                              aria-label={`Edit ${task.title}`}
                             >
-                              <XIcon width={16} height={16} />
+                              <EditIcon width={16} height={16} />
                             </button>
-                          </form>
-                        ) : null}
+                          ) : null}
+                          {canDelete ? (
+                            <form
+                              onSubmit={askDelete({
+                                title: "Delete this task?",
+                                body: `"${task.title}" and its comments will be permanently removed.`,
+                                confirmLabel: "Delete task",
+                                run: deleteTask,
+                                data: (() => {
+                                  const fd = new FormData();
+                                  fd.set("taskId", task.id);
+                                  return fd;
+                                })(),
+                                success: "Task deleted",
+                              })}
+                            >
+                              <input type="hidden" name="taskId" value={task.id} />
+                              <button
+                                type="submit"
+                                className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-rose-600"
+                                title="Delete task"
+                                aria-label="Delete task"
+                              >
+                                <XIcon width={16} height={16} />
+                              </button>
+                            </form>
+                          ) : null}
+                        </div>
                       </div>
 
                       {openComments[task.id] ? (
@@ -624,6 +663,132 @@ export function TaskBoard({
           </div>
         </Card>
       ))}
+
+      {editing ? (
+        <Dialog
+          open
+          title="Edit task"
+          description="Changes are visible to everyone in the group."
+          onClose={() => setEditing(null)}
+        >
+          <form
+            key={editing.id}
+            action={saveEdit}
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+          >
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-muted">Task title</span>
+              <Input
+                name="title"
+                data-autofocus
+                defaultValue={editing.title}
+                maxLength={160}
+                required
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Project</span>
+              <Select
+                name="projectId"
+                value={editProjectId}
+                onChange={(event) => setEditProjectId(event.target.value)}
+              >
+                <option value="">No project (standalone)</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Goal</span>
+              <Select
+                key={editProjectId || "no-project"}
+                name="goalId"
+                defaultValue={
+                  editing.goal &&
+                  selectedEditProject?.goals.some((goal) => goal.id === editing.goal?.id)
+                    ? editing.goal.id
+                    : ""
+                }
+                disabled={!selectedEditProject}
+              >
+                <option value="">
+                  {selectedEditProject ? "(no goal)" : "(choose a project first)"}
+                </option>
+                {selectedEditProject?.goals.map((goal) => (
+                  <option key={goal.id} value={goal.id}>
+                    {goal.title}
+                  </option>
+                ))}
+              </Select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Priority</span>
+              <Select name="priority" defaultValue={editing.priority}>
+                <option value="low">Low</option>
+                <option value="med">Medium</option>
+                <option value="high">High</option>
+              </Select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Due date</span>
+              <Input
+                type="date"
+                name="dueDate"
+                defaultValue={editing.dueDate?.slice(0, 10) ?? ""}
+              />
+            </label>
+
+            <fieldset className="min-w-0 sm:col-span-2">
+              <legend className="mb-1 text-xs font-medium text-muted">Assign to</legend>
+              {members.length === 0 ? (
+                <p className="text-sm text-muted">No members yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {members.map((member) => (
+                    <label
+                      key={member.id}
+                      className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-2.5 py-2 text-sm transition-colors hover:border-brand/40 hover:bg-brand-soft/50"
+                    >
+                      <input
+                        type="checkbox"
+                        name="assigneeIds"
+                        value={member.id}
+                        defaultChecked={editing.assignees.some(
+                          (assignee) => assignee.id === member.id
+                        )}
+                        className="shrink-0 rounded border-border"
+                      />
+                      <Avatar user={member} size="sm" />
+                      <span className="truncate">{member.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </fieldset>
+
+            <div className="flex flex-col-reverse gap-2 pt-1 sm:col-span-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setEditing(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="w-full sm:w-auto">
+                Save changes
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
 
       <ConfirmDialog
         open={confirm !== null}

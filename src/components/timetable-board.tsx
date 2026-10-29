@@ -15,6 +15,7 @@ export type EntryRow = {
   title: string;
   location: string | null;
   color: string;
+  scope: "group" | "personal";
   ownerId: string;
   ownerName: string;
 };
@@ -81,9 +82,11 @@ function placeEntries(entries: EntryRow[]): Placed[] {
 export function TimetableBoard({
   entries,
   isAdmin,
+  meId,
 }: {
   entries: EntryRow[];
   isAdmin: boolean;
+  meId: string;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -154,8 +157,8 @@ export function TimetableBoard({
               {entries.length === 0
                 ? isAdmin
                   ? "No classes yet. Add the first one."
-                  : "No classes yet. An admin can add them."
-                : "Everyone sees this schedule. Only admins can change it."}
+                  : "No classes yet. You can add your own personal classes."
+                : "Group classes are shared. Personal classes are only visible to you."}
             </p>
           </div>
           {isAdmin ? (
@@ -168,11 +171,32 @@ export function TimetableBoard({
               <PlusIcon width={15} height={15} />
               {creating ? "Close" : "Add class"}
             </Button>
-          ) : null}
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="px-3 py-1.5 text-sm"
+              onClick={() => setCreating((c) => !c)}
+            >
+              <PlusIcon width={15} height={15} />
+              {creating ? "Close" : "Add personal class"}
+            </Button>
+          )}
         </div>
 
-        {isAdmin && creating ? (
+        {creating ? (
           <form action={submit} className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
+            {isAdmin ? (
+              <label className="block sm:max-w-xs">
+                <span className="mb-1 block text-xs font-medium text-muted">Visible to</span>
+                <Select name="scope" defaultValue="group">
+                  <option value="group">Everyone (group timetable)</option>
+                  <option value="personal">Only me (personal)</option>
+                </Select>
+              </label>
+            ) : (
+              <input type="hidden" name="scope" value="personal" />
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <label className="block sm:col-span-2">
                 <span className="mb-1 block text-xs font-medium text-muted">Title</span>
@@ -274,10 +298,10 @@ export function TimetableBoard({
                       {entry.location ? ` · ${entry.location}` : ""}
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted">
-                      Added by {entry.ownerName}
+                      {entry.scope === "personal" ? "Personal class" : `Added by ${entry.ownerName}`}
                     </p>
                   </div>
-                  {isAdmin ? (
+                  {isAdmin || (entry.scope === "personal" && entry.ownerId === meId) ? (
                     <button
                       type="button"
                       onClick={() => remove(entry.id)}
@@ -379,7 +403,7 @@ export function TimetableBoard({
                             <p className="min-w-0 flex-1 break-words font-semibold text-ink">
                               {entry.title}
                             </p>
-                            {isAdmin ? (
+                            {isAdmin || (entry.scope === "personal" && entry.ownerId === meId) ? (
                               <button
                                 type="button"
                                 onClick={() => remove(entry.id)}

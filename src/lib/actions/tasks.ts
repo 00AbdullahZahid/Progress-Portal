@@ -27,6 +27,29 @@ function parseDate(value: unknown): Date | null | "invalid" {
   return Number.isNaN(d.getTime()) ? "invalid" : d;
 }
 
+/** Admins and the creator may edit every field. Legacy tasks have no creator. */
+export function canEditTask(
+  user: { id: string; role: string },
+  task: { createdById: string | null }
+): boolean {
+  return (
+    user.role === "admin" ||
+    task.createdById === user.id ||
+    task.createdById === null
+  );
+}
+
+/**
+ * Deleting is stricter than editing: legacy tasks without a creator stay
+ * admin-only so an old shared task cannot be removed by accident.
+ */
+export function canDeleteTask(
+  user: { id: string; role: string },
+  task: { createdById: string | null }
+): boolean {
+  return user.role === "admin" || task.createdById === user.id;
+}
+
 export async function createProject(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireAdmin();
@@ -81,7 +104,7 @@ export async function createGoal(formData: FormData): Promise<ActionResult> {
 
 export async function createTask(formData: FormData): Promise<ActionResult> {
   "use server";
-  const me = await requireAdmin();
+  const me = await requireUser();
   const rawProjectId = String(formData.get("projectId") ?? "").trim();
   const projectId = rawProjectId || null;
   const titleRes = cleanText(formData.get("title"), 160);
@@ -135,6 +158,7 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
       goalId,
       priority: priority as (typeof PRIORITIES)[number],
       dueDate: due,
+      createdById: me.id,
       assignees: {
         create: assigneeIds.map((userId) => ({ userId })),
       },
@@ -213,13 +237,99 @@ export async function setTaskStatus(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Edit a task's details. Status stays in `setTaskStatus` so an assignee can
+ * move their own task without being able to rename or reassign it.
+ */
+export async function updateTask(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireUser();
+  const taskId = String(formData.get("taskId") ?? "").trim();
+  if (!taskId) return { ok: false, error: "Task not found." };
+
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, title: true, createdById: true },
+  });
+  if (!task) return { ok: false, error: "Task not found." };
+  if (!canEditTask(me, task))
+    return { ok: false, error: "Only the creator or an admin can edit this task." };
+
+  const titleRes = cleanText(formData.get("title"), 160);
+  if (!titleRes.ok) return titleRes;
+
+  const rawProjectId = String(formData.get("projectId") ?? "").trim();
+  const projectId = rawProjectId || null;
+  if (projectId) {
+    const project = await db.project.findUnique({ where: { id: projectId } });
+    if (!project) return { ok: false, error: "Project not found." };
+  }
+
+  const goalId = String(formData.get("goalId") ?? "") || null;
+  if (goalId) {
+    if (!projectId)
+      return { ok: false, error: "Choose a project before selecting a goal." };
+    const goal = await db.goal.findUnique({ where: { id: goalId } });
+    if (!goal || goal.projectId !== projectId)
+      return { ok: false, error: "That goal doesn't belong to this project." };
+  }
+
+  const assigneeIds = Array.from(
+    new Set(
+      formData
+        .getAll("assigneeIds")
+        .map((value) => String(value).trim())
+        .filter(Boolean)
+    )
+  );
+  if (assigneeIds.length > 0) {
+    const found = await db.user.findMany({
+      where: { id: { in: assigneeIds } },
+      select: { id: true },
+    });
+    if (found.length !== assigneeIds.length)
+      return { ok: false, error: "One or more assignees were not found." };
+  }
+
+  const priority = String(formData.get("priority") ?? "med");
+  if (!PRIORITIES.includes(priority as (typeof PRIORITIES)[number]))
+    return { ok: false, error: "Invalid priority." };
+
+  const due = parseDate(formData.get("dueDate"));
+  if (due === "invalid")
+    return { ok: false, error: "Please pick a valid due date." };
+
+  await db.task.update({
+    where: { id: taskId },
+    data: {
+      title: titleRes.value,
+      projectId,
+      goalId,
+      priority: priority as (typeof PRIORITIES)[number],
+      dueDate: due,
+      assignees: {
+        deleteMany: {},
+        create: assigneeIds.map((userId) => ({ userId })),
+      },
+    },
+  });
+  await audit(me.id, "task.update", { targetId: taskId, detail: titleRes.value });
+  refresh();
+  return { ok: true };
+}
+
 export async function deleteTask(formData: FormData): Promise<ActionResult> {
   "use server";
-  const me = await requireAdmin();
+  const me = await requireUser();
   const taskId = String(formData.get("taskId") ?? "");
   if (!taskId) return { ok: false, error: "Task not found." };
-  const task = await db.task.findUnique({ where: { id: taskId } });
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, title: true, createdById: true },
+  });
   if (!task) return { ok: false, error: "Task not found." };
+  if (!canDeleteTask(me, task))
+    return { ok: false, error: "Only the creator or an admin can delete this task." };
   await db.task.delete({ where: { id: taskId } });
   await audit(me.id, "task.delete", { targetId: taskId, detail: task.title });
   refresh();

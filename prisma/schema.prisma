@@ -30,6 +30,11 @@ enum ChannelKind {
   project
 }
 
+enum TimetableScope {
+  group
+  personal
+}
+
 enum ResourceKind {
   paper
   notes
@@ -73,6 +78,8 @@ model User {
 
   // Weekly study target in minutes (0 = no goal set).
   weeklyGoalMinutes  Int       @default(0)
+  // Optional per-user GPA scale. Null means "use the built-in percentage bands".
+  gpaScale           Json?
   // Optional per-day rest allowance so one missed day doesn't kill a streak.
   streakFreezesFree  Int       @default(1)
   // Notification preferences.
@@ -95,6 +102,7 @@ model User {
   chatReadAt         DateTime?
 
   taskAssignments   TaskAssignee[]
+  tasksCreated      Task[]          @relation("TaskCreator")
   comments          TaskComment[]
   habits            Habit[]
   sessions          StudySession[]
@@ -346,9 +354,12 @@ model GradeItem {
 }
 
 model TimetableEntry {
-  id       String  @id @default(cuid())
+  id       String          @id @default(cuid())
   ownerId  String
-  owner    User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner    User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  // Group entries are shared with everyone; personal entries are only shown to
+  // their owner (and in that member's calendar feed).
+  scope    TimetableScope  @default(group)
   // 0 = Sunday ... 6 = Saturday (JS getDay()).
   weekday  Int
   startMin Int
@@ -358,6 +369,7 @@ model TimetableEntry {
   color    String  @default("#2563eb")
 
   @@index([ownerId, weekday])
+  @@index([scope, weekday])
 }
 
 model Project {
@@ -390,6 +402,9 @@ model Task {
   priority    TaskPriority @default(med)
   dueDate     DateTime?
   completedAt DateTime?
+  // Null for tasks created before creator tracking was added.
+  createdById String?
+  createdBy   User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
   projectId   String?
   project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   goalId      String?
@@ -401,6 +416,7 @@ model Task {
   studySessions StudySession[]
 
   @@index([projectId])
+  @@index([createdById])
   @@index([status, completedAt])
 }
 

@@ -18,7 +18,7 @@ export function StudyForm({ today }: { today: string }) {
   const [uploading, setUploading] = useState(false);
   const [image, setImage] = useState<Uploaded | null>(null);
   const [file, setFile] = useState<Uploaded | null>(null);
-  const [shared, setShared] = useState(false);
+  const [shared, setShared] = useState(true);
 
   async function onImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = e.target.files?.[0];
@@ -80,7 +80,7 @@ export function StudyForm({ today }: { today: string }) {
       formRef.current?.reset();
       setImage(null);
       setFile(null);
-      setShared(false);
+      setShared(true);
       router.refresh();
     } catch {
       toast("Something went wrong. Please try again.", "error");
@@ -194,6 +194,10 @@ export function StudyForm({ today }: { today: string }) {
           />
           Share this session with the group
         </label>
+        <p className="-mt-1 text-xs text-muted">
+          Shared sessions appear on the group dashboard and Study page. Uncheck to
+          keep a session private; only you will see it.
+        </p>
         <p className="text-xs text-muted">
           Uploaded files are stored with a public, hard-to-guess link. Anyone who
           has the link can open it, even after you unshare, so don&apos;t upload

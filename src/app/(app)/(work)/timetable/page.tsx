@@ -8,9 +8,9 @@ export const metadata = { title: "Timetable" };
 export default async function TimetablePage() {
   const me = await requireUser();
 
-  // The timetable belongs to the whole group: every member sees the same
-  // schedule, and only admins can add or remove classes.
+  // Everyone sees the shared timetable plus their own personal classes.
   const entries = await db.timetableEntry.findMany({
+    where: { OR: [{ scope: "group" }, { ownerId: me.id }] },
     orderBy: [{ weekday: "asc" }, { startMin: "asc" }],
     include: { owner: { select: { name: true } } },
   });
@@ -19,7 +19,7 @@ export default async function TimetablePage() {
     <div>
       <PageHeader
         title="Timetable"
-        subtitle="Shared weekly calendar for the whole group. Only admins can add or remove classes."
+        subtitle="Shared weekly calendar for the group, plus personal classes only you can see."
       />
       <TimetableBoard
         entries={entries.map((e) => ({
@@ -30,10 +30,12 @@ export default async function TimetablePage() {
           title: e.title,
           location: e.location,
           color: e.color,
+          scope: e.scope,
           ownerId: e.ownerId,
           ownerName: e.owner.name,
         }))}
         isAdmin={me.role === "admin"}
+        meId={me.id}
       />
     </div>
   );

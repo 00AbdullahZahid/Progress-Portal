@@ -186,8 +186,9 @@ export default async function DashboardPage() {
       },
       take: 10,
     }),
-    // The whole group shares one weekly timetable; only admins edit it.
+    // Shared classes plus the viewer's own personal classes.
     db.timetableEntry.findMany({
+      where: { OR: [{ scope: "group" }, { ownerId: me.id }] },
       orderBy: [{ weekday: "asc" }, { startMin: "asc" }],
       select: {
         weekday: true,

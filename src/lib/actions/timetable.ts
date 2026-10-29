@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "../db";
-import { requireAdmin } from "../auth";
+import { requireUser } from "../auth";
 import { cleanText, isHexColor } from "../validation";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
   revalidatePath("/timetable");
+  revalidatePath("/dashboard");
 }
 
 /** Parse "HH:MM" into minutes since midnight, or null when invalid. */
@@ -21,8 +22,12 @@ function parseTime(value: unknown): number | null {
 }
 
 export async function createTimetableEntry(formData: FormData): Promise<ActionResult> {
-  // The timetable is shared by the whole group, so only an admin may change it.
-  const me = await requireAdmin();
+  const me = await requireUser();
+  // Only admins may add a class to the shared timetable. Anyone may add a
+  // personal class, which only they (and their calendar feed) can see.
+  const scope = formData.get("scope") === "personal" ? "personal" : "group";
+  if (scope === "group" && me.role !== "admin")
+    return { ok: false, error: "Only an admin can add a group class." };
   const titleRes = cleanText(formData.get("title"), 100);
   if (!titleRes.ok) return titleRes;
   const locationRes = cleanText(formData.get("location"), 80, { required: false });
@@ -44,8 +49,9 @@ export async function createTimetableEntry(formData: FormData): Promise<ActionRe
 
   await db.timetableEntry.create({
     data: {
-      // Kept for audit: which admin added this class.
+      // Also records who added a group class, and owns personal entries.
       ownerId: me.id,
+      scope,
       weekday,
       startMin,
       endMin,
@@ -59,13 +65,15 @@ export async function createTimetableEntry(formData: FormData): Promise<ActionRe
 }
 
 export async function deleteTimetableEntry(formData: FormData): Promise<ActionResult> {
-  await requireAdmin();
+  const me = await requireUser();
   const id = String(formData.get("entryId") ?? "");
   const entry = await db.timetableEntry.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, ownerId: true, scope: true },
   });
   if (!entry) return { ok: false, error: "Entry not found." };
+  if (me.role !== "admin" && !(entry.scope === "personal" && entry.ownerId === me.id))
+    return { ok: false, error: "You can only remove your own personal classes." };
 
   await db.timetableEntry.delete({ where: { id } });
   refresh();

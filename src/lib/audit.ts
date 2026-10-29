@@ -13,6 +13,7 @@ export type AuditAction =
   | "goal.create"
   | "goal.delete"
   | "task.create"
+  | "task.update"
   | "task.delete"
   | "channel.create";
 

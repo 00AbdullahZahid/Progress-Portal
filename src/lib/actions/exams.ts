@@ -65,6 +65,45 @@ export async function createExam(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function updateExam(formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const id = String(formData.get("examId") ?? "").trim();
+  if (!id) return { ok: false, error: "Not found." };
+
+  const exam = await db.exam.findUnique({
+    where: { id },
+    select: { createdById: true },
+  });
+  if (!exam) return { ok: false, error: "Not found." };
+  if (exam.createdById !== me.id && me.role !== "admin")
+    return { ok: false, error: "Only the creator or an admin can edit this." };
+
+  const titleRes = cleanText(formData.get("title"), 120);
+  if (!titleRes.ok) return titleRes;
+  const subjectRes = cleanText(formData.get("subject"), 60);
+  if (!subjectRes.ok) return subjectRes;
+  const notesRes = cleanText(formData.get("notes"), 500, { required: false });
+  if (!notesRes.ok) return notesRes;
+
+  const date = String(formData.get("date") ?? "").trim();
+  if (!isValidDateString(date))
+    return { ok: false, error: "Please pick a valid date." };
+
+  await db.exam.update({
+    where: { id },
+    data: {
+      title: titleRes.value,
+      subject: subjectRes.value,
+      kind: parseKind(formData.get("kind")),
+      date,
+      notes: notesRes.value || null,
+    },
+  });
+
+  refresh();
+  return { ok: true };
+}
+
 export async function deleteExam(formData: FormData): Promise<ActionResult> {
   const me = await requireUser();
   const id = String(formData.get("examId") ?? "");

@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createExam, deleteExam } from "@/lib/actions/exams";
+import { createExam, updateExam, deleteExam } from "@/lib/actions/exams";
 import { Avatar } from "./avatar";
 import { Button, Card, Input, Textarea, Select, EmptyState } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Dialog } from "./dialog";
 import { useToast } from "./toast";
-import { CalendarIcon, PlusIcon, XIcon } from "./icons";
+import { CalendarIcon, PlusIcon, XIcon, EditIcon } from "./icons";
 
 export type ExamRow = {
   id: string;
@@ -52,6 +53,7 @@ export function ExamsBoard({
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<ExamRow | null>(null);
+  const [editing, setEditing] = useState<ExamRow | null>(null);
 
   async function submit(fd: FormData) {
     setBusy(true);
@@ -63,6 +65,26 @@ export function ExamsBoard({
       }
       toast("Added", "success");
       setCreating(false);
+      router.refresh();
+    } catch {
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEdit(fd: FormData) {
+    if (!editing) return;
+    fd.set("examId", editing.id);
+    setBusy(true);
+    try {
+      const res = await updateExam(fd);
+      if (!res.ok) {
+        toast(res.error, "error");
+        return;
+      }
+      toast("Deadline updated", "success");
+      setEditing(null);
       router.refresh();
     } catch {
       toast("Something went wrong. Please try again.", "error");
@@ -97,6 +119,7 @@ export function ExamsBoard({
     const days = daysUntil(e.date, today);
     const urgent = days >= 0 && days <= 3;
     const canDelete = e.createdById === meId || isAdmin;
+    const canEdit = canDelete;
     return (
       <li
         key={e.id}
@@ -118,6 +141,17 @@ export function ExamsBoard({
           {e.notes ? <p className="truncate text-xs text-muted">{e.notes}</p> : null}
         </div>
         <Avatar user={e.createdBy} size="sm" />
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => setEditing(e)}
+            title="Edit"
+            aria-label={`Edit ${e.title}`}
+            className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+          >
+            <EditIcon width={15} height={15} />
+          </button>
+        ) : null}
         {canDelete ? (
           <button
             type="button"
@@ -219,6 +253,75 @@ export function ExamsBoard({
           <h2 className="mb-3 font-semibold text-muted">Past</h2>
           <ul className="flex flex-col gap-2 opacity-70">{past.slice(0, 20).map(row)}</ul>
         </Card>
+      ) : null}
+
+      {editing ? (
+        <Dialog
+          open
+          title="Edit deadline"
+          description="Everyone in the group sees these changes."
+          onClose={() => setEditing(null)}
+        >
+          <form key={editing.id} action={saveEdit} className="flex flex-col gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Title</span>
+              <Input
+                name="title"
+                data-autofocus
+                defaultValue={editing.title}
+                maxLength={120}
+                required
+              />
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
+                <Input
+                  name="subject"
+                  defaultValue={editing.subject}
+                  maxLength={60}
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">Type</span>
+                <Select name="kind" defaultValue={editing.kind}>
+                  {KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {kind}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-xs font-medium text-muted">Date</span>
+                <Input type="date" name="date" defaultValue={editing.date} required />
+              </label>
+            </div>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Notes (optional)</span>
+              <Textarea
+                name="notes"
+                rows={2}
+                maxLength={500}
+                defaultValue={editing.notes ?? ""}
+              />
+            </label>
+            <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setEditing(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy} className="w-full sm:w-auto">
+                {busy ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
       ) : null}
 
       <ConfirmDialog

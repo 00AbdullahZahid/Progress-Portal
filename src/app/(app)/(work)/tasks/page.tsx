@@ -41,6 +41,8 @@ export default async function TasksPage() {
     status: t.status,
     priority: t.priority,
     dueDate: t.dueDate?.toISOString() ?? null,
+    projectId: t.projectId,
+    createdById: t.createdById,
     assignees: t.assignees.map((a) => ({
       id: a.user.id,
       name: a.user.name,

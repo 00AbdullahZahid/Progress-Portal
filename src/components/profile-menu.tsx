@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Avatar } from "./avatar";
 import { LogoutButton } from "./logout-button";
 import { ThemeControl } from "./theme-control";
-import { InfoIcon, SettingsIcon } from "./icons";
+import { InfoIcon, PeopleIcon, SettingsIcon, ShieldIcon, TrophyIcon } from "./icons";
 import type { ShellUser } from "./shell";
 
 /**
@@ -77,6 +77,24 @@ export function ProfileMenu({ user }: { user: ShellUser }) {
             </div>
             <div className="p-1">
               <Link
+                href="/people"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex min-h-10 items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface2 focus-visible:bg-surface2 focus-visible:outline-none"
+              >
+                <PeopleIcon width={16} height={16} className="text-muted" />
+                People
+              </Link>
+              <Link
+                href="/grades"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex min-h-10 items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface2 focus-visible:bg-surface2 focus-visible:outline-none"
+              >
+                <TrophyIcon width={16} height={16} className="text-muted" />
+                Grades
+              </Link>
+              <Link
                 href="/settings"
                 role="menuitem"
                 onClick={() => setOpen(false)}
@@ -94,6 +112,17 @@ export function ProfileMenu({ user }: { user: ShellUser }) {
                 <InfoIcon width={16} height={16} className="text-muted" />
                 Guide
               </Link>
+              {user.role === "admin" ? (
+                <Link
+                  href="/admin"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="flex min-h-10 items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface2 focus-visible:bg-surface2 focus-visible:outline-none"
+                >
+                  <ShieldIcon width={16} height={16} className="text-muted" />
+                  Admin
+                </Link>
+              ) : null}
               <div className="flex items-center justify-between gap-2 px-2.5 py-2">
                 <span className="text-sm">Theme</span>
                 <ThemeControl />
