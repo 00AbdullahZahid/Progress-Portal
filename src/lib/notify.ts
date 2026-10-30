@@ -70,7 +70,7 @@ export async function buildDigest(): Promise<{ text: string; items: DigestItem[]
 const DISCORD_LIMIT = 2000;
 
 /** Break text into chunks no longer than `limit`, preferring line boundaries. */
-export function chunkText(text: string, limit: number): string[] {
+function chunkText(text: string, limit: number): string[] {
   if (text.length <= limit) return [text];
   const chunks: string[] = [];
   let current = "";

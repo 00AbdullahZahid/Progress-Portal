@@ -7,7 +7,7 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** How far back a user may back-date a check-in or study session. */
-export const MAX_BACKDATE_DAYS = 365;
+const MAX_BACKDATE_DAYS = 365;
 
 export function isHexColor(value: string): boolean {
   return HEX_COLOR.test(value);

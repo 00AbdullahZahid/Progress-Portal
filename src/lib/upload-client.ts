@@ -1,6 +1,6 @@
 "use client";
 
-export type UploadResult =
+type UploadResult =
   | {
       ok: true;
       url: string;

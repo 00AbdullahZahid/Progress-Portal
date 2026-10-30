@@ -1,6 +1,6 @@
 # Group Portal
 
-A private web app for a small group to track **tasks and goals**, **habits**, and **study sessions**, and to **chat** — all in one place with a shared analytics dashboard.
+A private web app for a small group to track **subjects, projects and tasks**, **habits**, and **study sessions**, and to **chat** — all in one place with a shared analytics dashboard.
 
 Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Prisma + Postgres**, and **Recharts**.
 
@@ -9,9 +9,9 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 ## Features
 
 - **Members and auth** — Invite-only. Username + password login (scrypt-hashed), generic invalid-credential errors, rate limiting, show/hide password, Caps Lock warning, and a one-tap admin contact for resets. Sessions last 30 days and expired sessions explain themselves instead of silently bouncing.
-- **Super admin** — Admins can add, deactivate, reactivate, and delete users; edit anyone's details (name, username, color, timezone, role); and reset any member's password. Creating and deleting projects, goals, tasks, and chat channels is admin-only, enforced on the server.
+- **Super admin** — Admins can add, deactivate, reactivate, and delete users; edit anyone's details (name, username, color, timezone, role); and reset any member's password. Creating and deleting subjects, projects, tasks, and chat channels is admin-only, enforced on the server.
 - **Admin dashboard** — A dedicated super-admin page with group stats, a user manager, and recent audit activity.
-- **Tasks and projects** — Projects, goals, standalone tasks, and a dedicated **New task** panel for creating tasks with or without a project. Tasks support one or more assignees, priorities, due dates, progress bars, and linked focus time. Every assignee (and admins) can move a task's status.
+- **Subjects, projects and tasks** — Tasks live in three levels: a subject, an optional project inside that subject, or standalone. The dedicated **New task** panel accepts any of those levels. Tasks support one or more assignees, priorities, due dates, progress bars, and linked focus time. Every assignee (and admins) can move a task's status.
 - **Comments** — Comment threads on any task.
 - **Habits and check-ins** — Daily habit grid with streaks that keep counting past the current record.
 - **Study log** — Log sessions (subject, minutes, notes, date) with optional image and file attachments, per-subject progress bars, and inline editing. Sessions you mark as shared are visible to the rest of the group; private ones stay yours.
@@ -24,7 +24,7 @@ Built with **Next.js 15 (App Router) + TypeScript**, **Tailwind CSS v4**, **Pris
 - **Timetable** — A shared weekly class calendar on a time grid. Everyone can view it; only admins add or remove classes.
 - **Grade & GPA tracker** — Private courses with weights and scores; predicts your GPA on a 4.0 scale.
 - **Global search** - Search across notes, tasks, chat messages and resources from the top bar, or press Ctrl/Cmd+K (or `/`) anywhere to start a search.
-- **Weekly goals & notification centre** - Set a weekly study target (shown as a progress ring on the dashboard). The top-bar bell shows an unread count and collects task assignments, task comments and mentions, task status changes, due-today/overdue reminders, exam/deadline reminders, chat @mentions, and new projects. Every event can be switched on or off per member, and any item or the whole list can be marked read. An optional daily digest still posts to Discord, Telegram, or any JSON webhook. New unread items also raise a phone/desktop notification, and the app icon and tab title show an unread badge.
+- **Weekly goals & notification centre** - Set a weekly study target (shown as a progress ring on the dashboard). The top-bar bell shows an unread count and collects task assignments, task comments and mentions, task status changes, due-today/overdue reminders, exam/deadline reminders, chat @mentions, and new subjects. Every event can be switched on or off per member, and any item or the whole list can be marked read. An optional daily digest still posts to Discord, Telegram, or any JSON webhook. New unread items also raise a phone/desktop notification, and the app icon and tab title show an unread badge.
 - **Browser push** — Opt-in Web Push on top of the in-app bell. Generate VAPID keys, save each device's subscription, and receive the same events while the portal is closed. Push can be turned off again per device. iPhone/iPad users must add the portal to their Home Screen first because Safari only supports web push for installed apps.
 - **Presence & weekly report** — See who is online or studying now, plus a week-in-review breakdown by subject.
 - **Data export** - Download your own study sessions, habits, tasks, notes, grades, exams and flashcard reviews as JSON or CSV. Questions, answers and resources are intentionally not included.
@@ -50,7 +50,7 @@ The seed only creates the super admin account(s), using values from your environ
 
 **Add members through the app.** Sign in as the super admin, open **Admin**, and create each member (username, display name, color, timezone, role, password). Members change their own password from **Settings > Change your password**.
 
-Seeding only creates account(s) and a default `#General` chat channel — it does **not** create any sample projects, tasks, habits, or messages. The app starts clean.
+Seeding only creates account(s) and a default `#General` chat channel — it does **not** create any sample subjects, projects, tasks, habits, or messages. The app starts clean.
 
 ## Quick start
 
@@ -258,7 +258,7 @@ This app uses **Postgres** so it can run both locally and on Vercel (SQLite does
 
 ```
 prisma/
-  schema.prisma          # Data model (User, Project, Goal, Task, Habit, StudySession, Note, Exam, Flashcard, Question, Resource, ResourceFavorite/Useful/Read, Notification, PushSubscription, Course, TimetableEntry, Upload, Channel, Message, AuditLog)
+  schema.prisma          # Data model (User, Subject, Project, Task, Habit, StudySession, Note, Exam, Flashcard, Question, Resource, ResourceFavorite/Useful/Read, Notification, PushSubscription, Course, TimetableEntry, Upload, Channel, Message, AuditLog)
   migrations/            # Prisma migrations
   seed.ts                # Seeds admin(s) + default chat channel (no real names, no sample data)
 src/
@@ -303,7 +303,7 @@ vercel.json              # Cron schedule
 - Passwords are hashed with scrypt and verified in constant time. Login attempts are rate-limited.
 - Sessions are signed JWTs in an httpOnly cookie. Deactivating a user or resetting their password invalidates existing sessions (token versioning).
 - The production build refuses to start without a `AUTH_SECRET`.
-- Admin-only actions (projects, goals, tasks, channels, user management, password resets) are enforced on the server, not just hidden in the UI.
+- Admin-only actions (subjects, projects, tasks, channels, user management, password resets) are enforced on the server, not just hidden in the UI.
 - Admin mutations are recorded in an `AuditLog` and visible on the Admin page.
 - Habit and study actions are scoped to the current user — you can only edit or delete your own sessions, and only `shared` sessions are visible to others.
 - Uploads are validated by size, MIME type, extension, and magic bytes in `/api/upload`, require a signed-in session, are rate-limited per user, and use randomized blob paths. Each upload is owned by its uploader; deletion requires ownership and that no saved row still references the file.

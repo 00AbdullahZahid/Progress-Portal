@@ -152,15 +152,6 @@ export function CheckIcon(props: P) {
   );
 }
 
-export function CircleDot(props: P) {
-  return (
-    <svg {...base(props)}>
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 export function ClockIcon(props: P) {
   return (
     <svg {...base(props)}>
@@ -253,14 +244,6 @@ export function AlertIcon(props: P) {
     <svg {...base(props)}>
       <path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
       <path d="M12 9v4M12 17h.01" />
-    </svg>
-  );
-}
-
-export function MenuIcon(props: P) {
-  return (
-    <svg {...base(props)}>
-      <path d="M4 6h16M4 12h16M4 18h16" />
     </svg>
   );
 }
@@ -412,17 +395,6 @@ export function CopyIcon(props: P) {
     <svg {...base(props)}>
       <rect x="9" y="9" width="12" height="12" rx="2" />
       <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
-    </svg>
-  );
-}
-
-export function GridIcon(props: P) {
-  return (
-    <svg {...base(props)}>
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
     </svg>
   );
 }

@@ -49,7 +49,7 @@ export async function destroySession() {
  * is separate from the session cookie and is revoked by the same tokenVersion
  * bump used for password resets and deactivation.
  */
-export async function createCalendarToken(
+async function createCalendarToken(
   userId: string,
   tokenVersion: number
 ): Promise<string> {
@@ -168,10 +168,6 @@ export async function requireUser() {
     redirect(store.get(COOKIE)?.value ? "/login?expired=1" : "/login");
   }
   return user;
-}
-
-export function isAdmin(user: { role: string }): boolean {
-  return user.role === "admin";
 }
 
 export async function requireAdmin() {

@@ -9,7 +9,7 @@ canonical version users see; keep the two in sync when adding a feature.
 | Page | What it does | Who can change it |
 | --- | --- | --- |
 | Dashboard | Time-aware greeting, an **Up next** strip (next class, nearest deadline, assigned tasks), context-rich stat cards, quick actions, and 7/14/30-day **Me / Group** bar charts for tasks and study. | Everyone sees their own data plus group-wide totals. |
-| Tasks & Goals | Projects, goals, a separate **New task** panel, tasks with or without a project, status, priority, one or more assignees, due date, linked focus time, plus comments. | Admins create projects, goals and tasks; members move tasks assigned to them and comment. |
+| Tasks & Projects | Subjects, optional projects inside a subject, a separate **New task** panel, tasks with or without a subject/project, status, priority, one or more assignees, due date, linked focus time, plus comments. | Admins create subjects, projects and tasks; members move tasks assigned to them and comment. |
 | Habits | Daily habits with one-tap check-ins and streaks. | Personal to each member. |
 | Study log | Sessions with subject, minutes, date, notes, and optional attachments; a focus timer can link a block to a task and log elapsed minutes early. | Personal log; sessions marked shared are visible to the group. |
 | Notes | Shared notes by subject with search and image/file attachments. | Everyone reads; only the author or an admin edits or deletes. |
@@ -50,8 +50,8 @@ canonical version users see; keep the two in sync when adding a feature.
 - **Notification centre** — The top-bar bell shows an unread count and a panel with
   recent events. Members choose which events create a notification: task
   assignments, task comments and @mentions, task status changes, due-today/overdue
-  reminders, exam/deadline reminders, chat @mentions, and new projects. Mark one
-  item or everything as read; notifications link straight to the task or project.
+  reminders, exam/deadline reminders, chat @mentions, and new subjects. Mark one
+  item or everything as read; notifications link straight to the task, project or subject.
   New unread items also raise a device notification, and the app badge and tab
   title show the unread count.
 - **Browser push** — An opt-in delivery channel on top of the in-app bell. After
@@ -90,7 +90,7 @@ canonical version users see; keep the two in sync when adding a feature.
 ## Permissions in one line each
 
 - Everyone can read all shared content and add notes, deadlines, flashcards,
-  doubts, resources and chat messages. Only admins create projects, goals, tasks
+  doubts, resources and chat messages. Only admins create subjects, projects, tasks
   and channels; members move tasks assigned to them and comment on tasks.
 - Resource pins, useful marks and read checklists are per member. Removing a
   resource is limited to its uploader or an admin.

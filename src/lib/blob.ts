@@ -181,16 +181,6 @@ export async function referencedUrls(
   return referenced;
 }
 
-/** Convenience: is this single URL still referenced by any saved row? */
-export async function isReferenced(
-  db: Db,
-  url: string | null | undefined,
-  opts: { excludeRowId?: string } = {}
-): Promise<boolean> {
-  const set = await referencedUrls(db, [url], opts);
-  return set.size > 0;
-}
-
 /**
  * Mark uploads as attached to a saved row so the cleanup job stops considering
  * them orphans. Best-effort: a failure here just means the cleanup job will
@@ -224,7 +214,7 @@ export async function claimUploads(
  * and later delete a file they never uploaded. Legacy URLs are handled by the
  * caller: an unchanged value on an existing row is allowed separately.
  */
-export async function ownsUpload(
+async function ownsUpload(
   ownerId: string,
   url: string | null | undefined,
   client?: Db

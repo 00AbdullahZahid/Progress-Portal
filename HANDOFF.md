@@ -82,6 +82,20 @@ Tasks stay unlinked because there were no legacy projects/goals to map from.
 - Audit actions added: `subject.create`, `subject.update`, `subject.delete`; historical
   `goal.*` entries are retained.
 
+## Code cleanup
+- Removed dead module `src/components/quick-links.tsx` and three unused icons.
+- Removed unused helpers/actions: `isReferenced`, `clearAppCaches`, `ThemeCycle`,
+  `useAction`, `createChannel`, the unused mark-notification-read server actions, and
+  `isAdmin`.
+- Narrowed `export` on symbols used only inside their own module (theme helpers, calendar
+  types, rate-limit/security constants, upload/notify internals, tutorial opener, note and
+  question types).
+- Extracted shared create/edit task validation into `parseTaskFields`.
+- Deleted three unreferenced public icons; refreshed `README.md` and `docs/FEATURES.md`
+  terminology.
+- `npx knip` now reports only two known false positives (`public/sw.js` and
+  `eslint-config-next`).
+
 ## Known follow-ups
 1. **Default assignees and Shared vs Everyone task completion** (`4/6 done`) still need a
    design/schema decision; there is no subject-membership model.

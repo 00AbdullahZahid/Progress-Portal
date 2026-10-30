@@ -1,6 +1,6 @@
 import { shiftDate } from "./dates";
 
-export type CalendarExam = {
+type CalendarExam = {
   id: string;
   title: string;
   subject: string;
@@ -9,14 +9,14 @@ export type CalendarExam = {
   notes?: string | null;
 };
 
-export type CalendarTask = {
+type CalendarTask = {
   id: string;
   title: string;
   dueDate: string;
   projectName?: string;
 };
 
-export type CalendarClass = {
+type CalendarClass = {
   id: string;
   title: string;
   weekday: number;

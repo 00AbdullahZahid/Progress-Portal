@@ -119,9 +119,22 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function createTask(formData: FormData): Promise<ActionResult> {
-  "use server";
-  const me = await requireUser();
+type TaskFields = {
+  title: string;
+  subjectId: string | null;
+  projectId: string | null;
+  assigneeIds: string[];
+  priority: (typeof PRIORITIES)[number];
+  dueDate: Date | null;
+};
+
+/**
+ * Validate the shared create/edit task fields and resolve the optional
+ * subject and project links. Both task forms accept the same shape.
+ */
+async function parseTaskFields(
+  formData: FormData
+): Promise<{ ok: true; value: TaskFields } | { ok: false; error: string }> {
   const rawSubjectId = String(formData.get("subjectId") ?? "").trim();
   const rawProjectId = String(formData.get("projectId") ?? "").trim();
   const titleRes = cleanText(formData.get("title"), 160);
@@ -173,13 +186,34 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
   if (due === "invalid")
     return { ok: false, error: "Please pick a valid due date." };
 
+  return {
+    ok: true,
+    value: {
+      title: titleRes.value,
+      subjectId,
+      projectId,
+      assigneeIds,
+      priority: priority as (typeof PRIORITIES)[number],
+      dueDate: due,
+    },
+  };
+}
+
+export async function createTask(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireUser();
+  const fields = await parseTaskFields(formData);
+  if (!fields.ok) return fields;
+  const { title, subjectId, projectId, assigneeIds, priority, dueDate } =
+    fields.value;
+
   const task = await db.task.create({
     data: {
       subjectId,
       projectId,
-      title: titleRes.value,
-      priority: priority as (typeof PRIORITIES)[number],
-      dueDate: due,
+      title,
+      priority,
+      dueDate,
       createdById: me.id,
       assignees: {
         create: assigneeIds.map((userId) => ({ userId })),
@@ -277,72 +311,26 @@ export async function updateTask(formData: FormData): Promise<ActionResult> {
   if (!canEditTask(me, task))
     return { ok: false, error: "Only the creator or an admin can edit this task." };
 
-  const titleRes = cleanText(formData.get("title"), 160);
-  if (!titleRes.ok) return titleRes;
-
-  const rawSubjectId = String(formData.get("subjectId") ?? "").trim();
-  const rawProjectId = String(formData.get("projectId") ?? "").trim();
-  const projectId = rawProjectId || null;
-  let project: { id: string; subjectId: string } | null = null;
-  if (projectId) {
-    project = await db.project.findUnique({
-      where: { id: projectId },
-      select: { id: true, subjectId: true },
-    });
-    if (!project) return { ok: false, error: "Project not found." };
-  }
-
-  const subjectId = rawSubjectId || project?.subjectId || null;
-  if (subjectId) {
-    const subject = await db.subject.findUnique({
-      where: { id: subjectId },
-      select: { id: true },
-    });
-    if (!subject) return { ok: false, error: "Subject not found." };
-  }
-  if (project && project.subjectId !== subjectId)
-    return { ok: false, error: "That project doesn't belong to this subject." };
-
-  const assigneeIds = Array.from(
-    new Set(
-      formData
-        .getAll("assigneeIds")
-        .map((value) => String(value).trim())
-        .filter(Boolean)
-    )
-  );
-  if (assigneeIds.length > 0) {
-    const found = await db.user.findMany({
-      where: { id: { in: assigneeIds } },
-      select: { id: true },
-    });
-    if (found.length !== assigneeIds.length)
-      return { ok: false, error: "One or more assignees were not found." };
-  }
-
-  const priority = String(formData.get("priority") ?? "med");
-  if (!PRIORITIES.includes(priority as (typeof PRIORITIES)[number]))
-    return { ok: false, error: "Invalid priority." };
-
-  const due = parseDate(formData.get("dueDate"));
-  if (due === "invalid")
-    return { ok: false, error: "Please pick a valid due date." };
+  const fields = await parseTaskFields(formData);
+  if (!fields.ok) return fields;
+  const { title, subjectId, projectId, assigneeIds, priority, dueDate } =
+    fields.value;
 
   await db.task.update({
     where: { id: taskId },
     data: {
-      title: titleRes.value,
+      title,
       subjectId,
       projectId,
-      priority: priority as (typeof PRIORITIES)[number],
-      dueDate: due,
+      priority,
+      dueDate,
       assignees: {
         deleteMany: {},
         create: assigneeIds.map((userId) => ({ userId })),
       },
     },
   });
-  await audit(me.id, "task.update", { targetId: taskId, detail: titleRes.value });
+  await audit(me.id, "task.update", { targetId: taskId, detail: title });
   refresh();
   return { ok: true };
 }

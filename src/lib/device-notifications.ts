@@ -8,7 +8,7 @@
  * environment.
  */
 
-export type DeviceNotificationPayload = {
+type DeviceNotificationPayload = {
   title: string;
   body?: string | null;
   href?: string | null;

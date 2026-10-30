@@ -22,7 +22,7 @@ function isTutorialEnabled(): boolean {
  * Open the tour from anywhere. Clears the "seen" flag so it starts at step one
  * even on a browser that has already finished it.
  */
-export function startTutorial() {
+function startTutorial() {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(SEEN_KEY, "0");

@@ -19,7 +19,7 @@ export const THEME_EVENT = "theme-change";
 const THEME_KEY = "theme";
 const ACCENT_KEY = "theme-accent";
 
-export const ACCENTS: Array<{ value: Accent; label: string; swatch: string }> = [
+const ACCENTS: Array<{ value: Accent; label: string; swatch: string }> = [
   { value: "blue", label: "Blue", swatch: "#2563eb" },
   { value: "indigo", label: "Indigo", swatch: "#4f46e5" },
   { value: "violet", label: "Violet", swatch: "#7c3aed" },
@@ -32,7 +32,7 @@ export const ACCENTS: Array<{ value: Accent; label: string; swatch: string }> = 
 
 const ACCENT_VALUES = ACCENTS.map((accent) => accent.value);
 
-export function isAccent(value: unknown): value is Accent {
+function isAccent(value: unknown): value is Accent {
   return typeof value === "string" && ACCENT_VALUES.includes(value as Accent);
 }
 
@@ -40,7 +40,7 @@ function isTheme(value: unknown): value is Theme {
   return value === "light" || value === "dark" || value === "system";
 }
 
-export function readTheme(): Theme {
+function readTheme(): Theme {
   try {
     const stored = localStorage.getItem(THEME_KEY);
     if (isTheme(stored)) return stored;
@@ -50,7 +50,7 @@ export function readTheme(): Theme {
   return "system";
 }
 
-export function readAccent(): Accent {
+function readAccent(): Accent {
   try {
     const stored = localStorage.getItem(ACCENT_KEY);
     if (isAccent(stored)) return stored;
@@ -65,7 +65,7 @@ function prefersDark(): boolean {
 }
 
 /** Apply a theme mode and notify every mounted theme control. */
-export function applyTheme(theme: Theme) {
+function applyTheme(theme: Theme) {
   const dark = theme === "dark" || (theme === "system" && prefersDark());
   document.documentElement.classList.toggle("dark", dark);
   window.dispatchEvent(new Event(THEME_EVENT));
@@ -76,7 +76,7 @@ export function applyTheme(theme: Theme) {
  * values live in globals.css so light and dark variants are pure CSS and the
  * accent survives a mode change without a flash.
  */
-export function applyAccent(accent: Accent) {
+function applyAccent(accent: Accent) {
   if (accent === "blue") {
     document.documentElement.removeAttribute("data-accent");
   } else {
@@ -94,7 +94,7 @@ export function saveTheme(theme: Theme) {
   applyTheme(theme);
 }
 
-export function saveAccent(accent: Accent) {
+function saveAccent(accent: Accent) {
   try {
     localStorage.setItem(ACCENT_KEY, accent);
   } catch {
@@ -237,43 +237,3 @@ export function AccentControl({ className = "" }: { className?: string }) {
   );
 }
 
-/** Compact one-button version for spaces where only a mode cycle fits. */
-export function ThemeCycle({ className = "" }: { className?: string }) {
-  const [theme, setTheme] = useState<Theme>("system");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      setMounted(true);
-      setTheme(readTheme());
-    });
-    const sync = () => setTheme(readTheme());
-    window.addEventListener(THEME_EVENT, sync);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener(THEME_EVENT, sync);
-    };
-  }, []);
-
-  const current = OPTIONS.find((option) => option.value === theme) ?? OPTIONS[2];
-  const Icon = current.Icon;
-
-  function cycle() {
-    const order: Theme[] = ["system", "light", "dark"];
-    const next = order[(order.indexOf(theme) + 1) % order.length];
-    setTheme(next);
-    saveTheme(next);
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={cycle}
-      aria-label={`Theme: ${current.label}. Click to change.`}
-      title={`Theme: ${current.label}`}
-      className={`flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${className}`}
-    >
-      {mounted ? <Icon width={19} height={19} /> : <MonitorIcon width={19} height={19} />}
-    </button>
-  );
-}

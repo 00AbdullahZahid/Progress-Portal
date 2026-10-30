@@ -51,22 +51,3 @@ export async function setPushPreference(formData: FormData): Promise<ActionResul
   return { ok: true };
 }
 
-export async function markNotificationRead(formData: FormData): Promise<ActionResult> {
-  const me = await requireUser();
-  const id = String(formData.get("notificationId") ?? "");
-  if (!id) return { ok: false, error: "Notification not found." };
-  await db.notification.updateMany({
-    where: { id, userId: me.id, readAt: null },
-    data: { readAt: new Date() },
-  });
-  return { ok: true };
-}
-
-export async function markAllNotificationsRead(): Promise<ActionResult> {
-  const me = await requireUser();
-  await db.notification.updateMany({
-    where: { userId: me.id, readAt: null },
-    data: { readAt: new Date() },
-  });
-  return { ok: true };
-}

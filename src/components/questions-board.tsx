@@ -18,7 +18,7 @@ import { Dialog } from "./dialog";
 import { useToast } from "./toast";
 import { QuestionIcon, PlusIcon, XIcon, CheckIcon, NotesIcon, CardIcon, EditIcon } from "./icons";
 
-export type AnswerRow = {
+type AnswerRow = {
   id: string;
   body: string;
   accepted: boolean;

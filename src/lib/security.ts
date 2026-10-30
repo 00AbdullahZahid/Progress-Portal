@@ -7,8 +7,8 @@ import { promisify } from "util";
 
 const scrypt = promisify(scryptCb);
 
-export const MAX_PASSWORD_LENGTH = 200;
-export const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 200;
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * A real scrypt hash for a throwaway password. Unknown usernames run a dummy

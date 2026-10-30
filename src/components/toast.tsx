@@ -96,32 +96,6 @@ export function useToast() {
   return ctx;
 }
 
-/**
- * Small helper that wires a server action to a toast + refresh flow.
- * Returns a form `action` compatible function.
- */
-export function useAction(
-  run: () => Promise<void>,
-  { success, error }: { success?: string; error?: string } = {}
-) {
-  const { toast } = useToast();
-  const [pending, setPending] = useState(false);
-
-  const execute = useCallback(async () => {
-    setPending(true);
-    try {
-      await run();
-      if (success) toast(success, "success");
-    } catch {
-      toast(error ?? "Something went wrong. Please try again.", "error");
-    } finally {
-      setPending(false);
-    }
-  }, [run, success, error, toast]);
-
-  return { pending, execute };
-}
-
 /** Lock body scroll while a modal is open. */
 export function useBodyLock(active: boolean) {
   useEffect(() => {

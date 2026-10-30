@@ -11,7 +11,7 @@ type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
 
-export type RateLimitResult = {
+type RateLimitResult = {
   ok: boolean;
   remaining: number;
   retryAfterSeconds: number;

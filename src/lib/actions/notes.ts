@@ -13,7 +13,7 @@ function refresh() {
   revalidatePath("/dashboard");
 }
 
-export type NoteInput = {
+type NoteInput = {
   title: string;
   body: string;
   subject: string;

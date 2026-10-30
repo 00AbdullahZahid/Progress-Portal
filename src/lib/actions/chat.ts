@@ -2,10 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "../db";
-import { requireUser, requireAdmin } from "../auth";
+import { requireUser } from "../auth";
 import { cleanText } from "../validation";
 import { rateLimit } from "../rate-limit";
-import { audit } from "../audit";
 import { queueWebhookAlert } from "../alerts";
 import { mentionedHandles } from "../mentions";
 import { notifyUsers } from "../notifications";
@@ -179,25 +178,3 @@ export async function deleteMessage(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function createChannel(formData: FormData): Promise<ActionResult> {
-  "use server";
-  const me = await requireAdmin();
-  const nameRes = cleanText(formData.get("name"), 60);
-  if (!nameRes.ok) return nameRes;
-
-  const existing = await db.channel.findFirst({
-    where: { name: { equals: nameRes.value, mode: "insensitive" } },
-  });
-  if (existing) return { ok: false, error: "A channel with that name already exists." };
-
-  const channel = await db.channel.create({
-    data: { name: nameRes.value, kind: "group" },
-  });
-  await audit(me.id, "channel.create", {
-    targetId: channel.id,
-    detail: channel.name,
-  });
-
-  revalidatePath("/chat");
-  return { ok: true };
-}
