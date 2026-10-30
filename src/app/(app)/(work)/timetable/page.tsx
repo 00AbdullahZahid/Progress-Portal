@@ -9,11 +9,17 @@ export default async function TimetablePage() {
   const me = await requireUser();
 
   // Everyone sees the shared timetable plus their own personal classes.
-  const entries = await db.timetableEntry.findMany({
-    where: { OR: [{ scope: "group" }, { ownerId: me.id }] },
-    orderBy: [{ weekday: "asc" }, { startMin: "asc" }],
-    include: { owner: { select: { name: true } } },
-  });
+  const [entries, subjects] = await Promise.all([
+    db.timetableEntry.findMany({
+      where: { OR: [{ scope: "group" }, { ownerId: me.id }] },
+      orderBy: [{ weekday: "asc" }, { startMin: "asc" }],
+      include: { owner: { select: { name: true } } },
+    }),
+    db.subject.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return (
     <div>
@@ -30,10 +36,12 @@ export default async function TimetablePage() {
           title: e.title,
           location: e.location,
           color: e.color,
+          subjectId: e.subjectId,
           scope: e.scope,
           ownerId: e.ownerId,
           ownerName: e.owner.name,
         }))}
+        subjects={subjects}
         isAdmin={me.role === "admin"}
         meId={me.id}
       />

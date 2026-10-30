@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isHexColor } from "../validation";
+import { resolveSubjectId } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -86,11 +87,17 @@ export async function createTimetableEntry(formData: FormData): Promise<ActionRe
   const parsed = parseEntryFields(formData);
   if (!parsed.ok) return parsed;
 
+  const subjectId = await resolveSubjectId(
+    formData.get("subjectId"),
+    formData.get("subject")
+  );
+
   await db.timetableEntry.create({
     data: {
       // Also records who added a group class, and owns personal entries.
       ownerId: me.id,
       scope,
+      subjectId,
       ...parsed.fields,
     },
   });
@@ -116,7 +123,13 @@ export async function updateTimetableEntry(formData: FormData): Promise<ActionRe
   // to the group timetable without going through the admin-only create path.
   await db.timetableEntry.update({
     where: { id },
-    data: parsed.fields,
+    data: {
+      ...parsed.fields,
+      subjectId: await resolveSubjectId(
+        formData.get("subjectId"),
+        formData.get("subject")
+      ),
+    },
   });
   refresh();
   return { ok: true };

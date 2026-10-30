@@ -1,94 +1,101 @@
-# Portal redesign — handoff (paused 2026-10-29)
+# Portal handoff — Subject / Project restructure (2026-10-30)
 
-Branch: `main` · Baseline commit before this work: `954d045`
+Branch: `main` · HEAD: `96bc3af` · **the restructure is uncommitted**
 
-## Verification at pause
+## Verification
 - `npm run typecheck` — passes
 - `npm test` — 44/44 pass
 - `npm run lint` — passes with one pre-existing `<img>` warning in `sidebar-logo.tsx`
 - `npm run build` — passes (27 pages)
-- `.next` was deleted once to clear stale route types after moving pages.
+- `npx prisma migrate diff --from-url <production> --to-schema-datamodel prisma/schema.prisma`
+  — **No difference detected**
+- `npx prisma migrate status` — 12 migrations applied, database up to date
 
-## Done
-### Correctness / permissions
-- `Task.createdById` (nullable, `onDelete: SetNull`), `User.tasksCreated`, index.
-- `TimetableEntry.scope` (`group` / `personal`, default `group`), index.
-- `User.gpaScale` JSON? for a private percentage-band scale.
-- Handwritten migration:
-  `prisma/migrations/20261029120000_task_creator_timetable_scope_grade_scale/migration.sql`
-  **Not applied to any database.**
-- Members can create tasks; project/goal creation stays admin-only.
-- `updateTask` edits title, project, goal, priority, due date, assignees; status stays in
-  `setTaskStatus`. Permissions live in `src/lib/task-permissions.ts` (kept outside the
-  `"use server"` module because every export there must be async).
-  - Creator or admin may edit; legacy `createdById = null` tasks may be edited by any member.
-  - Deletion stays creator-or-admin (legacy tasks: admin only).
-- Added `updateExam`; author or admin may edit deadlines.
-- Added `updateProject` (renames the project's chat channel too) and `updateGoal`.
-- Added `updateTimetableEntry`: personal entry → owner only; group entry → admin only;
-  scope cannot be changed on edit.
-- Added `updateResource` (metadata only, not link/file), `updateQuestion`, `updateFlashcard`,
-  and `renameHabit`; each is author/owner-or-admin.
-- Added `src/components/dialog.tsx` (accessible modal / mobile bottom sheet).
+## What changed
+### Schema (`prisma/schema.prisma`)
+- `Project` → **`Subject`**; `Goal` → **`Project`**. Existing table rows keep their ids.
+- `Task.projectId` → `subjectId`; `Task.goalId` → `projectId`.
+- `Channel.projectId` → `subjectId`; `ChannelKind.project` → `ChannelKind.subject`.
+- `Subject` gains `color` (default `#2563eb`) and `archivedAt`.
+- `Exam` gains optional `subjectId` and `projectId`.
+- Notes, resources, flashcards, questions, study sessions, and timetable entries gain an
+  optional `subjectId`.
+- Deletes: `Subject` cascades to its projects, tasks, and channel; linked exams/library rows
+  use `SetNull`. Deleting a project detaches its tasks (`SetNull`) instead of deleting them.
+- Legacy free-text `subject` columns are intentionally **kept** on notes, resources, exams,
+  questions, and study sessions until a later cleanup.
 
-### Home
-- Dashboard reduced to a “Today” view: `UpNext`, quick actions, task/deadline lists.
-- Charts, stats, leaderboard, widgets, and recent chat are collapsed under a native
-  `<details>` “This week at a glance”.
-- `QuickLinks` removed from Home (still exists in the codebase, unused there).
+### Migration
+`prisma/migrations/20261030160000_subject_project_restructure/migration.sql`
+- Handwritten `ALTER TABLE … RENAME` (no drop/create), including PK/FK/index renames.
+- Backfills a `Subject` for every distinct trimmed, case-insensitive free-text subject
+  (`id = 'sub_' || md5(lower(name))`) and links Note/Resource/Exam/Question/StudySession.
+- Validated end-to-end first on a temporary local Postgres restored from the backup:
+  migration applied, `prisma migrate diff` clean, all rows preserved, no orphan links.
+- **Applied to the Neon `neondb` database on 2026-10-30 via `npx prisma migrate deploy`.**
 
-### Grades
-- `src/lib/grades.ts` holds band maths, weighted percentage, “needed on remaining”,
-  and weight-total warnings; covered by `src/lib/grades.test.ts`.
-- Private per-user scale stored in `User.gpaScale`; reset uses `Prisma.DbNull`.
-- `grades-board.tsx`: add/edit/delete courses and items, scale editor, per-course target
-  calculator, and weight warnings. Only the owner's courses are queried.
-- `gpaScale` is included in `SESSION_USER_SELECT` in `src/lib/auth.ts`.
+### Production data after migration
+| Thing | Count |
+| --- | --- |
+| Users | 6 |
+| Subjects (11 created from existing text) | 11 |
+| Projects (no legacy goals existed) | 0 |
+| Tasks | 5 |
+| Channels (all `group`) | 1 |
+| Exams | 2 |
+| Resources | 1 |
+| Questions | 1 |
+| Study sessions | 8 |
+| Timetable entries | 7 |
 
-### Task & deadline UI
-- `task-board.tsx`: member “New task” form, task edit dialog, project rename dialog, goal
-  edit dialog, permission-aware edit/delete buttons.
-- `exams-board.tsx`: edit dialog for deadlines.
-- `tasks/page.tsx`: passes `projectId` and `createdById`.
+Backfill links: Resource 1/1, Exam 2/2, Question 1/1, StudySession 8/8. Notes and flashcards
+had no rows. Timetable entries have no old text subject, so they stay unlinked until edited.
+Tasks stay unlinked because there were no legacy projects/goals to map from.
 
-### Timetable isolation
-- `timetable.ts`: anyone may add personal entries; only admins may add group entries;
-  delete/edit is admin or personal owner.
-- Timetable page, dashboard next-class query, and `.ics` feed all show `scope = group`
-  plus the viewer’s own personal entries.
-- Timetable UI lets members add personal classes; admins choose group vs personal.
+### Backups
+- `C:\Users\ADMIN\AppData\Local\Temp\opencode\progress-portal-backup-20261030.dump`
+- `C:\Users\ADMIN\AppData\Local\Temp\opencode\progress-portal-backup-pre-migration-20261030.dump`
+  (taken immediately before the production migration)
 
-### Study sharing
-- `StudyForm` defaults sharing to **on** and resets to on after submit.
-- “Shared” badge was already present in `SessionList`.
-- Habits can be renamed without losing check-in history.
-- Existing study rows were **not backfilled** to `shared = true` (privacy decision pending).
+### Tasks page (`src/components/task-board.tsx`)
+- Mine / Everyone toggle and Subjects / By due date views.
+- Subject cards with colour chip, project count, open/done counts, progress bar, next due,
+  and linked focus time.
+- Collapsible projects inside each subject, with per-project quick add.
+- Direct subject tasks are listed separately; subject-level quick add lives on each card.
+- Dialogs for creating/editing subjects and projects; no permanent “New project” form.
+- Quick add works for members; subject/project create and edit stay admin-only.
+- Tasks can sit directly under a subject or inside one of its projects.
 
-### Navigation / shell
-- Built `Tabs` (`src/components/tabs.tsx`) and `ListRow` (`src/components/list-row.tsx`).
-- Created route groups without changing URLs:
-  - `src/app/(app)/(work)/{tasks,exams,timetable}` + section tabs
-  - `src/app/(app)/(study)/{study,habits}` + section tabs
-  - `src/app/(app)/(library)/{notes,resources,questions,flashcards}` + section tabs
-- `nav.tsx` reduced to five primary tabs on desktop and mobile:
-  Home `/dashboard`, Work `/tasks`, Study `/study`, Library `/notes`, Chat `/chat`.
-  Mobile “More” sheet removed.
-- Avatar menu includes People, Grades, Settings, Guide, and Admin (admin only), plus theme/logout.
-- Search remains in the top bar only. `/search` now covers tasks, deadlines, notes, doubts,
-  flashcards, resources, chat, and people using `ListRow`.
+### Subject linking
+- `src/lib/subject-link.ts` resolves an explicit `subjectId`, or falls back to a trimmed,
+  case-insensitive name match (`resolveSubjectId` / `findSubjectIdByName`).
+- Wired into notes, resources, questions (including “save answer as note/flashcard”), exams,
+  study sessions, and timetable entries.
+- Library/deadline/study/timetable forms keep their text inputs; exams and timetable also
+  offer a subject datalist/picker.
+- Chat labels subject channels as `Subject: …`.
 
-### Settings
-- Every anchor section exists and works; no dead `href="#"` links.
+### Terminology
+- Guide, tutorial, quick links, notification settings, search, calendar feed, CSV export,
+  study page, and chat now say Subject / Project instead of Project / Goal.
+- Audit actions added: `subject.create`, `subject.update`, `subject.delete`; historical
+  `goal.*` entries are retained.
 
-## Next tasks
-1. **Apply the migration** once the target database and a backup are confirmed. Do not run
-   `prisma migrate deploy` against production blindly.
-2. **Decide study backfill**: should existing private sessions become shared?
-3. **Notifications**: explicitly deferred — do not add new kinds/toggles/reminders yet.
+## Known follow-ups
+1. **Default assignees and Shared vs Everyone task completion** (`4/6 done`) still need a
+   design/schema decision; there is no subject-membership model.
+2. The 11 backfilled subjects include messy free-text names (for example
+   “Generative AI Assignment And Research.”). Consider a merge/rename tool before removing
+   the legacy text columns.
+3. Decide whether existing private study sessions should become shared (unchanged).
+4. Notifications remain **deferred**. Audit found missing `doubt_answered`, `answer_accepted`,
+   and `deadline_added` events, daily repeat overdue reminders, and no notification pruning.
+5. Consider a `vercel-build` script that runs `prisma migrate deploy` so future schema
+   changes cannot deploy ahead of the database.
 
 ## Cautions
-- Do **not** apply the migration or run `prisma migrate deploy` against production without
-  confirming the database target and taking a backup.
-- Run `npx prisma generate` after schema changes (already run once).
+- The restructure migration is applied to production; run `npx prisma generate` after schema
+  changes. The Vercel build does not run `prisma migrate deploy` automatically.
 - Keep existing URLs; the route-group moves intentionally do not change them.
 - Uncommitted work exists; **do not commit or push**.

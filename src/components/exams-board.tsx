@@ -22,7 +22,6 @@ export type ExamRow = {
 };
 
 const KINDS = ["exam", "assignment", "quiz", "deadline"] as const;
-
 /** Whole days from `today` (YYYY-MM-DD) to `date`, both treated as UTC dates. */
 function daysUntil(date: string, today: string): number {
   const a = Date.parse(today + "T00:00:00Z");
@@ -39,11 +38,13 @@ function countdownLabel(days: number): string {
 
 export function ExamsBoard({
   exams,
+  subjects,
   meId,
   isAdmin,
   today,
 }: {
   exams: ExamRow[];
+  subjects: string[];
   meId: string;
   isAdmin: boolean;
   today: string;
@@ -183,7 +184,18 @@ export function ExamsBoard({
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
-                <Input name="subject" maxLength={60} required placeholder="e.g. Physics" />
+                <Input
+                  name="subject"
+                  maxLength={60}
+                  required
+                  placeholder="e.g. Physics"
+                  list="exam-subjects"
+                />
+                <datalist id="exam-subjects">
+                  {subjects.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Type</span>
@@ -281,7 +293,13 @@ export function ExamsBoard({
                   defaultValue={editing.subject}
                   maxLength={60}
                   required
+                  list="exam-subjects-edit"
                 />
+                <datalist id="exam-subjects-edit">
+                  {subjects.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Type</span>

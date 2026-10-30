@@ -46,10 +46,10 @@ const FEATURES: Feature[] = [
   },
   {
     href: "/tasks",
-    title: "Tasks & Goals",
+    title: "Subjects & Tasks",
     Icon: TasksIcon,
-    what: "Plan projects and goals. Use the separate New task panel to create a task in any project or as a standalone task with no project, assign it to one or more members, and set its status (todo, doing, done), priority, and due date. Comment on tasks to keep context together, and see focus time linked from the study timer.",
-    who: "Admins create projects, goals, and tasks. Members can move tasks assigned to them and comment on any task; admins can remove anything.",
+    what: "Plan subjects, with optional projects inside each one. Add tasks directly to a subject, inside one of its projects, or without a subject. Assign each task to one or more members, set its status (todo, doing, done), priority, and due date, and comment as it moves. Switch between Mine and Everyone, or group tasks by subject or due date. Focus time logged from the study timer appears on linked tasks.",
+    who: "Admins create subjects, projects, and tasks. Members can add tasks, move tasks assigned to them, and comment on any task; admins can remove anything.",
   },
   {
     href: "/habits",
@@ -165,7 +165,7 @@ const EXTRAS = [
   {
     Icon: BellIcon,
     title: "Notification centre and push",
-    body: "The top-bar bell collects task assignments, comments and @mentions, task status changes, due-today and overdue reminders, and new projects. It shows an unread count and lets you mark one item or everything as read. In Settings you can choose which events create a notification and enable browser push on each device, so alerts arrive even when the portal is closed. On iPhone and iPad, add the portal to your Home Screen first; Safari only allows web push for installed apps. A separate optional group digest can still go to Discord, Telegram, or a custom webhook.",
+    body: "The top-bar bell collects task assignments, comments and @mentions, task status changes, due-today and overdue reminders, and new subjects. It shows an unread count and lets you mark one item or everything as read. In Settings you can choose which events create a notification and enable browser push on each device, so alerts arrive even when the portal is closed. On iPhone and iPad, add the portal to your Home Screen first; Safari only allows web push for installed apps. A separate optional group digest can still go to Discord, Telegram, or a custom webhook.",
   },
   {
     Icon: CalendarIcon,
@@ -285,8 +285,8 @@ export default async function GuidePage() {
           <li>
             <span className="font-medium text-ink">Everyone</span> can read all shared content,
             add notes, deadlines, flashcards, doubts, resources, and chat messages, and view the
-            timetable. Projects, goals, tasks, and channels are created by admins; members move
-            tasks assigned to them and comment on tasks.
+            timetable. Subjects, projects, and channels are created by admins; members can add
+            tasks, move tasks assigned to them, and comment on tasks.
           </li>
           <li>
             <span className="font-medium text-ink">Authors</span> can edit or delete what they

@@ -27,7 +27,7 @@ enum TaskPriority {
 
 enum ChannelKind {
   group
-  project
+  subject
 }
 
 enum TimetableScope {
@@ -77,32 +77,32 @@ model User {
   createdAt    DateTime @default(now())
 
   // Weekly study target in minutes (0 = no goal set).
-  weeklyGoalMinutes  Int       @default(0)
+  weeklyGoalMinutes   Int       @default(0)
   // Optional per-user GPA scale. Null means "use the built-in percentage bands".
-  gpaScale           Json?
+  gpaScale            Json?
   // Optional per-day rest allowance so one missed day doesn't kill a streak.
-  streakFreezesFree  Int       @default(1)
+  streakFreezesFree   Int       @default(1)
   // Notification preferences.
-  notifyTasks        Boolean   @default(true)
-  notifyExams        Boolean   @default(true)
+  notifyTasks         Boolean   @default(true)
+  notifyExams         Boolean   @default(true)
   // In-app notification event preferences.
-  notifyTaskAssigned Boolean   @default(true)
-  notifyTaskComments Boolean   @default(true)
-  notifyTaskStatus   Boolean   @default(true)
-  notifyTaskDue      Boolean   @default(true)
-  notifyNewProjects  Boolean   @default(true)
-  notifyChatMentions Boolean   @default(true)
-  notifyExamReminders Boolean  @default(true)
+  notifyTaskAssigned  Boolean   @default(true)
+  notifyTaskComments  Boolean   @default(true)
+  notifyTaskStatus    Boolean   @default(true)
+  notifyTaskDue       Boolean   @default(true)
+  notifyNewProjects   Boolean   @default(true)
+  notifyChatMentions  Boolean   @default(true)
+  notifyExamReminders Boolean   @default(true)
   // Browser push is opt-in and requires an active push subscription.
-  notifyPush         Boolean   @default(false)
+  notifyPush          Boolean   @default(false)
   // Presence: the last time this user opened the app.
-  lastSeenAt         DateTime?
+  lastSeenAt          DateTime?
   // Last time the member opened Chat, used for the unread badge. Null means
   // they have never read chat on this account.
-  chatReadAt         DateTime?
+  chatReadAt          DateTime?
 
   taskAssignments   TaskAssignee[]
-  tasksCreated      Task[]          @relation("TaskCreator")
+  tasksCreated      Task[]             @relation("TaskCreator")
   comments          TaskComment[]
   habits            Habit[]
   sessions          StudySession[]
@@ -144,49 +144,57 @@ model Upload {
 }
 
 model Note {
-  id        String   @id @default(cuid())
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  title     String
-  body      String
-  subject   String
+  id         String   @id @default(cuid())
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title      String
+  body       String
+  subject    String
+  // Optional link to the shared Subject. The text field is kept until cleanup.
+  subjectId  String?
+  subjectRef Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   // Everyone in the group can read and edit notes; only the author (or an
   // admin) can delete one.
-  image     String?
-  fileUrl   String?
-  fileName  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  image      String?
+  fileUrl    String?
+  fileName   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([subject])
+  @@index([subjectId])
   @@index([authorId])
   @@index([createdAt])
 }
 
 model Resource {
-  id        String       @id @default(cuid())
-  title     String
-  kind      ResourceKind @default(other)
-  subject   String
-  url       String?
-  note      String?
+  id         String       @id @default(cuid())
+  title      String
+  kind       ResourceKind @default(other)
+  subject    String
+  // Optional link to the shared Subject. The text field is kept until cleanup.
+  subjectId  String?
+  subjectRef Subject?     @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  url        String?
+  note       String?
   // Metadata for uploaded files.
-  fileName  String?
-  fileSize  Int?
-  mime      String?
+  fileName   String?
+  fileSize   Int?
+  mime       String?
   // Past-paper details.
-  year      Int?
-  semester  String?
-  examType  String?
-  addedById String
-  addedBy   User         @relation(fields: [addedById], references: [id], onDelete: Cascade)
-  createdAt DateTime     @default(now())
+  year       Int?
+  semester   String?
+  examType   String?
+  addedById  String
+  addedBy    User         @relation(fields: [addedById], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
 
   favorites ResourceFavorite[]
   useful    ResourceUseful[]
   reads     ResourceRead[]
 
   @@index([subject])
+  @@index([subjectId])
   @@index([kind])
   @@index([year])
 }
@@ -259,6 +267,12 @@ model Exam {
   title       String
   kind        ExamKind @default(exam)
   subject     String
+  // Optional link to the shared Subject; the text field is kept until cleanup.
+  subjectId   String?
+  subjectRef  Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  // Optional project this deadline belongs to.
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   // The calendar date of the exam/assignment, as YYYY-MM-DD.
   date        String
   notes       String?
@@ -268,11 +282,16 @@ model Exam {
 
   @@index([date])
   @@index([subject])
+  @@index([subjectId])
+  @@index([projectId])
 }
 
 model Flashcard {
   id          String   @id @default(cuid())
   deck        String
+  // Optional link to the shared Subject.
+  subjectId   String?
+  subjectRef  Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   front       String
   back        String
   createdById String
@@ -282,6 +301,7 @@ model Flashcard {
   reviews FlashcardReview[]
 
   @@index([deck])
+  @@index([subjectId])
 }
 
 model FlashcardReview {
@@ -301,17 +321,21 @@ model FlashcardReview {
 }
 
 model Question {
-  id        String   @id @default(cuid())
-  subject   String
-  title     String
-  body      String
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  subject    String
+  // Optional link to the shared Subject. The text field is kept until cleanup.
+  subjectId  String?
+  subjectRef Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  title      String
+  body       String
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 
   answers Answer[]
 
   @@index([subject])
+  @@index([subjectId])
 }
 
 model Answer {
@@ -354,45 +378,59 @@ model GradeItem {
 }
 
 model TimetableEntry {
-  id       String          @id @default(cuid())
-  ownerId  String
-  owner    User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id         String         @id @default(cuid())
+  ownerId    String
+  owner      User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   // Group entries are shared with everyone; personal entries are only shown to
   // their owner (and in that member's calendar feed).
-  scope    TimetableScope  @default(group)
+  scope      TimetableScope @default(group)
   // 0 = Sunday ... 6 = Saturday (JS getDay()).
-  weekday  Int
-  startMin Int
-  endMin   Int
-  title    String
-  location String?
-  color    String  @default("#2563eb")
+  weekday    Int
+  startMin   Int
+  endMin     Int
+  title      String
+  location   String?
+  color      String         @default("#2563eb")
+  // Optional link to a shared Subject (course).
+  subjectId  String?
+  subjectRef Subject?       @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
   @@index([ownerId, weekday])
   @@index([scope, weekday])
+  @@index([subjectId])
+}
+
+model Subject {
+  id         String    @id @default(cuid())
+  name       String
+  color      String    @default("#2563eb")
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  projects         Project[]
+  tasks            Task[]
+  exams            Exam[]
+  channels         Channel[]
+  notes            Note[]
+  resources        Resource[]
+  flashcards       Flashcard[]
+  questions        Question[]
+  studySessions    StudySession[]
+  timetableEntries TimetableEntry[]
 }
 
 model Project {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-
-  tasks    Task[]
-  goals    Goal[]
-  channels Channel[]
-}
-
-model Goal {
   id         String    @id @default(cuid())
-  projectId  String
-  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subjectId  String
+  subject    Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   title      String
   targetDate DateTime?
   createdAt  DateTime  @default(now())
 
   tasks Task[]
+  exams Exam[]
 
-  @@index([projectId])
+  @@index([subjectId])
 }
 
 model Task {
@@ -405,16 +443,18 @@ model Task {
   // Null for tasks created before creator tracking was added.
   createdById String?
   createdBy   User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  // A task can sit directly under a subject, or under one of its projects.
+  subjectId   String?
+  subject     Subject?     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   projectId   String?
-  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  goalId      String?
-  goal        Goal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now())
 
   assignees     TaskAssignee[]
   comments      TaskComment[]
   studySessions StudySession[]
 
+  @@index([subjectId])
   @@index([projectId])
   @@index([createdById])
   @@index([status, completedAt])
@@ -469,39 +509,43 @@ model HabitCheckIn {
 }
 
 model StudySession {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Optional link to the task this focus block was working on. Deleting the
   // task keeps the study history and just detaches it.
-  taskId    String?
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  subject   String
-  minutes   Int
-  notes     String?
-  date      String
-  image     String?
-  fileUrl   String?
-  fileName  String?
-  shared    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  taskId     String?
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  subject    String
+  // Optional link to the shared Subject. The text field is kept until cleanup.
+  subjectId  String?
+  subjectRef Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  minutes    Int
+  notes      String?
+  date       String
+  image      String?
+  fileUrl    String?
+  fileName   String?
+  shared     Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([userId, date])
   @@index([taskId])
+  @@index([subjectId])
 }
 
 model Channel {
   id        String      @id @default(cuid())
   name      String
   kind      ChannelKind @default(group)
-  projectId String?
-  project   Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subjectId String?
+  subject   Subject?    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   createdAt DateTime    @default(now())
 
   messages Message[]
 
-  @@index([projectId])
+  @@index([subjectId])
 }
 
 model Message {

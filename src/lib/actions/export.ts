@@ -38,7 +38,8 @@ async function loadMyData(userId: string) {
         priority: true,
         dueDate: true,
         createdAt: true,
-        project: { select: { name: true } },
+        subject: { select: { name: true } },
+        project: { select: { title: true } },
         assignees: {
           select: { user: { select: { name: true } } },
         },
@@ -150,7 +151,7 @@ export async function exportMyDataCsv(): Promise<
     rows.push([
       "task",
       t.title,
-      t.project?.name ?? "",
+      [t.subject?.name, t.project?.title].filter(Boolean).join(" · "),
       isoDay(t.dueDate),
       t.status,
       "",

@@ -16,10 +16,13 @@ export type EntryRow = {
   title: string;
   location: string | null;
   color: string;
+  subjectId: string | null;
   scope: "group" | "personal";
   ownerId: string;
   ownerName: string;
 };
+
+export type SubjectOption = { id: string; name: string };
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -82,10 +85,12 @@ function placeEntries(entries: EntryRow[]): Placed[] {
 
 export function TimetableBoard({
   entries,
+  subjects,
   isAdmin,
   meId,
 }: {
   entries: EntryRow[];
+  subjects: SubjectOption[];
   isAdmin: boolean;
   meId: string;
 }) {
@@ -223,6 +228,17 @@ export function TimetableBoard({
               <label className="block sm:col-span-2">
                 <span className="mb-1 block text-xs font-medium text-muted">Title</span>
                 <Input name="title" maxLength={100} required placeholder="e.g. Physics lecture" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
+                <Select name="subjectId" defaultValue="">
+                  <option value="">No subject</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
+                  ))}
+                </Select>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Day</span>
@@ -496,6 +512,17 @@ export function TimetableBoard({
               required
               data-autofocus
             />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
+            <Select name="subjectId" defaultValue={editing?.subjectId ?? ""}>
+              <option value="">No subject</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </Select>
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">

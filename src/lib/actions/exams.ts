@@ -6,6 +6,7 @@ import { requireUser } from "../auth";
 import { cleanText, isValidDateString } from "../validation";
 import { todayStr } from "../dates";
 import { queueWebhookAlert } from "../alerts";
+import { resolveSubjectId } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 const KINDS = ["exam", "assignment", "quiz", "deadline"] as const;
@@ -36,10 +37,15 @@ export async function createExam(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "Please pick a valid date." };
 
   const kind = parseKind(formData.get("kind"));
+  const subjectId = await resolveSubjectId(
+    formData.get("subjectId"),
+    subjectRes.value
+  );
   await db.exam.create({
     data: {
       title: titleRes.value,
       subject: subjectRes.value,
+      subjectId,
       kind,
       date,
       notes: notesRes.value || null,
@@ -94,6 +100,7 @@ export async function updateExam(formData: FormData): Promise<ActionResult> {
     data: {
       title: titleRes.value,
       subject: subjectRes.value,
+      subjectId: await resolveSubjectId(formData.get("subjectId"), subjectRes.value),
       kind: parseKind(formData.get("kind")),
       date,
       notes: notesRes.value || null,

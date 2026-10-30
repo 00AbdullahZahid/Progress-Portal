@@ -5,6 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText } from "../validation";
 import { queueWebhookAlert } from "../alerts";
+import { findSubjectIdByName, resolveSubjectId } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -20,9 +21,11 @@ export async function createQuestion(formData: FormData): Promise<ActionResult> 
   const bodyRes = cleanText(formData.get("body"), 5000);
   if (!bodyRes.ok) return bodyRes;
 
+  const subjectId = await findSubjectIdByName(subjectRes.value);
   await db.question.create({
     data: {
       subject: subjectRes.value,
+      subjectId,
       title: titleRes.value,
       body: bodyRes.value,
       authorId: me.id,
@@ -97,10 +100,15 @@ export async function updateQuestion(formData: FormData): Promise<ActionResult> 
   const bodyRes = cleanText(formData.get("body"), 5000);
   if (!bodyRes.ok) return bodyRes;
 
+  const subjectId = await resolveSubjectId(
+    formData.get("subjectId"),
+    subjectRes.value
+  );
   await db.question.update({
     where: { id },
     data: {
       subject: subjectRes.value,
+      subjectId,
       title: titleRes.value,
       body: bodyRes.value,
     },
@@ -168,6 +176,7 @@ export async function saveAnswerAsNote(formData: FormData): Promise<ActionResult
       title,
       body,
       subject: answer.question.subject,
+      subjectId: await findSubjectIdByName(answer.question.subject),
     },
   });
   revalidatePath("/notes");
@@ -204,6 +213,7 @@ export async function saveAnswerAsFlashcard(formData: FormData): Promise<ActionR
   await db.flashcard.create({
     data: {
       deck: answer.question.subject,
+      subjectId: await findSubjectIdByName(answer.question.subject),
       front: answer.question.title,
       back: answer.body,
       createdById: me.id,

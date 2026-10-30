@@ -5,6 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl } from "../validation";
 import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
+import { findSubjectIdByName, resolveSubjectId } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -84,8 +85,9 @@ export async function createNote(formData: FormData): Promise<ActionResult> {
   ]);
   if (attachment) return { ok: false, error: attachment };
 
+  const subjectId = await findSubjectIdByName(parsed.value.subject);
   await db.note.create({
-    data: { authorId: me.id, ...parsed.value },
+    data: { authorId: me.id, ...parsed.value, subjectId },
   });
   await claimUploads(me.id, [parsed.value.image, parsed.value.fileUrl]);
   refresh();
@@ -115,7 +117,11 @@ export async function updateNote(formData: FormData): Promise<ActionResult> {
   ]);
   if (attachment) return { ok: false, error: attachment };
 
-  await db.note.update({ where: { id }, data: parsed.value });
+  const subjectId = await resolveSubjectId(
+    formData.get("subjectId"),
+    parsed.value.subject
+  );
+  await db.note.update({ where: { id }, data: { ...parsed.value, subjectId } });
   await claimUploads(me.id, [parsed.value.image, parsed.value.fileUrl]);
 
   // Delete whatever this edit replaced/cleared once nothing references it. No

@@ -6,6 +6,7 @@ import { requireUser } from "../auth";
 import { todayStr } from "../dates";
 import { cleanText, isBlobUrl, validateLogDate } from "../validation";
 import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
+import { findSubjectIdByName, resolveSubjectId } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 const MAX_MINUTES = 24 * 60;
@@ -117,11 +118,15 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
   ]);
   if (attachment) return { ok: false, error: attachment };
 
+  const normalizedSubject = normalizeSubject(subjectRes.value);
+  const subjectId = await findSubjectIdByName(normalizedSubject);
+
   await db.studySession.create({
     data: {
       userId: me.id,
       taskId: taskRes.taskId,
-      subject: normalizeSubject(subjectRes.value),
+      subject: normalizedSubject,
+      subjectId,
       minutes,
       notes: notesRes.value || null,
       date: dateRes.date,
@@ -169,6 +174,7 @@ export async function updateStudySession(
 
   const data: {
     subject: string;
+    subjectId: string | null;
     minutes: number;
     notes: string | null;
     date: string;
@@ -178,6 +184,7 @@ export async function updateStudySession(
     shared?: boolean;
   } = {
     subject: normalizeSubject(subjectRes.value),
+    subjectId: await resolveSubjectId(formData.get("subjectId"), subjectRes.value),
     minutes,
     notes: notesRes.value || null,
     date: dateRes.date,

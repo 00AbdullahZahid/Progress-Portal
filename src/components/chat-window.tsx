@@ -426,7 +426,7 @@ export function ChatWindow({
                 : "text-muted hover:bg-surface2"
             }`}
           >
-            {c.kind === "project" ? "Project: " : "# "}
+            {c.kind === "subject" ? "Subject: " : "# "}
             {c.name}
           </button>
         ))}

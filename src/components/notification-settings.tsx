@@ -42,8 +42,8 @@ const EVENT_OPTIONS = [
   },
   {
     key: "notifyNewProjects",
-    label: "New projects",
-    hint: "When an admin creates a project.",
+    label: "New subjects",
+    hint: "When an admin creates a subject.",
   },
 ] as const;
 

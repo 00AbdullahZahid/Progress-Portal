@@ -67,7 +67,12 @@ export default async function StudyPage({
         assignees: { some: { userId: me.id } },
         status: { not: "done" },
       },
-      select: { id: true, title: true, project: { select: { name: true } } },
+      select: {
+        id: true,
+        title: true,
+        subject: { select: { name: true } },
+        project: { select: { title: true } },
+      },
       orderBy: [{ status: "asc" }, { createdAt: "asc" }],
       take: 50,
     }),
@@ -93,7 +98,7 @@ export default async function StudyPage({
             tasks={activeTasks.map((t) => ({
               id: t.id,
               title: t.title,
-              projectName: t.project?.name ?? "No project",
+              projectName: t.project?.title ?? t.subject?.name ?? "No subject",
             }))}
             autoStart={autoStart}
           />

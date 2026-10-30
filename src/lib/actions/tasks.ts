@@ -28,26 +28,30 @@ function parseDate(value: unknown): Date | null | "invalid" {
   return Number.isNaN(d.getTime()) ? "invalid" : d;
 }
 
-export async function createProject(formData: FormData): Promise<ActionResult> {
+export async function createSubject(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireAdmin();
   const nameRes = cleanText(formData.get("name"), 120);
   if (!nameRes.ok) return nameRes;
+  const colorRaw = String(formData.get("color") ?? "").trim();
+  const color = /^#[0-9a-fA-F]{6}$/.test(colorRaw) ? colorRaw : "#2563eb";
 
-  const project = await db.project.create({ data: { name: nameRes.value } });
-  // Every project gets its own chat channel automatically.
-  await db.channel.create({
-    data: { name: project.name, kind: "project", projectId: project.id },
+  const subject = await db.subject.create({
+    data: { name: nameRes.value, color },
   });
-  await audit(me.id, "project.create", {
-    targetId: project.id,
-    detail: project.name,
+  // Every subject gets its own chat channel automatically.
+  await db.channel.create({
+    data: { name: subject.name, kind: "subject", subjectId: subject.id },
+  });
+  await audit(me.id, "subject.create", {
+    targetId: subject.id,
+    detail: subject.name,
   });
   await notifyUsers({
     audience: "all",
     kind: "project_new",
-    title: "New project",
-    body: project.name,
+    title: "New subject",
+    body: subject.name,
     href: "/tasks",
     excludeUserId: me.id,
   });
@@ -57,28 +61,30 @@ export async function createProject(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function updateProject(formData: FormData): Promise<ActionResult> {
+export async function updateSubject(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireAdmin();
-  const projectId = String(formData.get("projectId") ?? "");
-  if (!projectId) return { ok: false, error: "Project not found." };
+  const subjectId = String(formData.get("subjectId") ?? "");
+  if (!subjectId) return { ok: false, error: "Subject not found." };
   const nameRes = cleanText(formData.get("name"), 120);
   if (!nameRes.ok) return nameRes;
+  const colorRaw = String(formData.get("color") ?? "").trim();
+  const color = /^#[0-9a-fA-F]{6}$/.test(colorRaw) ? colorRaw : undefined;
 
-  const project = await db.project.findUnique({ where: { id: projectId } });
-  if (!project) return { ok: false, error: "Project not found." };
+  const subject = await db.subject.findUnique({ where: { id: subjectId } });
+  if (!subject) return { ok: false, error: "Subject not found." };
 
-  await db.project.update({
-    where: { id: projectId },
-    data: { name: nameRes.value },
+  await db.subject.update({
+    where: { id: subjectId },
+    data: { name: nameRes.value, ...(color ? { color } : {}) },
   });
-  // The project's chat channel mirrors the project name.
+  // The subject's chat channel mirrors the subject name.
   await db.channel.updateMany({
-    where: { projectId },
+    where: { subjectId },
     data: { name: nameRes.value },
   });
-  await audit(me.id, "project.update", {
-    targetId: projectId,
+  await audit(me.id, "subject.update", {
+    targetId: subjectId,
     detail: nameRes.value,
   });
 
@@ -87,24 +93,27 @@ export async function updateProject(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function createGoal(formData: FormData): Promise<ActionResult> {
+export async function createProject(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireAdmin();
-  const projectId = String(formData.get("projectId") ?? "");
+  const subjectId = String(formData.get("subjectId") ?? "");
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
 
-  const project = await db.project.findUnique({ where: { id: projectId } });
-  if (!project) return { ok: false, error: "Project not found." };
+  const subject = await db.subject.findUnique({ where: { id: subjectId } });
+  if (!subject) return { ok: false, error: "Subject not found." };
 
   const target = parseDate(formData.get("targetDate"));
   if (target === "invalid")
     return { ok: false, error: "Please pick a valid target date." };
 
-  const goal = await db.goal.create({
-    data: { projectId, title: titleRes.value, targetDate: target },
+  const project = await db.project.create({
+    data: { subjectId, title: titleRes.value, targetDate: target },
   });
-  await audit(me.id, "goal.create", { targetId: goal.id, detail: goal.title });
+  await audit(me.id, "project.create", {
+    targetId: project.id,
+    detail: project.title,
+  });
 
   refresh();
   return { ok: true };
@@ -113,26 +122,31 @@ export async function createGoal(formData: FormData): Promise<ActionResult> {
 export async function createTask(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();
+  const rawSubjectId = String(formData.get("subjectId") ?? "").trim();
   const rawProjectId = String(formData.get("projectId") ?? "").trim();
-  const projectId = rawProjectId || null;
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
 
+  const projectId = rawProjectId || null;
+  let project: { id: string; subjectId: string } | null = null;
   if (projectId) {
-    const project = await db.project.findUnique({ where: { id: projectId } });
+    project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, subjectId: true },
+    });
     if (!project) return { ok: false, error: "Project not found." };
   }
 
-  // The goal, if given, must belong to the same project. Standalone tasks
-  // cannot have a goal because goals only exist inside projects.
-  const goalId = String(formData.get("goalId") ?? "") || null;
-  if (goalId) {
-    if (!projectId)
-      return { ok: false, error: "Choose a project before selecting a goal." };
-    const goal = await db.goal.findUnique({ where: { id: goalId } });
-    if (!goal || goal.projectId !== projectId)
-      return { ok: false, error: "That goal doesn't belong to this project." };
+  const subjectId = rawSubjectId || project?.subjectId || null;
+  if (subjectId) {
+    const subject = await db.subject.findUnique({
+      where: { id: subjectId },
+      select: { id: true },
+    });
+    if (!subject) return { ok: false, error: "Subject not found." };
   }
+  if (project && project.subjectId !== subjectId)
+    return { ok: false, error: "That project doesn't belong to this subject." };
 
   const assigneeIds = Array.from(
     new Set(
@@ -161,9 +175,9 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
 
   const task = await db.task.create({
     data: {
+      subjectId,
       projectId,
       title: titleRes.value,
-      goalId,
       priority: priority as (typeof PRIORITIES)[number],
       dueDate: due,
       createdById: me.id,
@@ -266,21 +280,28 @@ export async function updateTask(formData: FormData): Promise<ActionResult> {
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
 
+  const rawSubjectId = String(formData.get("subjectId") ?? "").trim();
   const rawProjectId = String(formData.get("projectId") ?? "").trim();
   const projectId = rawProjectId || null;
+  let project: { id: string; subjectId: string } | null = null;
   if (projectId) {
-    const project = await db.project.findUnique({ where: { id: projectId } });
+    project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, subjectId: true },
+    });
     if (!project) return { ok: false, error: "Project not found." };
   }
 
-  const goalId = String(formData.get("goalId") ?? "") || null;
-  if (goalId) {
-    if (!projectId)
-      return { ok: false, error: "Choose a project before selecting a goal." };
-    const goal = await db.goal.findUnique({ where: { id: goalId } });
-    if (!goal || goal.projectId !== projectId)
-      return { ok: false, error: "That goal doesn't belong to this project." };
+  const subjectId = rawSubjectId || project?.subjectId || null;
+  if (subjectId) {
+    const subject = await db.subject.findUnique({
+      where: { id: subjectId },
+      select: { id: true },
+    });
+    if (!subject) return { ok: false, error: "Subject not found." };
   }
+  if (project && project.subjectId !== subjectId)
+    return { ok: false, error: "That project doesn't belong to this subject." };
 
   const assigneeIds = Array.from(
     new Set(
@@ -311,8 +332,8 @@ export async function updateTask(formData: FormData): Promise<ActionResult> {
     where: { id: taskId },
     data: {
       title: titleRes.value,
+      subjectId,
       projectId,
-      goalId,
       priority: priority as (typeof PRIORITIES)[number],
       dueDate: due,
       assignees: {
@@ -344,11 +365,11 @@ export async function deleteTask(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function updateGoal(formData: FormData): Promise<ActionResult> {
+export async function updateProject(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireAdmin();
-  const goalId = String(formData.get("goalId") ?? "");
-  if (!goalId) return { ok: false, error: "Goal not found." };
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) return { ok: false, error: "Project not found." };
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
 
@@ -356,30 +377,18 @@ export async function updateGoal(formData: FormData): Promise<ActionResult> {
   if (target === "invalid")
     return { ok: false, error: "Please pick a valid target date." };
 
-  const goal = await db.goal.findUnique({ where: { id: goalId } });
-  if (!goal) return { ok: false, error: "Goal not found." };
+  const project = await db.project.findUnique({ where: { id: projectId } });
+  if (!project) return { ok: false, error: "Project not found." };
 
-  await db.goal.update({
-    where: { id: goalId },
+  await db.project.update({
+    where: { id: projectId },
     data: { title: titleRes.value, targetDate: target },
   });
-  await audit(me.id, "goal.update", { targetId: goalId, detail: titleRes.value });
+  await audit(me.id, "project.update", {
+    targetId: projectId,
+    detail: titleRes.value,
+  });
 
-  refresh();
-  return { ok: true };
-}
-
-export async function deleteGoal(formData: FormData): Promise<ActionResult> {
-  "use server";
-  const me = await requireAdmin();
-  const goalId = String(formData.get("goalId") ?? "");
-  if (!goalId) return { ok: false, error: "Goal not found." };
-  const goal = await db.goal.findUnique({ where: { id: goalId } });
-  if (!goal) return { ok: false, error: "Goal not found." };
-  // Detach tasks from the goal first so they aren't lost, then delete the goal.
-  await db.task.updateMany({ where: { goalId }, data: { goalId: null } });
-  await db.goal.delete({ where: { id: goalId } });
-  await audit(me.id, "goal.delete", { targetId: goalId, detail: goal.title });
   refresh();
   return { ok: true };
 }
@@ -391,11 +400,32 @@ export async function deleteProject(formData: FormData): Promise<ActionResult> {
   if (!projectId) return { ok: false, error: "Project not found." };
   const project = await db.project.findUnique({ where: { id: projectId } });
   if (!project) return { ok: false, error: "Project not found." };
-  // Cascades to goals, tasks, comments, and channels via the schema.
+  // Detach tasks from the project first so they aren't lost.
+  await db.task.updateMany({
+    where: { projectId },
+    data: { projectId: null },
+  });
   await db.project.delete({ where: { id: projectId } });
   await audit(me.id, "project.delete", {
     targetId: projectId,
-    detail: project.name,
+    detail: project.title,
+  });
+  refresh();
+  return { ok: true };
+}
+
+export async function deleteSubject(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireAdmin();
+  const subjectId = String(formData.get("subjectId") ?? "");
+  if (!subjectId) return { ok: false, error: "Subject not found." };
+  const subject = await db.subject.findUnique({ where: { id: subjectId } });
+  if (!subject) return { ok: false, error: "Subject not found." };
+  // Cascades to projects, tasks, comments, and channels via the schema.
+  await db.subject.delete({ where: { id: subjectId } });
+  await audit(me.id, "subject.delete", {
+    targetId: subjectId,
+    detail: subject.name,
   });
   refresh();
   revalidatePath("/chat");

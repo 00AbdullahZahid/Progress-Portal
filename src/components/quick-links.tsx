@@ -16,7 +16,7 @@ import {
 const LINKS = [
   {
     href: "/tasks",
-    label: "Tasks & Goals",
+    label: "Subjects & Tasks",
     hint: "Plan work and track progress",
     Icon: TasksIcon,
   },

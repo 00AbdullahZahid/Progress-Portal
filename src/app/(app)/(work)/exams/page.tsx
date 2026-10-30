@@ -10,11 +10,17 @@ export default async function ExamsPage() {
   const me = await requireUser();
   const today = todayStr(me.timezone);
 
-  const exams = await db.exam.findMany({
-    include: { createdBy: { select: { id: true, name: true, color: true, image: true } } },
-    orderBy: { date: "asc" },
-    take: 200,
-  });
+  const [exams, subjectRows] = await Promise.all([
+    db.exam.findMany({
+      include: { createdBy: { select: { id: true, name: true, color: true, image: true } } },
+      orderBy: { date: "asc" },
+      take: 200,
+    }),
+    db.subject.findMany({
+      orderBy: { name: "asc" },
+      select: { name: true },
+    }),
+  ]);
 
   return (
     <div>
@@ -33,6 +39,7 @@ export default async function ExamsPage() {
           createdById: e.createdById,
           createdBy: e.createdBy,
         }))}
+        subjects={subjectRows.map((subject) => subject.name)}
         meId={me.id}
         isAdmin={me.role === "admin"}
         today={today}

@@ -5,6 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl } from "../validation";
 import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
+import { findSubjectIdByName, resolveSubjectId } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 const KINDS = ["paper", "notes", "book", "video", "link", "other"] as const;
@@ -85,10 +86,13 @@ export async function createResource(formData: FormData): Promise<ResourceAction
       (row) => row.subject.trim().toLowerCase() === subjectRes.value.toLowerCase()
     )?.subject ?? subjectRes.value;
 
+  const subjectId = await findSubjectIdByName(canonicalSubject);
+
   const resource = await db.resource.create({
     data: {
       title: titleRes.value,
       subject: canonicalSubject,
+      subjectId,
       kind,
       note: noteRes.value || null,
       url: urlRes.url,
@@ -140,11 +144,17 @@ export async function updateResource(formData: FormData): Promise<ActionResult> 
       (row) => row.subject.trim().toLowerCase() === subjectRes.value.toLowerCase()
     )?.subject ?? subjectRes.value;
 
+  const subjectId = await resolveSubjectId(
+    formData.get("subjectId"),
+    canonicalSubject
+  );
+
   await db.resource.update({
     where: { id },
     data: {
       title: titleRes.value,
       subject: canonicalSubject,
+      subjectId,
       kind,
       note: noteRes.value || null,
       year: kind === "paper" ? optionalNumber(formData.get("year"), 1900, 2100) : null,

@@ -80,7 +80,10 @@ export default async function SearchPage({
       }),
       db.task.findMany({
         where: { title: { contains: query, mode: "insensitive" } },
-        include: { project: { select: { name: true } } },
+        include: {
+          subject: { select: { name: true } },
+          project: { select: { title: true } },
+        },
         take: 20,
         orderBy: { createdAt: "desc" },
       }),
@@ -178,7 +181,9 @@ export default async function SearchPage({
                   <ListRow
                     href={`/tasks#task-${t.id}`}
                     title={t.title}
-                    subtitle={`${t.project?.name ?? "No project"} · ${t.status}`}
+                    subtitle={`${t.subject?.name ?? "No subject"}${
+                      t.project ? ` · ${t.project.title}` : ""
+                    } · ${t.status}`}
                   />
                 </li>
               ))}
