@@ -7,6 +7,8 @@ import { uploadFile } from "@/lib/upload-client";
 import { Avatar } from "./avatar";
 import { Button, Input, Textarea } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
+import { SubjectSelect } from "./subject-select";
+import { subjectIdFor, type SubjectOption } from "@/lib/subject-options";
 import { useToast } from "./toast";
 import { XIcon, EditIcon, CheckIcon } from "./icons";
 import { prettyDate } from "@/lib/dates";
@@ -14,6 +16,7 @@ import { prettyDate } from "@/lib/dates";
 type Row = {
   id: string;
   subject: string;
+  subjectId: string | null;
   minutes: number;
   notes: string | null;
   date: string;
@@ -30,16 +33,18 @@ export function SessionList({
   sessions,
   meId,
   today,
+  subjects,
 }: {
   sessions: Row[];
   meId: string;
   today: string;
+  subjects: SubjectOption[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, setPending] = useState<Row | null>(null);
   const [editing, setEditing] = useState<Row | null>(null);
-  const [draft, setDraft] = useState({ subject: "", minutes: "", notes: "", date: "" });
+  const [draft, setDraft] = useState({ subjectId: "", minutes: "", notes: "", date: "" });
   const [editImage, setEditImage] = useState<string | null>(null);
   const [editFile, setEditFile] = useState<{ url: string; name: string } | null>(null);
   const [editShared, setEditShared] = useState(false);
@@ -68,7 +73,7 @@ export function SessionList({
   function startEdit(s: Row) {
     setEditing(s);
     setDraft({
-      subject: s.subject,
+      subjectId: subjectIdFor(s.subject, s.subjectId, subjects),
       minutes: String(s.minutes),
       notes: s.notes ?? "",
       date: s.date,
@@ -121,7 +126,7 @@ export function SessionList({
     if (!editing || saving) return;
     const fd = new FormData();
     fd.set("sessionId", editing.id);
-    fd.set("subject", draft.subject);
+    fd.set("subjectId", draft.subjectId);
     fd.set("minutes", draft.minutes);
     fd.set("notes", draft.notes);
     fd.set("date", draft.date);
@@ -163,10 +168,12 @@ export function SessionList({
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <label className="block sm:col-span-2">
                       <span className="mb-1 block text-[11px] font-medium text-muted">Subject</span>
-                      <Input
-                        value={draft.subject}
-                        onChange={(e) => setDraft((d) => ({ ...d, subject: e.target.value }))}
-                        maxLength={80}
+                      <SubjectSelect
+                        subjects={subjects}
+                        value={draft.subjectId}
+                        onChange={(e) =>
+                          setDraft((d) => ({ ...d, subjectId: e.target.value }))
+                        }
                         required
                       />
                     </label>

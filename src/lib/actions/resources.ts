@@ -5,7 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl } from "../validation";
 import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
-import { findSubjectIdByName, resolveSubjectId } from "../subject-link";
+import { requireSubject } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 const KINDS = ["paper", "notes", "book", "video", "link", "other"] as const;
@@ -49,10 +49,10 @@ function optionalNumber(value: unknown, min: number, max: number): number | null
 
 export async function createResource(formData: FormData): Promise<ResourceActionResult> {
   const me = await requireUser();
+  const subjectRes = await requireSubject(formData);
+  if (!subjectRes.ok) return subjectRes;
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
-  const subjectRes = cleanText(formData.get("subject"), 60);
-  if (!subjectRes.ok) return subjectRes;
   const noteRes = cleanText(formData.get("note"), 500, { required: false });
   if (!noteRes.ok) return noteRes;
 
@@ -75,24 +75,11 @@ export async function createResource(formData: FormData): Promise<ResourceAction
   const examTypeRes = cleanText(formData.get("examType"), 40, { required: false });
   if (!examTypeRes.ok) return examTypeRes;
 
-  // Reuse the existing spelling of a subject so "Islamic Studies" and
-  // "Islamic studies" do not become two groups.
-  const existingSubjects = await db.resource.findMany({
-    select: { subject: true },
-    distinct: ["subject"],
-  });
-  const canonicalSubject =
-    existingSubjects.find(
-      (row) => row.subject.trim().toLowerCase() === subjectRes.value.toLowerCase()
-    )?.subject ?? subjectRes.value;
-
-  const subjectId = await findSubjectIdByName(canonicalSubject);
-
   const resource = await db.resource.create({
     data: {
       title: titleRes.value,
-      subject: canonicalSubject,
-      subjectId,
+      subject: subjectRes.subject.name,
+      subjectId: subjectRes.subject.id,
       kind,
       note: noteRes.value || null,
       url: urlRes.url,
@@ -123,10 +110,10 @@ export async function updateResource(formData: FormData): Promise<ActionResult> 
   if (existing.addedById !== me.id && me.role !== "admin")
     return { ok: false, error: "Only the person who added it or an admin can edit it." };
 
+  const subjectRes = await requireSubject(formData);
+  if (!subjectRes.ok) return subjectRes;
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
-  const subjectRes = cleanText(formData.get("subject"), 60);
-  if (!subjectRes.ok) return subjectRes;
   const noteRes = cleanText(formData.get("note"), 500, { required: false });
   if (!noteRes.ok) return noteRes;
   const kind = parseKind(formData.get("kind"));
@@ -135,26 +122,12 @@ export async function updateResource(formData: FormData): Promise<ActionResult> 
   const examTypeRes = cleanText(formData.get("examType"), 40, { required: false });
   if (!examTypeRes.ok) return examTypeRes;
 
-  const existingSubjects = await db.resource.findMany({
-    select: { subject: true },
-    distinct: ["subject"],
-  });
-  const canonicalSubject =
-    existingSubjects.find(
-      (row) => row.subject.trim().toLowerCase() === subjectRes.value.toLowerCase()
-    )?.subject ?? subjectRes.value;
-
-  const subjectId = await resolveSubjectId(
-    formData.get("subjectId"),
-    canonicalSubject
-  );
-
   await db.resource.update({
     where: { id },
     data: {
       title: titleRes.value,
-      subject: canonicalSubject,
-      subjectId,
+      subject: subjectRes.subject.name,
+      subjectId: subjectRes.subject.id,
       kind,
       note: noteRes.value || null,
       year: kind === "paper" ? optionalNumber(formData.get("year"), 1900, 2100) : null,

@@ -5,12 +5,20 @@ import { useRouter } from "next/navigation";
 import { logStudy } from "@/lib/actions/study";
 import { uploadFile } from "@/lib/upload-client";
 import { Card, Button, Input, Textarea } from "./ui";
+import { SubjectSelect } from "./subject-select";
+import { type SubjectOption } from "@/lib/subject-options";
 import { PlusIcon } from "./icons";
 import { useToast } from "./toast";
 
 type Uploaded = { url: string; name: string; isImage: boolean };
 
-export function StudyForm({ today }: { today: string }) {
+export function StudyForm({
+  today,
+  subjects,
+}: {
+  today: string;
+  subjects: SubjectOption[];
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
@@ -100,11 +108,10 @@ export function StudyForm({ today }: { today: string }) {
           <label htmlFor="study-subject" className="mb-1 block text-xs font-medium text-muted">
             Subject
           </label>
-          <Input
+          <SubjectSelect
             id="study-subject"
-            name="subject"
-            placeholder="e.g. React, System Design"
-            maxLength={80}
+            name="subjectId"
+            subjects={subjects}
             required
           />
         </div>

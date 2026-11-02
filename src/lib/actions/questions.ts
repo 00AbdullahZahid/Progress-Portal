@@ -5,7 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText } from "../validation";
 import { queueWebhookAlert } from "../alerts";
-import { findSubjectIdByName, resolveSubjectId } from "../subject-link";
+import { findSubjectIdByName, requireSubject } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -14,25 +14,24 @@ function refresh() {
 
 export async function createQuestion(formData: FormData): Promise<ActionResult> {
   const me = await requireUser();
-  const subjectRes = cleanText(formData.get("subject"), 60);
+  const subjectRes = await requireSubject(formData);
   if (!subjectRes.ok) return subjectRes;
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
   const bodyRes = cleanText(formData.get("body"), 5000);
   if (!bodyRes.ok) return bodyRes;
 
-  const subjectId = await findSubjectIdByName(subjectRes.value);
   await db.question.create({
     data: {
-      subject: subjectRes.value,
-      subjectId,
+      subject: subjectRes.subject.name,
+      subjectId: subjectRes.subject.id,
       title: titleRes.value,
       body: bodyRes.value,
       authorId: me.id,
     },
   });
   queueWebhookAlert(
-    `New doubt in ${subjectRes.value}\n${me.name}: ${titleRes.value}\n${bodyRes.value.slice(0, 400)}`
+    `New doubt in ${subjectRes.subject.name}\n${me.name}: ${titleRes.value}\n${bodyRes.value.slice(0, 400)}`
   );
   refresh();
   return { ok: true };
@@ -93,22 +92,18 @@ export async function updateQuestion(formData: FormData): Promise<ActionResult> 
   if (question.authorId !== me.id && me.role !== "admin")
     return { ok: false, error: "Only the asker or an admin can edit this." };
 
-  const subjectRes = cleanText(formData.get("subject"), 60);
+  const subjectRes = await requireSubject(formData);
   if (!subjectRes.ok) return subjectRes;
   const titleRes = cleanText(formData.get("title"), 160);
   if (!titleRes.ok) return titleRes;
   const bodyRes = cleanText(formData.get("body"), 5000);
   if (!bodyRes.ok) return bodyRes;
 
-  const subjectId = await resolveSubjectId(
-    formData.get("subjectId"),
-    subjectRes.value
-  );
   await db.question.update({
     where: { id },
     data: {
-      subject: subjectRes.value,
-      subjectId,
+      subject: subjectRes.subject.name,
+      subjectId: subjectRes.subject.id,
       title: titleRes.value,
       body: bodyRes.value,
     },

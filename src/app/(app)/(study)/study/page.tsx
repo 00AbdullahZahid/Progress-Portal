@@ -38,45 +38,50 @@ export default async function StudyPage({
   // aggregates over the FULL window so a busy group can't undercount them.
   const window = { date: { gte: last30[0] } };
 
-  const [groupAgg, myAgg, myBySubject, recentNotes, activeTasks] = await Promise.all([
-    // Group total: everyone's shared sessions plus your own private ones.
-    // Private sessions never contribute to another member's view.
-    db.studySession.aggregate({
-      where: { ...window, OR: [{ shared: true }, { userId: me.id }] },
-      _sum: { minutes: true },
-    }),
-    // Your own total, independent of the list cap or other people's sessions.
-    db.studySession.aggregate({
-      where: { ...window, userId: me.id },
-      _sum: { minutes: true },
-    }),
-    db.studySession.groupBy({
-      by: ["subject"],
-      where: { ...window, userId: me.id },
-      _sum: { minutes: true },
-    }),
-    // A short preview of the shared notes so study material is one click away.
-    db.note.findMany({
-      include: { author: { select: { id: true, name: true, color: true, image: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 6,
-    }),
-    // Open tasks the signed-in member can link a focus block to.
-    db.task.findMany({
-      where: {
-        assignees: { some: { userId: me.id } },
-        status: { not: "done" },
-      },
-      select: {
-        id: true,
-        title: true,
-        subject: { select: { name: true } },
-        project: { select: { title: true } },
-      },
-      orderBy: [{ status: "asc" }, { createdAt: "asc" }],
-      take: 50,
-    }),
-  ]);
+  const [groupAgg, myAgg, myBySubject, recentNotes, activeTasks, subjects] =
+    await Promise.all([
+      // Group total: everyone's shared sessions plus your own private ones.
+      // Private sessions never contribute to another member's view.
+      db.studySession.aggregate({
+        where: { ...window, OR: [{ shared: true }, { userId: me.id }] },
+        _sum: { minutes: true },
+      }),
+      // Your own total, independent of the list cap or other people's sessions.
+      db.studySession.aggregate({
+        where: { ...window, userId: me.id },
+        _sum: { minutes: true },
+      }),
+      db.studySession.groupBy({
+        by: ["subject"],
+        where: { ...window, userId: me.id },
+        _sum: { minutes: true },
+      }),
+      // A short preview of the shared notes so study material is one click away.
+      db.note.findMany({
+        include: { author: { select: { id: true, name: true, color: true, image: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+      // Open tasks the signed-in member can link a focus block to.
+      db.task.findMany({
+        where: {
+          assignees: { some: { userId: me.id } },
+          status: { not: "done" },
+        },
+        select: {
+          id: true,
+          title: true,
+          subject: { select: { name: true } },
+          project: { select: { title: true } },
+        },
+        orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+        take: 50,
+      }),
+      db.subject.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, archivedAt: true },
+      }),
+    ]);
 
   const myTotal = myAgg._sum.minutes ?? 0;
   const groupTotal = groupAgg._sum.minutes ?? 0;
@@ -103,7 +108,7 @@ export default async function StudyPage({
             autoStart={autoStart}
           />
           <div id="log-session" className="scroll-mt-24">
-            <StudyForm today={today} />
+            <StudyForm today={today} subjects={subjects} />
           </div>
           <StudyNotesPanel
             meId={me.id}
@@ -159,6 +164,7 @@ export default async function StudyPage({
                 sessions={sessions.map((s) => ({
                   id: s.id,
                   subject: s.subject,
+                  subjectId: s.subjectId,
                   minutes: s.minutes,
                   notes: s.notes,
                   date: s.date,
@@ -177,6 +183,7 @@ export default async function StudyPage({
                 }))}
                 meId={me.id}
                 today={today}
+                subjects={subjects}
               />
             )}
           </Card>

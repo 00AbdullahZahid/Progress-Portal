@@ -1,6 +1,6 @@
 # Portal handoff — Subject / Project restructure (2026-10-30)
 
-Branch: `main` · HEAD: `96bc3af` · **the restructure is uncommitted**
+Branch: `main` · HEAD: `bc39e9c` · **the restructure and hardening are uncommitted**
 
 ## Verification
 - `npm run typecheck` — passes
@@ -52,6 +52,10 @@ Backfill links: Resource 1/1, Exam 2/2, Question 1/1, StudySession 8/8. Notes an
 had no rows. Timetable entries have no old text subject, so they stay unlinked until edited.
 Tasks stay unlinked because there were no legacy projects/goals to map from.
 
+> Hardening pass (2026-11-02): production now contains 5 subjects and 2 tasks. Both tasks
+> are linked to subjects/projects, so the earlier “5 unlinked tasks” and duplicate
+> “Generative AI outline study” rows no longer exist. No data was rewritten in this pass.
+
 ### Backups
 - `C:\Users\ADMIN\AppData\Local\Temp\opencode\progress-portal-backup-20261030.dump`
 - `C:\Users\ADMIN\AppData\Local\Temp\opencode\progress-portal-backup-pre-migration-20261030.dump`
@@ -63,24 +67,43 @@ Tasks stay unlinked because there were no legacy projects/goals to map from.
   and linked focus time.
 - Collapsible projects inside each subject, with per-project quick add.
 - Direct subject tasks are listed separately; subject-level quick add lives on each card.
-- Dialogs for creating/editing subjects and projects; no permanent “New project” form.
-- Quick add works for members; subject/project create and edit stay admin-only.
-- Tasks can sit directly under a subject or inside one of its projects.
+- Status is a dropdown (`todo` / `doing` / `done`) with a per-task double-submit guard.
+- Task creation is guarded against double submits; quick-add and comment forms reset after
+  a successful save.
+- Any member can create a subject. Subject edit, archive, restore, merge, and delete remain
+  admin-only.
+- Archive is the normal subject action. Delete requires typing the subject name and is
+  refused while the subject still has chat messages (archive instead).
+- Merge moves tasks, exams, notes, resources, questions, study sessions, flashcards and
+  timetable entries to a target subject, detaches tasks/exams from source projects, then
+  archives the source. Source chat history stays attached to the archived subject.
+- Archived subjects hide project/task creation controls and can be restored.
+
+### Subject pickers
+- Shared `SubjectSelect` (`src/components/subject-select.tsx`) replaces free-text subject
+  inputs in notes, resources, questions, deadlines/exams, study logging, session editing,
+  timetable, and task forms.
+- Pickers submit `subjectId`; actions resolve the canonical subject through
+  `requireSubject` and still write its display name into the legacy text column.
+- Legacy text columns remain as a read fallback; archived subjects are labelled.
+- Task details show the linked subject/project; library filters fall back to the legacy
+  text when an older row has no `subjectId`.
 
 ### Subject linking
 - `src/lib/subject-link.ts` resolves an explicit `subjectId`, or falls back to a trimmed,
   case-insensitive name match (`resolveSubjectId` / `findSubjectIdByName`).
+- Required forms use `requireSubject`, which rejects unknown names so a typo cannot create
+  an unlinked row.
 - Wired into notes, resources, questions (including “save answer as note/flashcard”), exams,
   study sessions, and timetable entries.
-- Library/deadline/study/timetable forms keep their text inputs; exams and timetable also
-  offer a subject datalist/picker.
 - Chat labels subject channels as `Subject: …`.
 
 ### Terminology
 - Guide, tutorial, quick links, notification settings, search, calendar feed, CSV export,
   study page, and chat now say Subject / Project instead of Project / Goal.
-- Audit actions added: `subject.create`, `subject.update`, `subject.delete`; historical
-  `goal.*` entries are retained.
+- Audit actions added: `subject.create`, `subject.update`, `subject.archive`,
+  `subject.restore`, `subject.merge`, `subject.delete`; historical `goal.*` entries are
+  retained.
 
 ## Code cleanup
 - Removed dead module `src/components/quick-links.tsx` and three unused icons.
@@ -99,9 +122,8 @@ Tasks stay unlinked because there were no legacy projects/goals to map from.
 ## Known follow-ups
 1. **Default assignees and Shared vs Everyone task completion** (`4/6 done`) still need a
    design/schema decision; there is no subject-membership model.
-2. The 11 backfilled subjects include messy free-text names (for example
-   “Generative AI Assignment And Research.”). Consider a merge/rename tool before removing
-   the legacy text columns.
+2. The backfilled subjects include messy free-text names. Admins can now merge or rename
+   them from the tasks page; removing the legacy text columns is still a later cleanup.
 3. Decide whether existing private study sessions should become shared (unchanged).
 4. Notifications remain **deferred**. Audit found missing `doubt_answered`, `answer_accepted`,
    and `deadline_added` events, daily repeat overdue reminders, and no notification pruning.

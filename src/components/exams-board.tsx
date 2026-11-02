@@ -7,6 +7,8 @@ import { Avatar } from "./avatar";
 import { Button, Card, Input, Textarea, Select, EmptyState } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Dialog } from "./dialog";
+import { SubjectSelect } from "./subject-select";
+import { subjectIdFor, type SubjectOption } from "@/lib/subject-options";
 import { useToast } from "./toast";
 import { CalendarIcon, PlusIcon, XIcon, EditIcon } from "./icons";
 
@@ -14,6 +16,7 @@ export type ExamRow = {
   id: string;
   title: string;
   subject: string;
+  subjectId: string | null;
   kind: string;
   date: string;
   notes: string | null;
@@ -44,7 +47,7 @@ export function ExamsBoard({
   today,
 }: {
   exams: ExamRow[];
-  subjects: string[];
+  subjects: SubjectOption[];
   meId: string;
   isAdmin: boolean;
   today: string;
@@ -184,18 +187,7 @@ export function ExamsBoard({
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
-                <Input
-                  name="subject"
-                  maxLength={60}
-                  required
-                  placeholder="e.g. Physics"
-                  list="exam-subjects"
-                />
-                <datalist id="exam-subjects">
-                  {subjects.map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
+                <SubjectSelect name="subjectId" subjects={subjects} required />
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Type</span>
@@ -288,18 +280,16 @@ export function ExamsBoard({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
-                <Input
-                  name="subject"
-                  defaultValue={editing.subject}
-                  maxLength={60}
+                <SubjectSelect
+                  name="subjectId"
+                  subjects={subjects}
+                  defaultValue={subjectIdFor(
+                    editing.subject,
+                    editing.subjectId,
+                    subjects
+                  )}
                   required
-                  list="exam-subjects-edit"
                 />
-                <datalist id="exam-subjects-edit">
-                  {subjects.map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Type</span>

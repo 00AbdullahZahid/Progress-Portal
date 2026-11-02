@@ -8,7 +8,7 @@ export const metadata = { title: "Notes" };
 export default async function NotesPage() {
   const me = await requireUser();
 
-  const [notes, subjectRows] = await Promise.all([
+  const [notes, subjects] = await Promise.all([
     db.note.findMany({
       include: {
         author: { select: { id: true, name: true, color: true, image: true } },
@@ -16,10 +16,9 @@ export default async function NotesPage() {
       orderBy: { createdAt: "desc" },
       take: 200,
     }),
-    db.note.findMany({
-      select: { subject: true },
-      distinct: ["subject"],
-      orderBy: { subject: "asc" },
+    db.subject.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, archivedAt: true },
     }),
   ]);
 
@@ -28,6 +27,7 @@ export default async function NotesPage() {
     title: n.title,
     body: n.body,
     subject: n.subject,
+    subjectId: n.subjectId,
     image: n.image,
     fileUrl: n.fileUrl,
     fileName: n.fileName,
@@ -47,7 +47,7 @@ export default async function NotesPage() {
         notes={rows}
         meId={me.id}
         isAdmin={me.role === "admin"}
-        subjects={subjectRows.map((r) => r.subject)}
+        subjects={subjects}
       />
     </div>
   );

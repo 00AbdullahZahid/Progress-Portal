@@ -12,6 +12,8 @@ import {
 } from "@/lib/actions/resources";
 import { FileUpload, type Attached } from "./file-upload";
 import { Avatar } from "./avatar";
+import { SubjectSelect } from "./subject-select";
+import { subjectIdFor, type SubjectOption } from "@/lib/subject-options";
 import { Button, Card, EmptyState, Input, PageHeader, Select, Textarea } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Dialog } from "./dialog";
@@ -42,6 +44,7 @@ export type ResourceRow = {
   id: string;
   title: string;
   subject: string;
+  subjectId: string | null;
   kind: ResourceKind;
   url: string | null;
   note: string | null;
@@ -247,7 +250,7 @@ export function ResourcesBoard({
   resources: ResourceRow[];
   meId: string;
   isAdmin: boolean;
-  subjects: string[];
+  subjects: SubjectOption[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -262,7 +265,7 @@ export function ResourcesBoard({
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [title, setTitle] = useState("");
-  const [subjectInput, setSubjectInput] = useState("");
+  const [subjectId, setSubjectId] = useState("");
   const [kind, setKind] = useState<ResourceKind>("paper");
   const [link, setLink] = useState("");
   const [note, setNote] = useState("");
@@ -398,6 +401,14 @@ export function ResourcesBoard({
     });
   }, [resources, mine, meId, tab, query]);
 
+  const subjectNames = useMemo(
+    () =>
+      [...new Set(resources.map((resource) => resource.subject))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" })
+      ),
+    [resources]
+  );
+
   const subjectCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const resource of filteredBase) {
@@ -434,7 +445,11 @@ export function ResourcesBoard({
   const duplicate = useMemo(() => {
     const linkKey = link.trim() ? normalizeUrl(link) : "";
     const titleKey = title.trim().toLowerCase();
-    const subjectKey = subjectInput.trim().toLowerCase();
+    const subjectKey = (
+      subjects.find((item) => item.id === subjectId)?.name ?? ""
+    )
+      .trim()
+      .toLowerCase();
     return resources.find(
       (resource) =>
         (linkKey && resource.url && normalizeUrl(resource.url) === linkKey) ||
@@ -442,11 +457,11 @@ export function ResourcesBoard({
           resource.title.trim().toLowerCase() === titleKey &&
           (!subjectKey || resource.subject.toLowerCase() === subjectKey))
     );
-  }, [resources, link, title, subjectInput]);
+  }, [resources, link, title, subjectId, subjects]);
 
   function resetForm() {
     setTitle("");
-    setSubjectInput("");
+    setSubjectId("");
     setKind("paper");
     setLink("");
     setNote("");
@@ -512,7 +527,7 @@ export function ResourcesBoard({
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const finalTitle = (title.trim() || file?.name.replace(/\.[^.]+$/, "") || "").trim();
-    const finalSubject = subjectInput.trim();
+    const finalSubject = subjectId;
     if (!finalTitle || !finalSubject) {
       toast("Add a title and subject first.", "error");
       return;
@@ -524,7 +539,7 @@ export function ResourcesBoard({
 
     const fd = new FormData();
     fd.set("title", finalTitle);
-    fd.set("subject", finalSubject);
+    fd.set("subjectId", finalSubject);
     fd.set("kind", kind);
     fd.set("url", link.trim() || file?.url || "");
     fd.set("note", note);
@@ -845,7 +860,7 @@ export function ResourcesBoard({
               {filteredBase.length}
             </span>
           </button>
-          {subjects.map((name) => {
+          {subjectNames.map((name) => {
             const active = subject === name;
             const count = subjectCounts.get(name) ?? 0;
             return (
@@ -1171,19 +1186,13 @@ export function ResourcesBoard({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
-                  <Input
-                    value={subjectInput}
-                    onChange={(event) => setSubjectInput(event.target.value)}
-                    maxLength={60}
+                  <SubjectSelect
+                    name="subjectId"
+                    subjects={subjects}
+                    value={subjectId}
+                    onChange={(event) => setSubjectId(event.target.value)}
                     required
-                    list="resource-subjects"
-                    placeholder="e.g. Islamic Studies"
                   />
-                  <datalist id="resource-subjects">
-                    {subjects.map((name) => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
                 </label>
 
                 <div>
@@ -1376,18 +1385,16 @@ export function ResourcesBoard({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
-              <Input
-                name="subject"
-                maxLength={60}
-                defaultValue={editing?.subject ?? ""}
+              <SubjectSelect
+                name="subjectId"
+                subjects={subjects}
+                defaultValue={
+                  editing
+                    ? subjectIdFor(editing.subject, editing.subjectId, subjects)
+                    : ""
+                }
                 required
-                list="resource-subjects-edit"
               />
-              <datalist id="resource-subjects-edit">
-                {subjects.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted">Type</span>

@@ -13,19 +13,23 @@ export default async function QuestionsPage({
   const me = await requireUser();
   const sp = await searchParams;
 
-  const questions = await db.question.findMany({
-    include: {
-      author: { select: { id: true, name: true, color: true, image: true } },
-      answers: {
-        include: { author: { select: { id: true, name: true, color: true, image: true } } },
-        orderBy: [{ accepted: "desc" }, { createdAt: "asc" }],
+  const [questions, subjects] = await Promise.all([
+    db.question.findMany({
+      include: {
+        author: { select: { id: true, name: true, color: true, image: true } },
+        answers: {
+          include: { author: { select: { id: true, name: true, color: true, image: true } } },
+          orderBy: [{ accepted: "desc" }, { createdAt: "asc" }],
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
-
-  const subjects = [...new Set(questions.map((q) => q.subject))].sort();
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    db.subject.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, archivedAt: true },
+    }),
+  ]);
 
   return (
     <div>
@@ -37,6 +41,7 @@ export default async function QuestionsPage({
         questions={questions.map((q) => ({
           id: q.id,
           subject: q.subject,
+          subjectId: q.subjectId,
           title: q.title,
           body: q.body,
           authorId: q.authorId,

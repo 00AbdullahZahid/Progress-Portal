@@ -5,7 +5,7 @@ import { db } from "../db";
 import { requireUser } from "../auth";
 import { cleanText, isBlobUrl } from "../validation";
 import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
-import { findSubjectIdByName, resolveSubjectId } from "../subject-link";
+import { requireSubject } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 function refresh() {
@@ -16,7 +16,6 @@ function refresh() {
 type NoteInput = {
   title: string;
   body: string;
-  subject: string;
   image: string | null;
   fileUrl: string | null;
   fileName: string | null;
@@ -33,9 +32,6 @@ function parseNote(
 
   const bodyRes = cleanText(formData.get("body"), 20000);
   if (!bodyRes.ok) return bodyRes;
-
-  const subjectRes = cleanText(formData.get("subject"), 60);
-  if (!subjectRes.ok) return subjectRes;
 
   const imageRaw = formData.get("image");
   let image: string | null = null;
@@ -65,7 +61,6 @@ function parseNote(
     value: {
       title: titleRes.value,
       body: bodyRes.value,
-      subject: subjectRes.value,
       image,
       fileUrl,
       fileName,
@@ -76,6 +71,8 @@ function parseNote(
 export async function createNote(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();
+  const subjectRes = await requireSubject(formData);
+  if (!subjectRes.ok) return subjectRes;
   const parsed = parseNote(formData);
   if (!parsed.ok) return parsed;
 
@@ -85,9 +82,13 @@ export async function createNote(formData: FormData): Promise<ActionResult> {
   ]);
   if (attachment) return { ok: false, error: attachment };
 
-  const subjectId = await findSubjectIdByName(parsed.value.subject);
   await db.note.create({
-    data: { authorId: me.id, ...parsed.value, subjectId },
+    data: {
+      authorId: me.id,
+      ...parsed.value,
+      subject: subjectRes.subject.name,
+      subjectId: subjectRes.subject.id,
+    },
   });
   await claimUploads(me.id, [parsed.value.image, parsed.value.fileUrl]);
   refresh();
@@ -108,6 +109,8 @@ export async function updateNote(formData: FormData): Promise<ActionResult> {
   if (existing.authorId !== me.id && me.role !== "admin")
     return { ok: false, error: "Only the author or an admin can edit this note." };
 
+  const subjectRes = await requireSubject(formData);
+  if (!subjectRes.ok) return subjectRes;
   const parsed = parseNote(formData);
   if (!parsed.ok) return parsed;
 
@@ -117,11 +120,14 @@ export async function updateNote(formData: FormData): Promise<ActionResult> {
   ]);
   if (attachment) return { ok: false, error: attachment };
 
-  const subjectId = await resolveSubjectId(
-    formData.get("subjectId"),
-    parsed.value.subject
-  );
-  await db.note.update({ where: { id }, data: { ...parsed.value, subjectId } });
+  await db.note.update({
+    where: { id },
+    data: {
+      ...parsed.value,
+      subject: subjectRes.subject.name,
+      subjectId: subjectRes.subject.id,
+    },
+  });
   await claimUploads(me.id, [parsed.value.image, parsed.value.fileUrl]);
 
   // Delete whatever this edit replaced/cleared once nothing references it. No

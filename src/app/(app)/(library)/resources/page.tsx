@@ -7,23 +7,25 @@ export const metadata = { title: "Resources" };
 export default async function ResourcesPage() {
   const me = await requireUser();
 
-  const resources = await db.resource.findMany({
-    include: {
-      addedBy: {
-        select: { id: true, name: true, color: true, image: true },
+  const [resources, subjects] = await Promise.all([
+    db.resource.findMany({
+      include: {
+        addedBy: {
+          select: { id: true, name: true, color: true, image: true },
+        },
+        favorites: { where: { userId: me.id }, select: { userId: true } },
+        useful: { where: { userId: me.id }, select: { userId: true } },
+        reads: { where: { userId: me.id }, select: { userId: true } },
+        _count: { select: { useful: true } },
       },
-      favorites: { where: { userId: me.id }, select: { userId: true } },
-      useful: { where: { userId: me.id }, select: { userId: true } },
-      reads: { where: { userId: me.id }, select: { userId: true } },
-      _count: { select: { useful: true } },
-    },
-    orderBy: [{ subject: "asc" }, { createdAt: "desc" }],
-    take: 500,
-  });
-
-  const subjects = [...new Set(resources.map((r) => r.subject))].sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: "base" })
-  );
+      orderBy: [{ subject: "asc" }, { createdAt: "desc" }],
+      take: 500,
+    }),
+    db.subject.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, archivedAt: true },
+    }),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -32,6 +34,7 @@ export default async function ResourcesPage() {
           id: r.id,
           title: r.title,
           subject: r.subject,
+          subjectId: r.subjectId,
           kind: r.kind,
           url: r.url,
           note: r.note,

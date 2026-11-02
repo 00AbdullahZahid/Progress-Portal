@@ -195,6 +195,27 @@ export function TrashIcon(props: P) {
   );
 }
 
+export function ArchiveIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+      <path d="M10 12h4" />
+    </svg>
+  );
+}
+
+export function MergeIcon(props: P) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="6" cy="18" r="2.5" />
+      <circle cx="18" cy="12" r="2.5" />
+      <path d="M8.5 6H12a4 4 0 0 1 4 4v.5M8.5 18H12a4 4 0 0 0 4-4v-.5" />
+    </svg>
+  );
+}
+
 export function EditIcon(props: P) {
   return (
     <svg {...base(props)}>

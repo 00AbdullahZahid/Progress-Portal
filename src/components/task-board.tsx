@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createSubject,
   updateSubject,
+  archiveSubject,
+  restoreSubject,
+  mergeSubjects,
   deleteSubject,
   createProject,
   updateProject,
@@ -29,6 +32,8 @@ import {
   XIcon,
   TrashIcon,
   EditIcon,
+  ArchiveIcon,
+  MergeIcon,
   ChevronDownIcon,
 } from "./icons";
 
@@ -345,6 +350,9 @@ export function TaskBoard({
   const [subjectDialog, setSubjectDialog] = useState<
     { mode: "create" } | { mode: "edit"; subject: Subject } | null
   >(null);
+  const [mergeDialog, setMergeDialog] = useState<{ subject: Subject } | null>(
+    null
+  );
   const [projectDialog, setProjectDialog] = useState<
     | { mode: "create"; subjectId: string }
     | { mode: "edit"; subjectId: string; project: Project }
@@ -353,14 +361,71 @@ export function TaskBoard({
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [pending, setPending] = useState<string[]>([]);
+  const pendingRef = useRef<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{
     title: string;
     body: string;
     confirmLabel: string;
+    confirmText?: string;
     run: (fd: FormData) => Promise<ActionResult>;
     data: FormData;
     success: string;
   } | null>(null);
+
+  function isPending(key: string) {
+    return pending.includes(key);
+  }
+
+  /** Hard double-submit guard shared by the create/status forms. */
+  function begin(key: string): boolean {
+    if (pendingRef.current.has(key)) return false;
+    pendingRef.current.add(key);
+    setPending((current) => [...current, key]);
+    return true;
+  }
+
+  function end(key: string) {
+    pendingRef.current.delete(key);
+    setPending((current) => current.filter((item) => item !== key));
+  }
+
+  /**
+   * Wrap a form submit so the same form can't be sent twice while the first
+   * request is still in flight.
+   */
+  function guardedSubmit(
+    key: string,
+    fn: (fd: FormData) => Promise<ActionResult>,
+    success: string,
+    after?: (form: HTMLFormElement) => void
+  ) {
+    return async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!begin(key)) return;
+      const form = event.currentTarget;
+      try {
+        const ok = await run(fn, new FormData(form), success);
+        if (ok) after?.(form);
+      } finally {
+        end(key);
+      }
+    };
+  }
+
+  async function changeStatus(task: Task, status: string) {
+    if (status === task.status) return;
+    const key = `status-${task.id}`;
+    if (!begin(key)) return;
+    try {
+      const fd = new FormData();
+      fd.set("taskId", task.id);
+      fd.set("status", status);
+      await run(setTaskStatus, fd, "Task updated");
+    } finally {
+      end(key);
+    }
+  }
 
   async function run(
     fn: (fd: FormData) => Promise<ActionResult>,
@@ -382,17 +447,12 @@ export function TaskBoard({
     }
   }
 
-  function act(fn: (fd: FormData) => Promise<ActionResult>, success: string) {
-    return async (fd: FormData) => {
-      await run(fn, fd, success);
-    };
-  }
-
   /** Deletes go through a confirmation modal instead of window.confirm. */
   function askDelete(opts: {
     title: string;
     body: string;
     confirmLabel: string;
+    confirmText?: string;
     run: (fd: FormData) => Promise<ActionResult>;
     data: FormData;
     success: string;
@@ -403,15 +463,19 @@ export function TaskBoard({
     };
   }
 
-  async function confirmRun() {
+  async function confirmRun(typed: string) {
     if (!confirm) return;
     const current = confirm;
     setConfirm(null);
+    // Typed-name confirmations send the typed value through to the action.
+    if (current.confirmText) current.data.set("confirmName", typed);
     await run(current.run, current.data, current.success);
   }
 
   function openAddTask() {
-    setAddSubjectId(subjects[0]?.id ?? "");
+    const firstActive =
+      subjects.find((subject) => !subject.archivedAt) ?? subjects[0] ?? null;
+    setAddSubjectId(firstActive?.id ?? "");
     setAddProjectId("");
     setAddOpen(true);
   }
@@ -596,34 +660,26 @@ export function TaskBoard({
               ) : null}
             </div>
 
-            {/* Explicit status buttons — no more cycling. */}
-            <div className="mt-2 flex flex-wrap items-center gap-1">
-              {(["todo", "doing", "done"] as const).map((status) => (
-                <form key={status} action={act(setTaskStatus, "Task updated")}>
-                  <input type="hidden" name="taskId" value={task.id} />
-                  <input type="hidden" name="status" value={status} />
-                  <button
-                    type="submit"
-                    disabled={!canMove || task.status === status}
-                    aria-label={`Mark as ${statusMeta[status].label}`}
-                    aria-pressed={task.status === status}
-                    title={
-                      canMove
-                        ? `Mark as ${statusMeta[status].label}`
-                        : "Only an assignee or an admin can change this"
-                    }
-                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                      task.status === status
-                        ? "bg-brand text-brand-ink"
-                        : canMove
-                          ? "text-muted hover:bg-surface2 hover:text-ink"
-                          : "cursor-not-allowed text-muted/50"
-                    }`}
-                  >
+            {/* Status dropdown — no more cycling or duplicate submits. */}
+            <div className="mt-2 flex items-center gap-1.5">
+              <Select
+                aria-label={`Status for ${task.title}`}
+                value={task.status}
+                disabled={!canMove || isPending(`status-${task.id}`)}
+                onChange={(event) => changeStatus(task, event.target.value)}
+                title={
+                  canMove
+                    ? "Change task status"
+                    : "Only an assignee or an admin can change this"
+                }
+                className="min-h-8 w-auto py-1 text-xs"
+              >
+                {(["todo", "doing", "done"] as const).map((status) => (
+                  <option key={status} value={status}>
                     {statusMeta[status].label}
-                  </button>
-                </form>
-              ))}
+                  </option>
+                ))}
+              </Select>
             </div>
 
             <div className="mt-2 flex items-center justify-between gap-2">
@@ -721,7 +777,12 @@ export function TaskBoard({
                   </div>
                 ))}
                 <form
-                  action={act(addComment, "Comment added")}
+                  onSubmit={guardedSubmit(
+                    `comment-${task.id}`,
+                    addComment,
+                    "Comment added",
+                    (form) => form.reset()
+                  )}
                   className="flex items-center gap-1.5"
                 >
                   <input type="hidden" name="taskId" value={task.id} />
@@ -781,17 +842,15 @@ export function TaskBoard({
               <PlusIcon width={16} height={16} />
               Add task
             </Button>
-            {isAdmin ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSubjectDialog({ mode: "create" })}
-                className="w-full sm:w-auto"
-              >
-                <PlusIcon width={16} height={16} />
-                Subject
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSubjectDialog({ mode: "create" })}
+              className="w-full sm:w-auto"
+            >
+              <PlusIcon width={16} height={16} />
+              New subject
+            </Button>
           </div>
         </div>
         <p className="mt-3 text-xs text-muted">
@@ -889,11 +948,68 @@ export function TaskBoard({
                         >
                           <EditIcon width={16} height={16} />
                         </button>
+                        {subject.archivedAt ? (
+                          <form
+                            onSubmit={guardedSubmit(
+                              `restore-${subject.id}`,
+                              restoreSubject,
+                              "Subject restored"
+                            )}
+                          >
+                            <input
+                              type="hidden"
+                              name="subjectId"
+                              value={subject.id}
+                            />
+                            <button
+                              type="submit"
+                              disabled={isPending(`restore-${subject.id}`)}
+                              title="Restore subject"
+                              aria-label={`Restore subject ${subject.name}`}
+                              className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink disabled:opacity-50"
+                            >
+                              <ArchiveIcon width={16} height={16} />
+                            </button>
+                          </form>
+                        ) : (
+                          <form
+                            onSubmit={guardedSubmit(
+                              `archive-${subject.id}`,
+                              archiveSubject,
+                              "Subject archived"
+                            )}
+                          >
+                            <input
+                              type="hidden"
+                              name="subjectId"
+                              value={subject.id}
+                            />
+                            <button
+                              type="submit"
+                              disabled={isPending(`archive-${subject.id}`)}
+                              title="Archive subject"
+                              aria-label={`Archive subject ${subject.name}`}
+                              className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink disabled:opacity-50"
+                            >
+                              <ArchiveIcon width={16} height={16} />
+                            </button>
+                          </form>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setMergeDialog({ subject })}
+                          title="Merge subject into another"
+                          aria-label={`Merge subject ${subject.name}`}
+                          className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface2 hover:text-ink"
+                        >
+                          <MergeIcon width={16} height={16} />
+                        </button>
                         <form
                           onSubmit={askDelete({
                             title: `Delete subject "${subject.name}"?`,
-                            body: "This permanently removes its projects, tasks, comments, and chat channel. This cannot be undone.",
+                            body: "Type the subject name to confirm. Subjects with chat messages can only be archived so the conversation is kept.",
                             confirmLabel: "Delete subject",
+                            confirmText: subject.name,
                             run: deleteSubject,
                             data: (() => {
                               const fd = new FormData();
@@ -1031,43 +1147,53 @@ export function TaskBoard({
                             ) : (
                               tasks.map((task) => renderTask(task))
                             )}
-                            <form
-                              action={act(createTask, "Task added")}
-                              className="flex items-center gap-1.5"
-                            >
-                              <input
-                                type="hidden"
-                                name="subjectId"
-                                value={subject.id}
-                              />
-                              <input
-                                type="hidden"
-                                name="projectId"
-                                value={project.id}
-                              />
-                              <Input
-                                name="title"
-                                aria-label={`Add a task to ${project.title}`}
-                                placeholder={`Add a task to ${project.title}…`}
-                                className="text-sm"
-                                required
-                              />
-                              <Button
-                                type="submit"
-                                variant="outline"
-                                className="shrink-0 px-3"
-                                aria-label="Add task"
+                            {subject.archivedAt ? null : (
+                              <form
+                                onSubmit={guardedSubmit(
+                                  `quick-project-${project.id}`,
+                                  createTask,
+                                  "Task added",
+                                  (form) => form.reset()
+                                )}
+                                className="flex items-center gap-1.5"
                               >
-                                <PlusIcon width={16} height={16} />
-                              </Button>
-                            </form>
+                                <input
+                                  type="hidden"
+                                  name="subjectId"
+                                  value={subject.id}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="projectId"
+                                  value={project.id}
+                                />
+                                <Input
+                                  name="title"
+                                  aria-label={`Add a task to ${project.title}`}
+                                  placeholder={`Add a task to ${project.title}…`}
+                                  className="text-sm"
+                                  required
+                                />
+                                <Button
+                                  type="submit"
+                                  variant="outline"
+                                  className="shrink-0 px-3"
+                                  aria-label="Add task"
+                                  disabled={isPending(
+                                    `quick-project-${project.id}`
+                                  )}
+                                >
+                                  <PlusIcon width={16} height={16} />
+                                </Button>
+                              </form>
+                            )}
                           </div>
                         ) : null}
                       </div>
                     );
                   })}
 
-                  {isAdmin ? (
+                  {isAdmin && !subject.archivedAt ? (
                     <button
                       type="button"
                       onClick={() =>
@@ -1099,27 +1225,39 @@ export function TaskBoard({
                   )}
                 </div>
 
-                <form
-                  action={act(createTask, "Task added")}
-                  className="mt-3 flex items-center gap-1.5"
-                >
-                  <input type="hidden" name="subjectId" value={subject.id} />
-                  <Input
-                    name="title"
-                    aria-label={`Quick add a task to ${subject.name}`}
-                    placeholder={`Quick add a task to ${subject.name}…`}
-                    className="text-sm"
-                    required
-                  />
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    className="shrink-0 px-3"
-                    aria-label="Add task"
+                {subject.archivedAt ? (
+                  <p className="mt-3 text-xs text-muted">
+                    Restore this subject to add tasks again.
+                  </p>
+                ) : (
+                  <form
+                    onSubmit={guardedSubmit(
+                      `quick-subject-${subject.id}`,
+                      createTask,
+                      "Task added",
+                      (form) => form.reset()
+                    )}
+                    className="mt-3 flex items-center gap-1.5"
                   >
-                    <PlusIcon width={16} height={16} />
-                  </Button>
-                </form>
+                    <input type="hidden" name="subjectId" value={subject.id} />
+                    <Input
+                      name="title"
+                      aria-label={`Quick add a task to ${subject.name}`}
+                      placeholder={`Quick add a task to ${subject.name}…`}
+                      className="text-sm"
+                      required
+                    />
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      className="shrink-0 px-3"
+                      aria-label="Add task"
+                      disabled={isPending(`quick-subject-${subject.id}`)}
+                    >
+                      <PlusIcon width={16} height={16} />
+                    </Button>
+                  </form>
+                )}
               </Card>
             );
           })}
@@ -1146,7 +1284,12 @@ export function TaskBoard({
                 {visibleStandalone.map((task) => renderTask(task))}
               </div>
               <form
-                action={act(createTask, "Task added")}
+                onSubmit={guardedSubmit(
+                  "quick-standalone",
+                  createTask,
+                  "Task added",
+                  (form) => form.reset()
+                )}
                 className="mt-3 flex items-center gap-1.5"
               >
                 <Input
@@ -1161,6 +1304,7 @@ export function TaskBoard({
                   variant="outline"
                   className="shrink-0 px-3"
                   aria-label="Add task"
+                  disabled={isPending("quick-standalone")}
                 >
                   <PlusIcon width={16} height={16} />
                 </Button>
@@ -1202,9 +1346,7 @@ export function TaskBoard({
           hint={
             scope === "mine"
               ? "Switch to Everyone to see the whole group, or add a task and assign yourself."
-              : isAdmin
-                ? "Create a subject, then add projects and tasks inside it."
-                : "Ask an admin to create a subject, then add tasks inside it."
+              : "Create a subject, then add projects and tasks inside it."
           }
         />
       ) : null}
@@ -1217,10 +1359,12 @@ export function TaskBoard({
         onClose={() => setAddOpen(false)}
       >
         <form
-          action={async (fd) => {
-            const ok = await run(createTask, fd, "Task created");
-            if (ok) setAddOpen(false);
-          }}
+          onSubmit={guardedSubmit(
+            "add-task",
+            createTask,
+            "Task created",
+            () => setAddOpen(false)
+          )}
           className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         >
           <TaskFields
@@ -1241,7 +1385,7 @@ export function TaskBoard({
             >
               Cancel
             </Button>
-            <Button type="submit" className="w-full sm:w-auto">
+            <Button type="submit" className="w-full sm:w-auto" disabled={isPending("add-task")}>
               <PlusIcon width={16} height={16} />
               Add task
             </Button>
@@ -1417,11 +1561,84 @@ export function TaskBoard({
         </form>
       </Dialog>
 
+      <Dialog
+        open={mergeDialog !== null}
+        title="Merge subject"
+        description="Move every task, deadline, note, resource, doubt, study session and timetable entry to another subject, then archive this one."
+        size="sm"
+        onClose={() => setMergeDialog(null)}
+      >
+        {mergeDialog ? (
+          <form
+            key={mergeDialog.subject.id}
+            onSubmit={guardedSubmit(
+              "merge-subject",
+              mergeSubjects,
+              "Subjects merged",
+              () => setMergeDialog(null)
+            )}
+            className="flex flex-col gap-3"
+          >
+            <input
+              type="hidden"
+              name="sourceId"
+              value={mergeDialog.subject.id}
+            />
+            <div className="rounded-xl border border-border bg-surface2/50 p-3 text-sm">
+              <p className="font-medium">{mergeDialog.subject.name}</p>
+              <p className="mt-0.5 text-xs text-muted">
+                This subject will be archived after its records move. Its chat
+                history stays attached to it.
+              </p>
+            </div>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">
+                Merge into
+              </span>
+              <Select name="targetId" defaultValue="" required data-autofocus>
+                <option value="" disabled>
+                  Choose an active subject
+                </option>
+                {subjects
+                  .filter(
+                    (item) =>
+                      item.id !== mergeDialog.subject.id && !item.archivedAt
+                  )
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+              </Select>
+            </label>
+            <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setMergeDialog(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                disabled={isPending("merge-subject")}
+              >
+                <MergeIcon width={16} height={16} />
+                Merge subjects
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Dialog>
+
       <ConfirmDialog
         open={confirm !== null}
         title={confirm?.title ?? ""}
         body={confirm?.body}
         confirmLabel={confirm?.confirmLabel}
+        confirmText={confirm?.confirmText}
         onConfirm={confirmRun}
         onCancel={() => setConfirm(null)}
       />

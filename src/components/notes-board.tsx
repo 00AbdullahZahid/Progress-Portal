@@ -7,14 +7,17 @@ import { Avatar } from "./avatar";
 import { Button, Card, Input, Textarea, Select, EmptyState } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
 import { FileUpload, type Attached } from "./file-upload";
+import { SubjectSelect } from "./subject-select";
 import { useToast } from "./toast";
 import { NotesIcon, PlusIcon, XIcon, EditIcon, CheckIcon, SearchIcon } from "./icons";
+import { subjectIdFor, type SubjectOption } from "@/lib/subject-options";
 
 export type NoteRow = {
   id: string;
   title: string;
   body: string;
   subject: string;
+  subjectId: string | null;
   image: string | null;
   fileUrl: string | null;
   fileName: string | null;
@@ -27,12 +30,12 @@ export type NoteRow = {
 type Draft = {
   title: string;
   body: string;
-  subject: string;
+  subjectId: string;
   image: Attached | null;
   fileUrl: Attached | null;
 };
 
-const EMPTY: Draft = { title: "", body: "", subject: "", image: null, fileUrl: null };
+const EMPTY: Draft = { title: "", body: "", subjectId: "", image: null, fileUrl: null };
 
 function toAttached(url: string | null, name: string | null): Attached | null {
   return url ? { url, name: name || "Attachment", isImage: false } : null;
@@ -47,7 +50,7 @@ export function NotesBoard({
   notes: NoteRow[];
   meId: string;
   isAdmin: boolean;
-  subjects: string[];
+  subjects: SubjectOption[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -63,7 +66,8 @@ export function NotesBoard({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return notes.filter((n) => {
-      if (subject && n.subject !== subject) return false;
+      if (subject && subjectIdFor(n.subject, n.subjectId, subjects) !== subject)
+        return false;
       if (!q) return true;
       return (
         n.title.toLowerCase().includes(q) ||
@@ -71,7 +75,7 @@ export function NotesBoard({
         n.subject.toLowerCase().includes(q)
       );
     });
-  }, [notes, query, subject]);
+  }, [notes, query, subject, subjects]);
 
   async function submit(fd: FormData) {
     if (draft.image) fd.set("image", draft.image.url);
@@ -102,7 +106,7 @@ export function NotesBoard({
     setEditDraft({
       title: n.title,
       body: n.body,
-      subject: n.subject,
+      subjectId: subjectIdFor(n.subject, n.subjectId, subjects),
       image: n.image ? { url: n.image, name: "Image", isImage: true } : null,
       fileUrl: toAttached(n.fileUrl, n.fileName),
     });
@@ -114,7 +118,7 @@ export function NotesBoard({
     fd.set("noteId", editingId);
     fd.set("title", editDraft.title);
     fd.set("body", editDraft.body);
-    fd.set("subject", editDraft.subject);
+    fd.set("subjectId", editDraft.subjectId);
     fd.set("image", editDraft.image?.url ?? "");
     fd.set("fileUrl", editDraft.fileUrl?.url ?? "");
     fd.set("fileName", editDraft.fileUrl?.name ?? "");
@@ -177,20 +181,15 @@ export function NotesBoard({
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
-                <Input
-                  name="subject"
-                  maxLength={60}
+                <SubjectSelect
+                  name="subjectId"
                   required
-                  list="note-subjects"
-                  value={draft.subject}
-                  onChange={(e) => setDraft((d) => ({ ...d, subject: e.target.value }))}
-                  placeholder="e.g. Data Structures"
+                  subjects={subjects}
+                  value={draft.subjectId}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, subjectId: e.target.value }))
+                  }
                 />
-                <datalist id="note-subjects">
-                  {subjects.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
               </label>
             </div>
             <label className="block">
@@ -276,8 +275,9 @@ export function NotesBoard({
         >
           <option value="">All subjects</option>
           {subjects.map((s) => (
-            <option key={s} value={s}>
-              {s}
+            <option key={s.id} value={s.id}>
+              {s.name}
+              {s.archivedAt ? " (archived)" : ""}
             </option>
           ))}
         </Select>
@@ -306,10 +306,12 @@ export function NotesBoard({
                     maxLength={120}
                     aria-label="Title"
                   />
-                  <Input
-                    value={editDraft.subject}
-                    onChange={(e) => setEditDraft((d) => ({ ...d, subject: e.target.value }))}
-                    maxLength={60}
+                  <SubjectSelect
+                    subjects={subjects}
+                    value={editDraft.subjectId}
+                    onChange={(e) =>
+                      setEditDraft((d) => ({ ...d, subjectId: e.target.value }))
+                    }
                     aria-label="Subject"
                   />
                   <Textarea

@@ -6,7 +6,7 @@ import { requireUser } from "../auth";
 import { todayStr } from "../dates";
 import { cleanText, isBlobUrl, validateLogDate } from "../validation";
 import { deleteBlobs, deletableUrls, claimUploads, attachmentError } from "../blob";
-import { findSubjectIdByName, resolveSubjectId } from "../subject-link";
+import { requireSubject } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 const MAX_MINUTES = 24 * 60;
@@ -15,20 +15,6 @@ function refresh() {
   revalidatePath("/study");
   revalidatePath("/dashboard");
   revalidatePath("/tasks");
-}
-
-/** Normalize a subject so "React", " react " and "REACT" group together. */
-function normalizeSubject(raw: string): string {
-  const trimmed = raw.trim().replace(/\s+/g, " ");
-  // Title-case the first letter of each word, preserve the rest lowercased,
-  // but leave acronyms of 2-5 uppercase letters untouched (e.g. "SQL", "AWS").
-  return trimmed
-    .split(" ")
-    .map((word) => {
-      if (/^[A-Z0-9]{2,5}$/.test(word)) return word;
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(" ");
 }
 
 function parseMinutes(value: unknown): number | null {
@@ -65,7 +51,7 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireUser();
 
-  const subjectRes = cleanText(formData.get("subject"), 80);
+  const subjectRes = await requireSubject(formData);
   if (!subjectRes.ok) return subjectRes;
 
   const minutes = parseMinutes(formData.get("minutes"));
@@ -118,15 +104,14 @@ export async function logStudy(formData: FormData): Promise<ActionResult> {
   ]);
   if (attachment) return { ok: false, error: attachment };
 
-  const normalizedSubject = normalizeSubject(subjectRes.value);
-  const subjectId = await findSubjectIdByName(normalizedSubject);
+  const normalizedSubject = subjectRes.subject.name;
 
   await db.studySession.create({
     data: {
       userId: me.id,
       taskId: taskRes.taskId,
       subject: normalizedSubject,
-      subjectId,
+      subjectId: subjectRes.subject.id,
       minutes,
       notes: notesRes.value || null,
       date: dateRes.date,
@@ -152,7 +137,7 @@ export async function updateStudySession(
   if (!existing || existing.userId !== me.id)
     return { ok: false, error: "You can only edit your own sessions." };
 
-  const subjectRes = cleanText(formData.get("subject"), 80);
+  const subjectRes = await requireSubject(formData);
   if (!subjectRes.ok) return subjectRes;
 
   const minutes = parseMinutes(formData.get("minutes"));
@@ -174,7 +159,7 @@ export async function updateStudySession(
 
   const data: {
     subject: string;
-    subjectId: string | null;
+    subjectId: string;
     minutes: number;
     notes: string | null;
     date: string;
@@ -183,8 +168,8 @@ export async function updateStudySession(
     fileName?: string | null;
     shared?: boolean;
   } = {
-    subject: normalizeSubject(subjectRes.value),
-    subjectId: await resolveSubjectId(formData.get("subjectId"), subjectRes.value),
+    subject: subjectRes.subject.name,
+    subjectId: subjectRes.subject.id,
     minutes,
     notes: notesRes.value || null,
     date: dateRes.date,

@@ -28,16 +28,44 @@ function parseDate(value: unknown): Date | null | "invalid" {
   return Number.isNaN(d.getTime()) ? "invalid" : d;
 }
 
+/** Normalize a subject name so duplicate checks and labels agree. */
+function normalizeSubjectName(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Case-insensitive duplicate check across active subjects. Archived subjects
+ * don't block reusing a name, since merging archives the source.
+ */
+async function activeSubjectWithName(
+  name: string,
+  excludeId?: string
+): Promise<{ id: string } | null> {
+  return db.subject.findFirst({
+    where: {
+      name: { equals: name, mode: "insensitive" },
+      archivedAt: null,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+    select: { id: true },
+  });
+}
+
 export async function createSubject(formData: FormData): Promise<ActionResult> {
   "use server";
-  const me = await requireAdmin();
+  // Any member may create a subject so nobody is blocked waiting on an admin.
+  const me = await requireUser();
   const nameRes = cleanText(formData.get("name"), 120);
   if (!nameRes.ok) return nameRes;
+  const name = normalizeSubjectName(nameRes.value);
+  if (await activeSubjectWithName(name))
+    return { ok: false, error: "A subject with that name already exists." };
+
   const colorRaw = String(formData.get("color") ?? "").trim();
   const color = /^#[0-9a-fA-F]{6}$/.test(colorRaw) ? colorRaw : "#2563eb";
 
   const subject = await db.subject.create({
-    data: { name: nameRes.value, color },
+    data: { name, color },
   });
   // Every subject gets its own chat channel automatically.
   await db.channel.create({
@@ -68,24 +96,27 @@ export async function updateSubject(formData: FormData): Promise<ActionResult> {
   if (!subjectId) return { ok: false, error: "Subject not found." };
   const nameRes = cleanText(formData.get("name"), 120);
   if (!nameRes.ok) return nameRes;
+  const name = normalizeSubjectName(nameRes.value);
   const colorRaw = String(formData.get("color") ?? "").trim();
   const color = /^#[0-9a-fA-F]{6}$/.test(colorRaw) ? colorRaw : undefined;
 
   const subject = await db.subject.findUnique({ where: { id: subjectId } });
   if (!subject) return { ok: false, error: "Subject not found." };
+  if (await activeSubjectWithName(name, subjectId))
+    return { ok: false, error: "A subject with that name already exists." };
 
   await db.subject.update({
     where: { id: subjectId },
-    data: { name: nameRes.value, ...(color ? { color } : {}) },
+    data: { name, ...(color ? { color } : {}) },
   });
   // The subject's chat channel mirrors the subject name.
   await db.channel.updateMany({
     where: { subjectId },
-    data: { name: nameRes.value },
+    data: { name },
   });
   await audit(me.id, "subject.update", {
     targetId: subjectId,
-    detail: nameRes.value,
+    detail: name,
   });
 
   refresh();
@@ -402,6 +433,158 @@ export async function deleteProject(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function archiveSubject(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireAdmin();
+  const subjectId = String(formData.get("subjectId") ?? "");
+  if (!subjectId) return { ok: false, error: "Subject not found." };
+  const subject = await db.subject.findUnique({
+    where: { id: subjectId },
+    select: { id: true, name: true, archivedAt: true },
+  });
+  if (!subject) return { ok: false, error: "Subject not found." };
+
+  if (!subject.archivedAt) {
+    await db.subject.update({
+      where: { id: subjectId },
+      data: { archivedAt: new Date() },
+    });
+    await audit(me.id, "subject.archive", {
+      targetId: subjectId,
+      detail: subject.name,
+    });
+  }
+  refresh();
+  return { ok: true };
+}
+
+export async function restoreSubject(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireAdmin();
+  const subjectId = String(formData.get("subjectId") ?? "");
+  if (!subjectId) return { ok: false, error: "Subject not found." };
+  const subject = await db.subject.findUnique({
+    where: { id: subjectId },
+    select: { id: true, name: true, archivedAt: true },
+  });
+  if (!subject) return { ok: false, error: "Subject not found." };
+
+  if (subject.archivedAt) {
+    await db.subject.update({
+      where: { id: subjectId },
+      data: { archivedAt: null },
+    });
+    await audit(me.id, "subject.restore", {
+      targetId: subjectId,
+      detail: subject.name,
+    });
+  }
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Move every linked record from one subject to another, then archive the
+ * source. The source's chat channel and history stay attached to it.
+ */
+export async function mergeSubjects(formData: FormData): Promise<ActionResult> {
+  "use server";
+  const me = await requireAdmin();
+  const sourceId = String(formData.get("sourceId") ?? "").trim();
+  const targetId = String(formData.get("targetId") ?? "").trim();
+  if (!sourceId || !targetId)
+    return { ok: false, error: "Pick both subjects to merge." };
+  if (sourceId === targetId)
+    return { ok: false, error: "Pick a different subject to merge into." };
+
+  const [source, target] = await Promise.all([
+    db.subject.findUnique({
+      where: { id: sourceId },
+      select: { id: true, name: true, archivedAt: true },
+    }),
+    db.subject.findUnique({
+      where: { id: targetId },
+      select: { id: true, name: true, archivedAt: true },
+    }),
+  ]);
+  if (!source || !target) return { ok: false, error: "Subject not found." };
+  if (target.archivedAt)
+    return { ok: false, error: "Choose an active subject to merge into." };
+
+  const sourceProjects = await db.project.findMany({
+    where: { subjectId: sourceId },
+    select: { id: true },
+  });
+  const sourceProjectIds = sourceProjects.map((project) => project.id);
+
+  const moves = [
+    ...(sourceProjectIds.length > 0
+      ? [
+          // Tasks and exams inside the source's projects would otherwise point
+          // at a project that now belongs to an archived subject.
+          db.task.updateMany({
+            where: { projectId: { in: sourceProjectIds } },
+            data: { subjectId: targetId, projectId: null },
+          }),
+          db.exam.updateMany({
+            where: { projectId: { in: sourceProjectIds } },
+            data: { subjectId: targetId, subject: target.name, projectId: null },
+          }),
+        ]
+      : []),
+    db.task.updateMany({
+      where: { subjectId: sourceId },
+      data: { subjectId: targetId },
+    }),
+    db.exam.updateMany({
+      where: { subjectId: sourceId },
+      data: { subjectId: targetId, subject: target.name },
+    }),
+    db.note.updateMany({
+      where: { subjectId: sourceId },
+      data: { subjectId: targetId, subject: target.name },
+    }),
+    db.resource.updateMany({
+      where: { subjectId: sourceId },
+      data: { subjectId: targetId, subject: target.name },
+    }),
+    db.question.updateMany({
+      where: { subjectId: sourceId },
+      data: { subjectId: targetId, subject: target.name },
+    }),
+    db.studySession.updateMany({
+      where: { subjectId: sourceId },
+      data: { subjectId: targetId, subject: target.name },
+    }),
+    db.timetableEntry.updateMany({
+      where: { subjectId: sourceId },
+      data: { subjectId: targetId },
+    }),
+    db.flashcard.updateMany({
+      where: { subjectId: sourceId },
+      data: { subjectId: targetId },
+    }),
+    db.subject.update({
+      where: { id: sourceId },
+      data: { archivedAt: new Date() },
+    }),
+  ];
+
+  await db.$transaction(moves);
+  await audit(me.id, "subject.merge", {
+    targetId,
+    detail: `${source.name} → ${target.name}`,
+  });
+
+  refresh();
+  revalidatePath("/exams");
+  revalidatePath("/notes");
+  revalidatePath("/resources");
+  revalidatePath("/questions");
+  revalidatePath("/timetable");
+  return { ok: true };
+}
+
 export async function deleteSubject(formData: FormData): Promise<ActionResult> {
   "use server";
   const me = await requireAdmin();
@@ -409,7 +592,24 @@ export async function deleteSubject(formData: FormData): Promise<ActionResult> {
   if (!subjectId) return { ok: false, error: "Subject not found." };
   const subject = await db.subject.findUnique({ where: { id: subjectId } });
   if (!subject) return { ok: false, error: "Subject not found." };
-  // Cascades to projects, tasks, comments, and channels via the schema.
+
+  const confirmName = String(formData.get("confirmName") ?? "").trim();
+  if (confirmName.toLowerCase() !== subject.name.trim().toLowerCase())
+    return { ok: false, error: "Type the subject name exactly to confirm." };
+
+  // Deleting cascades through the subject's channel and every message in it.
+  // Refuse while chat history exists and point people at archive instead.
+  const messageCount = await db.message.count({
+    where: { channel: { subjectId } },
+  });
+  if (messageCount > 0)
+    return {
+      ok: false,
+      error:
+        "This subject has chat messages. Archive it instead so the conversation is kept.",
+    };
+
+  // Cascades to projects, tasks, and comments via the schema.
   await db.subject.delete({ where: { id: subjectId } });
   await audit(me.id, "subject.delete", {
     targetId: subjectId,

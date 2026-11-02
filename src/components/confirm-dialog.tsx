@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
-import { Button } from "./ui";
+import { useEffect, useState, type ReactNode } from "react";
+import { Button, Input } from "./ui";
 import { AlertIcon } from "./icons";
 import { useBodyLock } from "./toast";
 
@@ -16,6 +16,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   destructive = true,
+  confirmText,
   onConfirm,
   onCancel,
   children,
@@ -26,11 +27,18 @@ export function ConfirmDialog({
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
-  onConfirm: () => void;
+  /** When set, the user must type this exact text before confirming. */
+  confirmText?: string;
+  onConfirm: (typed: string) => void;
   onCancel: () => void;
   children?: ReactNode;
 }) {
   useBodyLock(open);
+  const [typed, setTyped] = useState("");
+
+  useEffect(() => {
+    if (open) setTyped("");
+  }, [open, confirmText]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,6 +76,21 @@ export function ConfirmDialog({
           <div className="flex-1">
             <h2 className="font-semibold">{title}</h2>
             {body ? <p className="mt-1 text-sm text-muted">{body}</p> : null}
+            {confirmText ? (
+              <label className="mt-3 block">
+                <span className="mb-1 block text-xs font-medium text-muted">
+                  Type <span className="font-semibold text-ink">{confirmText}</span> to
+                  confirm
+                </span>
+                <Input
+                  value={typed}
+                  onChange={(event) => setTyped(event.target.value)}
+                  aria-label={`Type ${confirmText} to confirm`}
+                  autoComplete="off"
+                  autoFocus
+                />
+              </label>
+            ) : null}
             {children}
           </div>
         </div>
@@ -84,7 +107,12 @@ export function ConfirmDialog({
             type="button"
             variant={destructive ? "danger" : "primary"}
             className="w-full sm:w-auto"
-            onClick={onConfirm}
+            disabled={
+              confirmText
+                ? typed.trim().toLowerCase() !== confirmText.trim().toLowerCase()
+                : false
+            }
+            onClick={() => onConfirm(typed)}
           >
             {confirmLabel}
           </Button>

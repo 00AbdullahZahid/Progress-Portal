@@ -6,7 +6,7 @@ import { requireUser } from "../auth";
 import { cleanText, isValidDateString } from "../validation";
 import { todayStr } from "../dates";
 import { queueWebhookAlert } from "../alerts";
-import { resolveSubjectId } from "../subject-link";
+import { requireSubject } from "../subject-link";
 import type { ActionResult } from "./tasks";
 
 const KINDS = ["exam", "assignment", "quiz", "deadline"] as const;
@@ -27,7 +27,7 @@ export async function createExam(formData: FormData): Promise<ActionResult> {
 
   const titleRes = cleanText(formData.get("title"), 120);
   if (!titleRes.ok) return titleRes;
-  const subjectRes = cleanText(formData.get("subject"), 60);
+  const subjectRes = await requireSubject(formData);
   if (!subjectRes.ok) return subjectRes;
   const notesRes = cleanText(formData.get("notes"), 500, { required: false });
   if (!notesRes.ok) return notesRes;
@@ -37,15 +37,11 @@ export async function createExam(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "Please pick a valid date." };
 
   const kind = parseKind(formData.get("kind"));
-  const subjectId = await resolveSubjectId(
-    formData.get("subjectId"),
-    subjectRes.value
-  );
   await db.exam.create({
     data: {
       title: titleRes.value,
-      subject: subjectRes.value,
-      subjectId,
+      subject: subjectRes.subject.name,
+      subjectId: subjectRes.subject.id,
       kind,
       date,
       notes: notesRes.value || null,
@@ -61,7 +57,7 @@ export async function createExam(formData: FormData): Promise<ActionResult> {
   );
   if (days >= 0 && days <= 1) {
     queueWebhookAlert(
-      `Urgent ${kind} added\n${titleRes.value} (${subjectRes.value}) is due ${
+      `Urgent ${kind} added\n${titleRes.value} (${subjectRes.subject.name}) is due ${
         days === 0 ? "today" : "tomorrow"
       }.`
     );
@@ -86,7 +82,7 @@ export async function updateExam(formData: FormData): Promise<ActionResult> {
 
   const titleRes = cleanText(formData.get("title"), 120);
   if (!titleRes.ok) return titleRes;
-  const subjectRes = cleanText(formData.get("subject"), 60);
+  const subjectRes = await requireSubject(formData);
   if (!subjectRes.ok) return subjectRes;
   const notesRes = cleanText(formData.get("notes"), 500, { required: false });
   if (!notesRes.ok) return notesRes;
@@ -99,8 +95,8 @@ export async function updateExam(formData: FormData): Promise<ActionResult> {
     where: { id },
     data: {
       title: titleRes.value,
-      subject: subjectRes.value,
-      subjectId: await resolveSubjectId(formData.get("subjectId"), subjectRes.value),
+      subject: subjectRes.subject.name,
+      subjectId: subjectRes.subject.id,
       kind: parseKind(formData.get("kind")),
       date,
       notes: notesRes.value || null,

@@ -15,6 +15,8 @@ import { Avatar } from "./avatar";
 import { Button, Card, Input, Textarea, Select, EmptyState } from "./ui";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Dialog } from "./dialog";
+import { SubjectSelect } from "./subject-select";
+import { subjectIdFor, type SubjectOption } from "@/lib/subject-options";
 import { useToast } from "./toast";
 import { QuestionIcon, PlusIcon, XIcon, CheckIcon, NotesIcon, CardIcon, EditIcon } from "./icons";
 
@@ -29,6 +31,7 @@ type AnswerRow = {
 export type QuestionRow = {
   id: string;
   subject: string;
+  subjectId: string | null;
   title: string;
   body: string;
   authorId: string;
@@ -46,7 +49,7 @@ export function QuestionsBoard({
   questions: QuestionRow[];
   meId: string;
   isAdmin: boolean;
-  subjects: string[];
+  subjects: SubjectOption[];
   initialCreating?: boolean;
 }) {
   const router = useRouter();
@@ -167,7 +170,11 @@ export function QuestionsBoard({
     }
   }
 
-  const shown = filter ? questions.filter((q) => q.subject === filter) : questions;
+  const shown = filter
+    ? questions.filter(
+        (q) => subjectIdFor(q.subject, q.subjectId, subjects) === filter
+      )
+    : questions;
 
   return (
     <div className="flex flex-col gap-4">
@@ -180,8 +187,9 @@ export function QuestionsBoard({
         >
           <option value="">All subjects</option>
           {subjects.map((s) => (
-            <option key={s} value={s}>
-              {s}
+            <option key={s.id} value={s.id}>
+              {s.name}
+              {s.archivedAt ? " (archived)" : ""}
             </option>
           ))}
         </Select>
@@ -202,12 +210,7 @@ export function QuestionsBoard({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <label className="block sm:col-span-1">
                 <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
-                <Input name="subject" maxLength={60} required list="q-subjects" placeholder="e.g. Calculus" />
-                <datalist id="q-subjects">
-                  {subjects.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
+                <SubjectSelect name="subjectId" subjects={subjects} required />
               </label>
               <label className="block sm:col-span-2">
                 <span className="mb-1 block text-xs font-medium text-muted">Title</span>
@@ -395,19 +398,17 @@ export function QuestionsBoard({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="block sm:col-span-1">
               <span className="mb-1 block text-xs font-medium text-muted">Subject</span>
-              <Input
-                name="subject"
-                maxLength={60}
-                defaultValue={editing?.subject ?? ""}
+              <SubjectSelect
+                name="subjectId"
+                subjects={subjects}
+                defaultValue={
+                  editing
+                    ? subjectIdFor(editing.subject, editing.subjectId, subjects)
+                    : ""
+                }
                 required
-                list="q-subjects-edit"
                 data-autofocus
               />
-              <datalist id="q-subjects-edit">
-                {subjects.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
             </label>
             <label className="block sm:col-span-2">
               <span className="mb-1 block text-xs font-medium text-muted">Title</span>
